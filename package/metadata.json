@@ -1,0 +1,20 @@
+{
+    "KPackageStructure": "Plasma/Applet",
+    "KPlugin": {
+        "Authors": [
+            {
+                "Name": "muddyblack",
+                "Email": ""
+            }
+        ],
+        "Category": "System Information",
+        "Description": "Sleek glassmorphism real-time system monitor (CPU, Memory, Ping latency, and Network bandwidth).",
+        "Icon": "org.muddyblack.glassySystemMonitor",
+        "Id": "org.muddyblack.glassySystemMonitor",
+        "License": "MIT",
+        "Name": "Glassy System Monitor",
+        "Version": "1.0.0",
+        "Website": "https://github.com/Muddyblack/kde-glassy-system-monitor"
+    },
+    "X-Plasma-API-Minimum-Version": "6.0"
+}

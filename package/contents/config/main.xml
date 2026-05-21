@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kcfg xmlns="http://www.kde.org/standards/kcfg/1.0"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="http://www.kde.org/standards/kcfg/1.0
+      http://www.kde.org/standards/kcfg/1.0/kcfg.xsd">
+    <kcfgfile name=""/>
+    <group name="General">
+        <!-- Active section (0=Ping, 1=Network, 2=CPU, 3=Memory) -->
+        <entry name="activeSection" type="Int">
+            <default>0</default>
+        </entry>
+        <entry name="showCpuCores" type="Bool">
+            <default>false</default>
+        </entry>
+
+        <!-- Ping targets (comma-separated) -->
+        <entry name="targets" type="String">
+            <default>8.8.8.8,1.1.1.1,192.168.1.1</default>
+        </entry>
+        <entry name="currentTargetIndex" type="Int">
+            <default>0</default>
+        </entry>
+
+        <!-- Ping behaviour -->
+        <entry name="pingInterval" type="Int">
+            <default>2</default>
+        </entry>
+        <entry name="pingTimeout" type="Int">
+            <default>2</default>
+        </entry>
+        <entry name="historySize" type="Int">
+            <default>60</default>
+        </entry>
+
+        <!-- Alert thresholds -->
+        <entry name="latencyThreshold" type="Int">
+            <default>100</default>
+        </entry>
+        <entry name="lossThreshold" type="Int">
+            <default>5</default>
+        </entry>
+
+        <!-- Network interface -->
+        <entry name="networkInterface" type="String">
+            <default>auto</default>
+        </entry>
+
+        <!-- Appearance -->
+        <entry name="useSystemAccent" type="Bool">
+            <default>true</default>
+        </entry>
+        <entry name="customColor" type="String">
+            <default>#39ff14</default>
+        </entry>
+
+        <!-- Per-section colors -->
+        <entry name="dlColor" type="String">
+            <default>#22aaff</default>
+        </entry>
+        <entry name="ulColor" type="String">
+            <default>#ff9933</default>
+        </entry>
+        <entry name="cpuColor" type="String">
+            <default>#44ddaa</default>
+        </entry>
+        <entry name="memColor" type="String">
+            <default>#aa66ff</default>
+        </entry>
+        <entry name="swapColor" type="String">
+            <default>#ff6688</default>
+        </entry>
+
+        <!-- Per-core colors (16 cores max, comma-separated stored as one string) -->
+        <entry name="coreColorsStr" type="String">
+            <default>#ff4466,#ff8833,#eebb00,#88dd00,#00ddbb,#22aaff,#9955ff,#ff44bb,#ff7744,#aaff44,#44ffdd,#4499ff,#ffaa44,#ccff44,#44ffcc,#aa44ff</default>
+        </entry>
+
+        <entry name="lineWidth" type="Double">
+            <default>1.8</default>
+        </entry>
+        <entry name="glowLine" type="Bool">
+            <default>true</default>
+        </entry>
+        <entry name="showStats" type="Bool">
+            <default>true</default>
+        </entry>
+        <entry name="showLegend" type="Bool">
+            <default>true</default>
+        </entry>
+        <entry name="showYLabels" type="Bool">
+            <default>true</default>
+        </entry>
+        <entry name="showBg" type="Bool">
+            <default>true</default>
+        </entry>
+        <entry name="bgColor" type="String">
+            <default>#800d0f1a</default>
+        </entry>
+        <entry name="bgRadius" type="Double">
+            <default>12.0</default>
+        </entry>
+        <entry name="showGridLines" type="Bool">
+            <default>false</default>
+        </entry>
+        <entry name="autoYRange" type="Bool">
+            <default>true</default>
+        </entry>
+        <entry name="chartType" type="Int">
+            <default>0</default>
+        </entry>
+        <entry name="fillOpacity" type="Double">
+            <default>0.30</default>
+        </entry>
+        <entry name="smoothLines" type="Bool">
+            <default>true</default>
+        </entry>
+        <entry name="disabledCoresStr" type="String">
+            <default></default>
+        </entry>
+        <entry name="disabledLinesStr" type="String">
+            <default></default>
+        </entry>
+        <entry name="useSystemTextColor" type="Bool">
+            <default>true</default>
+        </entry>
+        <entry name="customTextColor" type="String">
+            <default>#ffffff</default>
+        </entry>
+        <entry name="pingTitle" type="String">
+            <default>Ping</default>
+        </entry>
+        <entry name="networkTitle" type="String">
+            <default>Network</default>
+        </entry>
+        <entry name="cpuTitle" type="String">
+            <default>CPU</default>
+        </entry>
+        <entry name="memoryTitle" type="String">
+            <default>Memory</default>
+        </entry>
+        <!-- Custom Command Sensor -->
+        <entry name="customCmd" type="String">
+            <default>cat /proc/loadavg | awk '{print $1}'</default>
+        </entry>
+        <entry name="customCmdTitle" type="String">
+            <default>Load Average</default>
+        </entry>
+        <entry name="customCmdUnit" type="String">
+            <default></default>
+        </entry>
+        <entry name="customCmdMax" type="Int">
+            <default>4</default>
+        </entry>
+        <entry name="customCmdInterval" type="Int">
+            <default>2</default>
+        </entry>
+        <entry name="customCmdColor" type="String">
+            <default>#ffaa00</default>
+        </entry>
+    </group>
+</kcfg>
