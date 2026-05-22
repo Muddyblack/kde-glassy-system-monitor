@@ -35,7 +35,7 @@ Item {
     // ── Panel mode: rich stacked layout ──────────────────────────────────────
     Loader {
         anchors.fill: parent
-        sourceComponent: plasmoid.configuration.panelMode ? panelComp : sparkComp
+        sourceComponent: (_valid && _root.isInPanel) ? panelComp : sparkComp
     }
 
     // ── Sparkline fallback (original compact view) ────────────────────────────
@@ -362,6 +362,56 @@ Item {
                                 height: parent.height; radius: parent.radius
                                 color: compact._root.gpuColor
                                 Behavior on width { NumberAnimation { duration: 400; easing.type: Easing.OutCubic } }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ── Disk I/O section: R on top, W below ───────────────────────────
+            Loader {
+                anchors.fill: parent
+                anchors.margins: 4
+                active: compact._valid && compact._root.showDiskSection
+                sourceComponent: Component {
+                    ColumnLayout {
+                        spacing: 1
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 3
+                            Text {
+                                text: "R"
+                                color: Qt.rgba(compact._root.diskRdColor.r, compact._root.diskRdColor.g, compact._root.diskRdColor.b, 0.65)
+                                font.pixelSize: Math.max(8, compact.height * 0.28)
+                                font.bold: true
+                                Layout.alignment: Qt.AlignVCenter
+                            }
+                            Text {
+                                text: compact._fmtSpeed(compact._root.diskReadSpeed)
+                                color: compact._root.diskRdColor
+                                font.pixelSize: Math.max(9, compact.height * 0.32)
+                                font.bold: true
+                                Layout.alignment: Qt.AlignVCenter
+                                Layout.fillWidth: true
+                            }
+                        }
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 3
+                            Text {
+                                text: "W"
+                                color: Qt.rgba(compact._root.diskWrColor.r, compact._root.diskWrColor.g, compact._root.diskWrColor.b, 0.65)
+                                font.pixelSize: Math.max(8, compact.height * 0.28)
+                                font.bold: true
+                                Layout.alignment: Qt.AlignVCenter
+                            }
+                            Text {
+                                text: compact._fmtSpeed(compact._root.diskWriteSpeed)
+                                color: compact._root.diskWrColor
+                                font.pixelSize: Math.max(9, compact.height * 0.32)
+                                font.bold: true
+                                Layout.alignment: Qt.AlignVCenter
+                                Layout.fillWidth: true
                             }
                         }
                     }

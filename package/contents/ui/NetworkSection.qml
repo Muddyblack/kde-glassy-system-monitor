@@ -1,54 +1,334 @@
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Controls as QQC2
 import org.kde.plasma.components 3.0 as PlasmaComponents3
+import org.kde.plasma.plasma5support as P5Support
+import org.kde.kirigami as Kirigami
+
 
 ColumnLayout {
     id: netSection
     spacing: 3
 
+    // ── connection info popup ────────────────────────────────────────────────
+    QQC2.Popup {
+        id: connDialog
 
-    // iface badge above graph
+        property var connections: []
+        property bool loading: false
+
+        width: 340
+        height: Math.min(connList.contentHeight + headerRow.implicitHeight + divider.height + 36, 420)
+        padding: 10
+        modal: false
+        focus: true
+        closePolicy: QQC2.Popup.CloseOnEscape | QQC2.Popup.CloseOnPressOutside
+
+        // position relative to the info icon, opening above or below depending on panel edge
+        x: {
+            const gp = connInfoIcon.mapToItem(netSection, 0, 0)
+            return Math.max(0, Math.min(gp.x + connInfoIcon.width / 2 - width / 2,
+                                        netSection.width - width))
+        }
+        y: {
+            const gp = connInfoIcon.mapToItem(netSection, 0, 0)
+            const screenMid = netSection.mapToGlobal(0, netSection.height / 2).y
+            const screenH   = Qt.application.screens[0] ? Qt.application.screens[0].height : 1080
+            return screenMid < screenH / 2
+                ? gp.y + connInfoIcon.height + 4   // panel at top → open downward
+                : gp.y - height - 4                // panel at bottom → open upward
+        }
+
+        background: Rectangle {
+            color: Qt.rgba(
+                root.textColor.r * 0.05 + 0.05,
+                root.textColor.g * 0.05 + 0.05,
+                root.textColor.b * 0.05 + 0.05, 0.96)
+            radius: 6
+            border.color: Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.15)
+            border.width: 1
+        }
+
+        contentItem: ColumnLayout {
+            spacing: 6
+
+            // header
+            RowLayout {
+                id: headerRow
+                Layout.fillWidth: true
+                spacing: 6
+
+                Kirigami.Icon {
+                    source: "network-connect"
+                    width: 16; height: 16
+                    color: root.textColor
+                }
+                Text {
+                    text: "Active Connections"
+                    color: root.textColor
+                    font.pixelSize: 12
+                    font.bold: true
+                    Layout.fillWidth: true
+                }
+                Text {
+                    visible: connDialog.connections.length > 0
+                    text: connDialog.connections.length + ""
+                    color: Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.45)
+                    font.pixelSize: 10
+                }
+                PlasmaComponents3.ToolButton {
+                    icon.name: "view-refresh"
+                    implicitWidth: 22; implicitHeight: 22
+                    onClicked: connDialog.refresh()
+                }
+                PlasmaComponents3.ToolButton {
+                    icon.name: "window-close"
+                    implicitWidth: 22; implicitHeight: 22
+                    onClicked: connDialog.close()
+                }
+            }
+
+            Rectangle {
+                id: divider
+                Layout.fillWidth: true
+                height: 1
+                color: Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.12)
+            }
+
+            Text {
+                visible: connDialog.loading && connDialog.connections.length === 0
+                Layout.fillWidth: true
+                text: "Fetching connections…"
+                color: Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.5)
+                font.pixelSize: 11
+                horizontalAlignment: Text.AlignHCenter
+            }
+
+            Text {
+                visible: !connDialog.loading && connDialog.connections.length === 0
+                Layout.fillWidth: true
+                text: "No external connections"
+                color: Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.4)
+                font.pixelSize: 11
+                horizontalAlignment: Text.AlignHCenter
+            }
+
+            ListView {
+                id: connList
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                clip: true
+                spacing: 2
+                model: connDialog.connections
+
+                delegate: Rectangle {
+                    width: connList.width
+                    height: connRow.implicitHeight + 8
+                    color: connRowMouse.containsMouse
+                        ? Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.06)
+                        : "transparent"
+                    radius: 3
+
+                    RowLayout {
+                        id: connRow
+                        anchors { left: parent.left; right: parent.right; verticalCenter: parent.verticalCenter }
+                        anchors.leftMargin: 4; anchors.rightMargin: 4
+                        spacing: 7
+
+                        Kirigami.Icon {
+                            source: modelData.procName
+                            fallback: "application-x-executable"
+                            width: 18; height: 18
+                        }
+
+                        ColumnLayout {
+                            spacing: 1
+                            Layout.fillWidth: true
+
+                            RowLayout {
+                                spacing: 4
+                                Text {
+                                    text: modelData.procName
+                                    color: root.textColor
+                                    font.pixelSize: 11
+                                    font.bold: true
+                                    elide: Text.ElideRight
+                                    Layout.maximumWidth: 110
+                                }
+                                Rectangle {
+                                    visible: modelData.proto !== ""
+                                    height: 14; width: protoLabel.implicitWidth + 6
+                                    radius: 3
+                                    color: modelData.proto === "tcp"
+                                        ? Qt.rgba(0.2, 0.6, 1.0, 0.25)
+                                        : Qt.rgba(0.4, 0.8, 0.4, 0.25)
+                                    Text {
+                                        id: protoLabel
+                                        anchors.centerIn: parent
+                                        text: modelData.proto.toUpperCase()
+                                        color: modelData.proto === "tcp"
+                                            ? Qt.rgba(0.4, 0.8, 1.0, 0.9)
+                                            : Qt.rgba(0.5, 1.0, 0.5, 0.9)
+                                        font.pixelSize: 8
+                                        font.bold: true
+                                    }
+                                }
+                                Item { Layout.fillWidth: true }
+                                Text {
+                                    text: ":" + modelData.port
+                                    color: Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.45)
+                                    font.pixelSize: 10
+                                    font.family: "monospace"
+                                }
+                            }
+
+                            Text {
+                                text: modelData.remoteHost
+                                color: Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.6)
+                                font.pixelSize: 10
+                                elide: Text.ElideRight
+                                Layout.fillWidth: true
+                            }
+                        }
+                    }
+
+                    MouseArea {
+                        id: connRowMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                    }
+                }
+            }
+        }
+
+        function refresh() {
+            connDialog.loading = true
+            connDialog.connections = []
+            ssSource.connectSource("ss -tunp 2>/dev/null | awk 'NR>1{remote=$6;proc=\"\";for(i=7;i<=NF;i++)proc=proc\" \"$i;match(proc,/\"([^\"]+)\"/,m);if(m[1]!=\"\")print $1\"|\"remote\"|\"m[1]}'")
+        }
+    }
+
+    P5Support.DataSource {
+        id: ssSource
+        engine: "executable"
+        connectedSources: []
+        onNewData: function(sourceName, data) {
+            ssSource.disconnectSource(sourceName)
+            connDialog.loading = false
+            const out = (data["stdout"] || "").trim()
+            if (out === "") { connDialog.connections = []; return }
+
+            const lines = out.split("\n")
+            const seen = {}
+            const result = []
+
+            for (let i = 0; i < lines.length; i++) {
+                const parts = lines[i].split("|")
+                if (parts.length < 3) continue
+
+                const proto = parts[0].trim().toLowerCase().replace(/[0-9]/g, "")  // tcp/udp
+                const remote = parts[1].trim()
+                let procName = parts[2].trim()
+
+                // filter loopback
+                if (remote.startsWith("127.") || remote.startsWith("[::1]") || remote === "") continue
+
+                // clean up process names
+                if (procName === ".zen-wrapped") procName = "zen"
+                procName = procName.replace(/^\./, "")
+
+                // split host:port — handle IPv6 [::]:port
+                let remoteHost = remote, port = ""
+                const ipv6m = remote.match(/^\[(.+)\]:(\d+)$/)
+                const ipv4m = remote.match(/^([^:]+):(\d+)$/)
+                if (ipv6m) { remoteHost = ipv6m[1]; port = ipv6m[2] }
+                else if (ipv4m) { remoteHost = ipv4m[1]; port = ipv4m[2] }
+
+                // deduplicate by proc+host
+                const key = procName + "|" + remoteHost
+                if (seen[key]) continue
+                seen[key] = true
+
+                result.push({ procName: procName, remoteHost: remoteHost, port: port, proto: proto })
+            }
+
+            // sort by procName
+            result.sort(function(a, b) { return a.procName < b.procName ? -1 : a.procName > b.procName ? 1 : 0 })
+            connDialog.connections = result
+        }
+    }
+
+    // ── iface badge above graph ──────────────────────────────────────────────
     Item {
         Layout.leftMargin: plasmoid.configuration.showYLabels ? 42 : 4
-        implicitWidth: ifaceRow.implicitWidth
-        implicitHeight: ifaceRow.implicitHeight
+        implicitWidth: ifaceBadge.implicitWidth
+        implicitHeight: ifaceBadge.implicitHeight
         visible: root.activeIface !== ""
 
         Row {
-            id: ifaceRow
-            spacing: 4
-            
-            Text {
-                id: ifaceText
-                text: root.activeIface || ""
-                color: ifaceMouseArea.containsMouse ? root.textColor : Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.38)
-                font.pixelSize: 10
-                font.bold: ifaceMouseArea.containsMouse
-                Behavior on color { ColorAnimation { duration: 150 } }
+            id: ifaceBadge
+            spacing: 8
+
+            Row {
+                id: ifaceRow
+                spacing: 4
+
+                Text {
+                    id: ifaceText
+                    text: root.activeIface || ""
+                    color: ifaceMouseArea.containsMouse ? root.textColor : Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.38)
+                    font.pixelSize: 10
+                    font.bold: ifaceMouseArea.containsMouse
+                    Behavior on color { ColorAnimation { duration: 150 } }
+                }
+
+                Text {
+                    text: "▾"
+                    color: ifaceMouseArea.containsMouse ? root.textColor : Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.38)
+                    font.pixelSize: 10
+                    anchors.verticalCenter: ifaceText.verticalCenter
+                    Behavior on color { ColorAnimation { duration: 150 } }
+                }
             }
-            
-            Text {
-                text: "▾"
-                color: ifaceMouseArea.containsMouse ? root.textColor : Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.38)
-                font.pixelSize: 10
-                anchors.verticalCenter: ifaceText.verticalCenter
+
+            Kirigami.Icon {
+                id: connInfoIcon
+                source: connDialog.opened ? "network-connect" : "network-disconnect"
+                width: 12; height: 12
+                anchors.verticalCenter: parent.verticalCenter
+                color: connInfoMouse.containsMouse || connDialog.opened
+                    ? root.textColor
+                    : Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.38)
                 Behavior on color { ColorAnimation { duration: 150 } }
+
+                MouseArea {
+                    id: connInfoMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                        if (connDialog.opened) {
+                            connDialog.close()
+                        } else {
+                            connDialog.open()
+                            connDialog.refresh()
+                        }
+                    }
+                }
             }
         }
 
         MouseArea {
             id: ifaceMouseArea
-            anchors.fill: parent
+            anchors.fill: ifaceRow
             hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
-            onClicked: {
-                ifaceMenu.popup()
-            }
+            onClicked: ifaceMenu.popup()
         }
-        
+
         PlasmaComponents3.Menu {
             id: ifaceMenu
-            
+
             Repeater {
                 model: root.availableIfaces
                 delegate: PlasmaComponents3.MenuItem {
@@ -63,6 +343,7 @@ ColumnLayout {
         }
     }
 
+    // ── network graph ────────────────────────────────────────────────────────
     Canvas {
         id: netGraph
         Layout.fillWidth: true; Layout.fillHeight: true
@@ -185,7 +466,7 @@ ColumnLayout {
         }
     }
 
-    // Session traffic totals
+    // ── session traffic totals ───────────────────────────────────────────────
     RowLayout {
         Layout.fillWidth: true
         spacing: 4
@@ -201,13 +482,12 @@ ColumnLayout {
         }
     }
 
-    // Combined legend + live values (single row, no duplication)
+    // ── legend + live values ─────────────────────────────────────────────────
     RowLayout {
         Layout.fillWidth: true
         spacing: 6
         Item { width: plasmoid.configuration.showYLabels ? 38 : 0 }
 
-        // Download legend chip
         Item {
             implicitWidth: dlRow.implicitWidth; implicitHeight: dlRow.implicitHeight
             Row {
@@ -246,7 +526,6 @@ ColumnLayout {
 
         Item { Layout.fillWidth: true }
 
-        // Upload legend chip
         Item {
             implicitWidth: ulRow.implicitWidth; implicitHeight: ulRow.implicitHeight
             Row {

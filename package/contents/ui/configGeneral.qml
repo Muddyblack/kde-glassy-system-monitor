@@ -63,9 +63,11 @@ KCM.SimpleKCM {
     property alias  cfg_diskWrColor:       diskWrColorButton.color
     property string cfg_gpuTitle:          "GPU"
     property alias  cfg_gpuColor:          gpuColorButton.color
-    property alias  cfg_showBg:            showBgCB.checked
-    property alias  cfg_bgColor:           bgColorButton.color
-    property alias  cfg_bgRadius:          bgRadiusSlider.value
+    property alias  cfg_showBg:                 showBgCB.checked
+    property alias  cfg_bgColor:                bgColorButton.color
+    property alias  cfg_bgRadius:               bgRadiusSlider.value
+    property alias  cfg_panelMode:              panelModeCB.checked
+    property alias  cfg_panelShowSessionTotals: panelShowSessionTotalsCB.checked
 
     // Silence SimpleKCM warnings about missing default properties
     property var cfg_swapColorDefault
@@ -324,6 +326,30 @@ KCM.SimpleKCM {
                     Kirigami.FormData.label: i18n("Corner radius:")
                     QQC.Slider { id: bgRadiusSlider; from: 0; to: 30; stepSize: 1; Layout.minimumWidth: 130 }
                     QQC.Label { text: bgRadiusSlider.value.toFixed(0) + " px"; Layout.minimumWidth: 36 }
+                }
+
+                // Panel Mode ──────────────────────────────────────────────────
+                Kirigami.Separator {
+                    Kirigami.FormData.isSection: true
+                    Kirigami.FormData.label: i18n("Panel Mode")
+                }
+
+                QQC.CheckBox {
+                    id: panelModeCB
+                    Kirigami.FormData.label: i18n("Panel mode:")
+                    text: i18n("Compact inline widget for the panel bar")
+                }
+                QQC.Label {
+                    text: i18n("Shrinks the widget to a compact pill that fits in the panel. Add multiple instances — one per metric — and set each to a different sensor in the Sensor Details tab.")
+                    visible: panelModeCB.checked
+                    opacity: 0.55; font.pixelSize: 10; wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                }
+                QQC.CheckBox {
+                    id: panelShowSessionTotalsCB
+                    visible: panelModeCB.checked
+                    Kirigami.FormData.label: i18n("Session totals:")
+                    text: i18n("Show session ↓/↑ byte totals next to speed (network only)")
                 }
             }
 

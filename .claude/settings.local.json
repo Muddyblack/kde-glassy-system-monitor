@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(ls /mnt/projects/KDE-PLASMA/glassy-system-monitor/package/icon.png && wc -l /mnt/projects/KDE-PLASMA/plasma-audio-visualizer/readme/demo.svg)",
-      "Read(//mnt/projects/KDE-PLASMA/plasma-audio-visualizer/readme/**)"
+      "Read(//mnt/projects/KDE-PLASMA/plasma-audio-visualizer/readme/**)",
+      "Bash(awk 'NR>1 { *)"
     ]
   }
 }

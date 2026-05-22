@@ -79,6 +79,8 @@ ColumnLayout {
             if (dt > 0.1) {
                 readSpeed  = Math.max(0, (rd - lastDiskStats.rd) / dt)
                 writeSpeed = Math.max(0, (wr - lastDiskStats.wr) / dt)
+                root.diskReadSpeed  = readSpeed
+                root.diskWriteSpeed = writeSpeed
                 const maxH = Math.max(10, plasmoid.configuration.historySize)
                 const nr = rdHistory.slice(); nr.push(readSpeed)
                 if (nr.length > maxH) nr.splice(0, nr.length - maxH); rdHistory = nr

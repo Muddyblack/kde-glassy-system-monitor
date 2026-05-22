@@ -1,6 +1,7 @@
 import QtQuick 2.15
 import QtQuick.Layouts 1.1
 import org.kde.plasma.plasmoid
+import org.kde.plasma.core as PlasmaCore
 import org.kde.plasma.plasma5support as P5Support
 import org.kde.kirigami as Kirigami
 
@@ -16,9 +17,19 @@ PlasmoidItem {
     readonly property bool showCustomSection: plasmoid.configuration.activeSection === 4
     readonly property bool showGpuSection:    plasmoid.configuration.activeSection === 6
 
-    Layout.minimumWidth:  260
-    Layout.preferredWidth: 400
+    // isInPanel: true when Plasma places us on a panel edge, or user forces it.
+    readonly property bool isInPanel: plasmoid.configuration.panelMode
+                                      || Plasmoid.location === PlasmaCore.Types.TopEdge
+                                      || Plasmoid.location === PlasmaCore.Types.BottomEdge
+                                      || Plasmoid.location === PlasmaCore.Types.LeftEdge
+                                      || Plasmoid.location === PlasmaCore.Types.RightEdge
+
+    Layout.minimumWidth:   root.isInPanel ? 60 : 260
+    Layout.preferredWidth: root.isInPanel
+                               ? (root.showNetworkSpeed || root.showDiskSection ? 110 : 72)
+                               : 400
     Layout.preferredHeight: {
+        if (root.isInPanel) return -1
         const m      = plasmoid.configuration.showBg ? 20 : 4
         const title  = 28
         const stats  = plasmoid.configuration.showStats && root.showPingSection ? 32 : 0
@@ -36,9 +47,12 @@ PlasmoidItem {
         if (root.showGpuSection)    h += 22 + graph + legend
         return Math.max(120, h)
     }
-    Layout.minimumHeight: 120
+    Layout.minimumHeight: root.isInPanel ? 20 : 120
 
-    preferredRepresentation: fullRepresentation
+    // Let Plasma decide: in a panel it uses compactRepresentation automatically.
+    // We do NOT force fullRepresentation so the panel placement works without
+    // any config toggle. The config panelMode override also works on desktop.
+    preferredRepresentation: root.isInPanel ? compactRepresentation : fullRepresentation
     Plasmoid.backgroundHints: "NoBackground"
 
     // ── colors (pre-resolved, no per-frame allocation) ────────────────────────
@@ -350,6 +364,12 @@ PlasmoidItem {
         const nm=memHistory.slice();nm.push(memPercent);if(nm.length>maxH)nm.splice(0,nm.length-maxH);memHistory=nm
         const ns=swapHistory.slice();ns.push(swapPercent);if(ns.length>maxH)ns.splice(0,ns.length-maxH);swapHistory=ns
     }
+
+    // ── disk state (written by DiskSection, read by CompactRepresentation) ───────
+    property real diskReadSpeed:  0
+    property real diskWriteSpeed: 0
+    readonly property color diskRdColor: Qt.color(plasmoid.configuration.diskRdColor || "#22ddff")
+    readonly property color diskWrColor: Qt.color(plasmoid.configuration.diskWrColor || "#ffaa22")
 
     // ── custom command state ──────────────────────────────────────────────────
     property real customValue:       0

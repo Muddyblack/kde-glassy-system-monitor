@@ -2,30 +2,37 @@
   <img src="./package/icon.png" width="200" alt="Glassy System Monitor Logo">
 </p>
 
-# Glassy System Monitor
+<h1 align="center">Glassy System Monitor</h1>
 
-[![KDE Store](https://img.shields.io/badge/KDE%20Store-Download-blue?logo=kde)](https://store.kde.org/)
-[![KDE Plasma](https://img.shields.io/badge/KDE%20Plasma-6.0%2B-1d99f3?logo=kde)](https://kde.org/plasma-desktop/)
-[![Widget Status: Beta](https://img.shields.io/badge/Widget%20Status-Beta-orange)](https://github.com/Muddyblack/kde-glassy-system-monitor)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow)](LICENSE)
+<p align="center">
+  <a href="https://github.com/Muddyblack/kde-glassy-system-monitor">
+    <img src="https://img.shields.io/badge/KDE_Store-Not_Yet_Released-orange?style=for-the-badge&logo=kde&logoColor=white" alt="KDE Store" />
+  </a>
+  <img src="https://img.shields.io/badge/KDE_Plasma-6.0%2B-1d99f3?style=for-the-badge&logo=kde&logoColor=white" alt="KDE Plasma 6.0+" />
+  <img src="https://img.shields.io/badge/Status-Beta-orange?style=for-the-badge" alt="Status: Beta" />
+  <a href="LICENSE">
+    <img src="https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge" alt="License: MIT" />
+  </a>
+  <img src="https://img.shields.io/github/downloads/Muddyblack/kde-glassy-system-monitor/total?style=for-the-badge&logo=kdeplasma&logoColor=white&label=Downloads&color=blue" alt="Downloads" />
+</p>
 
 <p align="center">
   <img src="./readme/network.svg" alt="Widget demo" width="680"/>
 </p>
 
-A glassy, real-time **ping · CPU · Memory · Network** diagnostic widget for KDE Plasma 6. Unlike built-in network widgets that only show bandwidth, this widget gives you live connection *quality* metrics — scrolling RTT graphs, jitter, and packet loss — alongside system stats.
+A glassy real-time system monitor for KDE Plasma 6. Tracks **ping · CPU · memory · network** in one place. The main thing that makes it different from built-in widgets is the ping section — you get live RTT graphs, jitter, and packet loss, not just bandwidth.
 
 ---
 
 ## Features
 
-- **Continuous ping graph** — smooth Bézier line chart rendering RTT in milliseconds, scrolling as new samples arrive
-- **Multi-target tabs** — monitor up to 4 hosts simultaneously (e.g. `8.8.8.8`, `1.1.1.1`, your router) and switch with a single click
-- **System monitoring graphs** — CPU usage (with per-core overlays), Memory usage (RAM + swap), and Network bandwidth
-- **Jitter display** — standard deviation across the rolling history window
-- **Packet-loss counter** — lost packets shown as red dots on the graph floor; loss % in the stats bar
-- **Alert indicators** — line shifts amber above the latency threshold, red at 1.5×; a pulsing border rings the widget when alerting
-- **Glassy aesthetics** — semi-transparent dark glass card with neon glow, matching the [Plasma Audio Visualizer](https://github.com/muddyblack/plasma-audio-visualizer) style
+- **Ping graph** — smooth Bézier chart scrolling in real time, RTT in milliseconds
+- **Multi-target tabs** — monitor up to 4 hosts at once (e.g. `8.8.8.8`, `1.1.1.1`, your router), switch with one click
+- **CPU, memory, and network graphs** — CPU with optional per-core overlays, RAM + swap, upload/download bandwidth
+- **Jitter** — standard deviation over the rolling history window
+- **Packet loss** — lost pings shown as red dots on the graph; loss % in the stats bar
+- **Alert indicators** — line turns amber above the latency threshold, red at 1.5×; a pulsing border when alerting
+- **Glassy look** — semi-transparent dark card with neon glow, same aesthetic as the [Plasma Audio Visualizer](https://github.com/muddyblack/plasma-audio-visualizer)
 
 ---
 
@@ -33,7 +40,7 @@ A glassy, real-time **ping · CPU · Memory · Network** diagnostic widget for K
 
 | Dependency | Notes |
 |---|---|
-| KDE Plasma 6 | `X-Plasma-API-Minimum-Version: 6.0` |
+| KDE Plasma 6.0+ | `X-Plasma-API-Minimum-Version: 6.0` |
 | `plasma5support` | Provides the `executable` DataEngine used for ping |
 | `ping` (iputils) | Standard on all Linux distros |
 
@@ -41,27 +48,31 @@ A glassy, real-time **ping · CPU · Memory · Network** diagnostic widget for K
 
 ## Install
 
-### Manual install (any distro)
+### Manual (any distro)
 
 ```bash
 git clone https://github.com/Muddyblack/kde-glassy-system-monitor.git
 cd kde-glassy-system-monitor
 kpackagetool6 -t Plasma/Applet -i package
-# or, to update an existing install:
+# or to update an existing install:
 kpackagetool6 -t Plasma/Applet -u package
 ```
 
 Then right-click your desktop → *Add Widgets* → search **"Glassy System Monitor"**.
 
-To remove: `kpackagetool6 -t Plasma/Applet -r org.muddyblack.glassySystemMonitor`
+To remove:
 
-### Test install (development)
+```bash
+kpackagetool6 -t Plasma/Applet -r org.muddyblack.glassySystemMonitor
+```
+
+### Development / test install
 
 ```bash
 ./test_install.sh
 ```
 
-To uninstall the test copy:
+To remove the test copy:
 
 ```bash
 kpackagetool6 -t Plasma/Applet -r org.muddyblack.glassySystemMonitorTest
@@ -88,7 +99,7 @@ kpackagetool6 -t Plasma/Applet -r org.muddyblack.glassySystemMonitorTest
 }
 ```
 
-### Package as `.plasmoid` (for KDE Store)
+### Package as `.plasmoid`
 
 ```bash
 ./pack.sh
@@ -99,17 +110,17 @@ kpackagetool6 -t Plasma/Applet -r org.muddyblack.glassySystemMonitorTest
 
 ## Configuration
 
-All settings are available via the widget's right-click → Configure menu:
+Right-click the widget → *Configure*:
 
 | Setting | Default | Description |
 |---|---|---|
 | **Hosts** | `8.8.8.8,1.1.1.1,192.168.1.1` | Comma-separated ping targets (max 4) |
-| **Ping interval** | `2 s` | Time between successive pings |
-| **Timeout** | `2 s` | Per-ping timeout — counts as packet loss |
-| **History points** | `60` | Rolling sample count kept per target |
-| **Latency warning** | `100 ms` | Line turns amber above this threshold |
+| **Ping interval** | `2 s` | Time between pings |
+| **Timeout** | `2 s` | Per-ping timeout, counts as packet loss |
+| **History points** | `60` | Rolling sample count per target |
+| **Latency warning** | `100 ms` | Line turns amber above this |
 | **Loss warning** | `5 %` | Alert border activates above this loss rate |
-| **Line color** | system accent | Or pick a custom neon color |
-| **Glow** | on | Neon shadow on the graph line |
-| **Stats bar** | on | Shows jitter, loss, min/max beneath the graph |
+| **Line color** | system accent | Or pick a custom color |
+| **Glow** | on | Neon shadow on graph lines |
+| **Stats bar** | on | Jitter, loss, min/max below the graph |
 | **Background card** | on | Semi-transparent glass card behind the widget |
