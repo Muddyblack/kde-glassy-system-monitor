@@ -132,15 +132,21 @@ ColumnLayout {
     // ── legend + live values ─────────────────────────────────────────────────
     RowLayout {
         Layout.fillWidth: true
+        Layout.minimumWidth: 0
         visible: plasmoid.configuration.showLegend
         spacing: 6
-        Item { width: plasmoid.configuration.showYLabels ? 38 : 0 }
+        clip: true
+        Item { Layout.preferredWidth: plasmoid.configuration.showYLabels ? 38 : 0 }
 
         Item {
-            implicitWidth: ramRow.implicitWidth; implicitHeight: ramRow.implicitHeight
+            Layout.fillWidth: true
+            Layout.minimumWidth: 0
+            Layout.preferredWidth: ramRow.implicitWidth
+            implicitHeight: ramRow.implicitHeight
             Row {
                 id: ramRow
                 spacing: 5
+                width: parent.width
                 Rectangle {
                     width: 8; height: 8; radius: 2; anchors.verticalCenter: parent.verticalCenter
                     color: root.isLineDisabled("ram") ? "transparent" : root.memColor
@@ -160,9 +166,13 @@ ColumnLayout {
                     color: root.isLineDisabled("ram")
                         ? Qt.rgba(root.memColor.r, root.memColor.g, root.memColor.b, 0.3)
                         : root.memColor
-                    font.pixelSize: 12; font.bold: true
+                    font.pixelSize: 11; font.bold: true
+                    elide: Text.ElideRight
+                    width: Math.max(0, parent.width - 8 - 5 - ramLabel.implicitWidth - 5)
                     anchors.verticalCenter: parent.verticalCenter
+                    property Text _l: ramLabel
                 }
+                Text { id: ramLabel; visible: false; text: "RAM"; font.pixelSize: 10 }
             }
             MouseArea {
                 anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
@@ -172,11 +182,11 @@ ColumnLayout {
             }
         }
 
-        Item { Layout.fillWidth: true }
-
         Item {
-            visible: root.hasSwap
-            implicitWidth: swapRow.implicitWidth; implicitHeight: swapRow.implicitHeight
+            visible: root.hasSwap && root.swapUsedGiB > 0.01
+            Layout.minimumWidth: 0
+            Layout.preferredWidth: swapRow.implicitWidth
+            implicitHeight: swapRow.implicitHeight
             Row {
                 id: swapRow
                 spacing: 5
@@ -199,7 +209,7 @@ ColumnLayout {
                     color: root.isLineDisabled("swap")
                         ? Qt.rgba(root.swapColor.r, root.swapColor.g, root.swapColor.b, 0.3)
                         : root.swapColor
-                    font.pixelSize: 12; font.bold: true
+                    font.pixelSize: 11; font.bold: true
                     anchors.verticalCenter: parent.verticalCenter
                 }
             }
