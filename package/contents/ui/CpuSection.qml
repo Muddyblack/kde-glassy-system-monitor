@@ -198,7 +198,7 @@ ColumnLayout {
                         width: 9; height: 9; radius: 2
                         color: coreItem.coreActive ? coreItem.coreColor : "transparent"
                         border.color: coreItem.coreColor; border.width: 1
-                        anchors.verticalCenter: parent.verticalCenter
+                        Layout.alignment: Qt.AlignVCenter
                     }
                     Text {
                         Layout.fillWidth: true
