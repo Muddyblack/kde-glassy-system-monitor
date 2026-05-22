@@ -24,30 +24,30 @@ PlasmoidItem {
                                       || Plasmoid.location === PlasmaCore.Types.LeftEdge
                                       || Plasmoid.location === PlasmaCore.Types.RightEdge
 
-    Layout.minimumWidth:   root.isInPanel ? 60 : 140
+    Layout.minimumWidth:   root.isInPanel ? 60 : 120
     Layout.preferredWidth: root.isInPanel
                                ? (root.showNetworkSpeed || root.showDiskSection ? 110 : 72)
-                               : 260
+                               : 200
     Layout.preferredHeight: {
         if (root.isInPanel) return -1
-        const m      = plasmoid.configuration.showBg ? 20 : 4
-        const title  = 28
-        const stats  = plasmoid.configuration.showStats && root.showPingSection ? 32 : 0
-        const legend = plasmoid.configuration.showLegend ? 20 : 0
+        const m      = plasmoid.configuration.showBg ? 16 : 4
+        const title  = 24
+        const stats  = plasmoid.configuration.showStats && root.showPingSection ? 28 : 0
+        const legend = plasmoid.configuration.showLegend ? 18 : 0
         const isText = plasmoid.configuration.chartType === 6
-        const graph  = isText ? 0 : 160
-        const pingH  = isText ? 0 : 160
+        const graph  = isText ? 0 : 90
+        const pingH  = isText ? 0 : 100
         let h = m + title
-        if (root.showPingSection)   h += 28 + pingH + stats + legend
+        if (root.showPingSection)   h += 24 + pingH + stats + legend
         if (root.showNetworkSpeed)  h += graph + legend
-        if (root.showCpuSection)    h += graph + legend + (plasmoid.configuration.showCpuCores ? 180 : 0)
+        if (root.showCpuSection)    h += graph + legend + (plasmoid.configuration.showCpuCores ? 140 : 0)
         if (root.showMemorySection) h += graph + legend
         if (root.showDiskSection)   h += graph + legend
         if (root.showCustomSection) h += graph + legend
         if (root.showGpuSection)    h += 22 + graph + legend
-        return Math.max(120, h)
+        return Math.max(80, h)
     }
-    Layout.minimumHeight: root.isInPanel ? 20 : 120
+    Layout.minimumHeight: root.isInPanel ? 20 : 80
 
     // Let Plasma decide: in a panel it uses compactRepresentation automatically.
     // We do NOT force fullRepresentation so the panel placement works without
