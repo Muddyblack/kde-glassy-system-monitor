@@ -8,32 +8,41 @@ Item {
     id: compact
 
     readonly property var _root: {
-        let p = compact.parent
-        while (p && !p.hasOwnProperty("showPingSection")) p = p.parent
-        return p
+        let p = compact.parent;
+        while (p && !p.hasOwnProperty("showPingSection"))
+            p = p.parent;
+        return p;
     }
     readonly property bool _valid: _root !== null && _root !== undefined
 
     // ── helpers ──────────────────────────────────────────────────────────────
     function _fmtSpeed(bps) {
-        if (bps >= 1073741824) return (bps / 1073741824).toFixed(1) + "G/s"
-        if (bps >= 1048576)    return (bps / 1048576).toFixed(0)    + "M/s"
-        if (bps >= 1024)       return (bps / 1024).toFixed(0)       + "K/s"
-        return bps.toFixed(0) + "B/s"
+        if (bps >= 1073741824)
+            return (bps / 1073741824).toFixed(1) + "G/s";
+        if (bps >= 1048576)
+            return (bps / 1048576).toFixed(0) + "M/s";
+        if (bps >= 1024)
+            return (bps / 1024).toFixed(0) + "K/s";
+        return bps.toFixed(0) + "B/s";
     }
     function _fmtBytes(b) {
-        if (b >= 1073741824) return (b / 1073741824).toFixed(1) + "G"
-        if (b >= 1048576)    return (b / 1048576).toFixed(0)    + "M"
-        if (b >= 1024)       return (b / 1024).toFixed(0)       + "K"
-        return b.toFixed(0) + "B"
+        if (b >= 1073741824)
+            return (b / 1073741824).toFixed(1) + "G";
+        if (b >= 1048576)
+            return (b / 1048576).toFixed(0) + "M";
+        if (b >= 1024)
+            return (b / 1024).toFixed(0) + "K";
+        return b.toFixed(0) + "B";
     }
 
     MouseArea {
         anchors.fill: parent
         acceptedButtons: Qt.LeftButton | Qt.RightButton
-        onClicked: function(mouse) {
-            if (mouse.button === Qt.RightButton) contextMenu.popup()
-            else plasmoid.expanded = !plasmoid.expanded
+        onClicked: function (mouse) {
+            if (mouse.button === Qt.RightButton)
+                contextMenu.popup();
+            else
+                plasmoid.expanded = !plasmoid.expanded;
         }
     }
 
@@ -41,14 +50,21 @@ Item {
         id: contextMenu
         QQC2.MenuItem {
             text: compact._valid && compact._root.paused ? "Resume" : "Pause"
-            onTriggered: { if (compact._valid) compact._root.paused = !compact._root.paused }
+            onTriggered: {
+                if (compact._valid)
+                    compact._root.paused = !compact._root.paused;
+            }
         }
     }
 
     // pause overlay badge
     Text {
         visible: compact._valid && compact._root.paused
-        anchors { right: parent.right; top: parent.top; margins: 2 }
+        anchors {
+            right: parent.right
+            top: parent.top
+            margins: 2
+        }
         text: "⏸"
         font.pixelSize: Math.max(8, Math.min(14, compact.height * 0.38))
         opacity: 0.85
@@ -65,7 +81,10 @@ Item {
         id: sparkComp
 
         RowLayout {
-            anchors { fill: parent; margins: 2 }
+            anchors {
+                fill: parent
+                margins: 2
+            }
             spacing: 4
 
             Canvas {
@@ -76,88 +95,139 @@ Item {
                 renderStrategy: Canvas.Cooperative
 
                 readonly property var _h: {
-                    if (!compact._valid) return []
-                    if (compact._root.showPingSection)   return compact._root.histories[compact._root.activeTarget] || []
-                    if (compact._root.showNetworkSpeed)  return compact._root.dlHistory
-                    if (compact._root.showCpuSection)    return compact._root.cpuHistory
-                    if (compact._root.showMemorySection) return compact._root.memHistory
-                    if (compact._root.showDiskSection)   return []
-                    return compact._root.customHistory
+                    if (!compact._valid)
+                        return [];
+                    if (compact._root.showPingSection)
+                        return compact._root.histories[compact._root.activeTarget] || [];
+                    if (compact._root.showNetworkSpeed)
+                        return compact._root.dlHistory;
+                    if (compact._root.showCpuSection)
+                        return compact._root.cpuHistory;
+                    if (compact._root.showMemorySection)
+                        return compact._root.memHistory;
+                    if (compact._root.showDiskSection)
+                        return [];
+                    return compact._root.customHistory;
                 }
                 readonly property real _max: {
-                    if (!compact._valid) return 100
-                    if (compact._root.showPingSection)   return 200
+                    if (!compact._valid)
+                        return 100;
+                    if (compact._root.showPingSection)
+                        return 200;
                     if (compact._root.showNetworkSpeed)
-                        return Math.max(1024, Math.max.apply(null, [1024].concat(compact._root.dlHistory).concat(compact._root.ulHistory))) * 1.2
-                    if (compact._root.showCpuSection)    return 100
-                    if (compact._root.showMemorySection) return 100
-                    return Math.max(0.1, plasmoid.configuration.customCmdMax)
+                        return Math.max(1024, Math.max.apply(null, [1024].concat(compact._root.dlHistory).concat(compact._root.ulHistory))) * 1.2;
+                    if (compact._root.showCpuSection)
+                        return 100;
+                    if (compact._root.showMemorySection)
+                        return 100;
+                    return Math.max(0.1, plasmoid.configuration.customCmdMax);
                 }
                 readonly property color _c: {
-                    if (!compact._valid) return Kirigami.Theme.highlightColor
-                    if (compact._root.showPingSection)   return compact._root.isAlerting ? "#ff6666" : compact._root.lineColor
-                    if (compact._root.showNetworkSpeed)  return compact._root.dlColor
-                    if (compact._root.showCpuSection)    return compact._root.cpuColor
-                    if (compact._root.showMemorySection) return compact._root.memColor
-                    return Qt.color(plasmoid.configuration.customCmdColor || "#ffaa00")
+                    if (!compact._valid)
+                        return Kirigami.Theme.highlightColor;
+                    if (compact._root.showPingSection)
+                        return compact._root.isAlerting ? "#ff6666" : compact._root.lineColor;
+                    if (compact._root.showNetworkSpeed)
+                        return compact._root.dlColor;
+                    if (compact._root.showCpuSection)
+                        return compact._root.cpuColor;
+                    if (compact._root.showMemorySection)
+                        return compact._root.memColor;
+                    return Qt.color(plasmoid.configuration.customCmdColor || "#ffaa00");
                 }
 
                 onPaint: {
-                    const ctx = getContext("2d"); ctx.reset()
-                    const h = _h, n = h.length, c = _c
+                    const ctx = getContext("2d");
+                    ctx.reset();
+                    const h = _h, n = h.length, c = _c;
                     if (n < 2) {
-                        ctx.strokeStyle = Qt.rgba(c.r, c.g, c.b, 0.3)
-                        ctx.lineWidth = 1; ctx.setLineDash([3, 4])
-                        ctx.beginPath(); ctx.moveTo(0, height / 2); ctx.lineTo(width, height / 2); ctx.stroke()
-                        ctx.setLineDash([])
-                        return
+                        ctx.strokeStyle = Qt.rgba(c.r, c.g, c.b, 0.3);
+                        ctx.lineWidth = 1;
+                        ctx.setLineDash([3, 4]);
+                        ctx.beginPath();
+                        ctx.moveTo(0, height / 2);
+                        ctx.lineTo(width, height / 2);
+                        ctx.stroke();
+                        ctx.setLineDash([]);
+                        return;
                     }
-                    const maxVal = _max, pad = 2, uH = height - pad * 2
-                    const step = width / Math.max(1, n - 1)
-                    function vToY(v) { return height - pad - (Math.max(0, Math.min(maxVal, v < 0 ? 0 : v)) / maxVal) * uH }
-                    function iToX(i) { return i * step }
-                    if (plasmoid.configuration.glowLine) { ctx.shadowBlur = 6; ctx.shadowColor = c }
-                    ctx.strokeStyle = c; ctx.lineWidth = 1.5; ctx.lineCap = "round"; ctx.lineJoin = "round"
-                    ctx.beginPath(); ctx.moveTo(iToX(0), vToY(h[0]))
+                    const maxVal = _max, pad = 2, uH = height - pad * 2;
+                    const step = width / Math.max(1, n - 1);
+                    function vToY(v) {
+                        return height - pad - (Math.max(0, Math.min(maxVal, v < 0 ? 0 : v)) / maxVal) * uH;
+                    }
+                    function iToX(i) {
+                        return i * step;
+                    }
+                    // OPTIMIZATION: Reduced glow blur from 6 to 4 for better performance
+                    if (plasmoid.configuration.glowLine) {
+                        ctx.shadowBlur = 4;
+                        ctx.shadowColor = c;
+                    }
+                    ctx.strokeStyle = c;
+                    ctx.lineWidth = 1.5;
+                    ctx.lineCap = "round";
+                    ctx.lineJoin = "round";
+                    ctx.beginPath();
+                    ctx.moveTo(iToX(0), vToY(h[0]));
                     for (let i = 1; i < n; i++) {
-                        const cx = (iToX(i-1) + iToX(i)) / 2
-                        ctx.bezierCurveTo(cx, vToY(h[i-1]), cx, vToY(h[i]), iToX(i), vToY(h[i]))
+                        const cx = (iToX(i - 1) + iToX(i)) / 2;
+                        ctx.bezierCurveTo(cx, vToY(h[i - 1]), cx, vToY(h[i]), iToX(i), vToY(h[i]));
                     }
-                    ctx.stroke(); ctx.shadowBlur = 0
-                    ctx.beginPath(); ctx.moveTo(iToX(0), vToY(h[0]))
+                    ctx.stroke();
+                    ctx.shadowBlur = 0;
+                    ctx.beginPath();
+                    ctx.moveTo(iToX(0), vToY(h[0]));
                     for (let i = 1; i < n; i++) {
-                        const cx = (iToX(i-1) + iToX(i)) / 2
-                        ctx.bezierCurveTo(cx, vToY(h[i-1]), cx, vToY(h[i]), iToX(i), vToY(h[i]))
+                        const cx = (iToX(i - 1) + iToX(i)) / 2;
+                        ctx.bezierCurveTo(cx, vToY(h[i - 1]), cx, vToY(h[i]), iToX(i), vToY(h[i]));
                     }
-                    ctx.lineTo(iToX(n-1), height); ctx.lineTo(0, height); ctx.closePath()
-                    const g = ctx.createLinearGradient(0, 0, 0, height)
-                    g.addColorStop(0, Qt.rgba(c.r, c.g, c.b, 0.35))
-                    g.addColorStop(1, Qt.rgba(c.r, c.g, c.b, 0))
-                    ctx.fillStyle = g; ctx.fill()
+                    ctx.lineTo(iToX(n - 1), height);
+                    ctx.lineTo(0, height);
+                    ctx.closePath();
+                    const g = ctx.createLinearGradient(0, 0, 0, height);
+                    g.addColorStop(0, Qt.rgba(c.r, c.g, c.b, 0.35));
+                    g.addColorStop(1, Qt.rgba(c.r, c.g, c.b, 0));
+                    ctx.fillStyle = g;
+                    ctx.fill();
                 }
                 Connections {
                     target: sparkCanvas
-                    function on_hChanged() { sparkCanvas.requestPaint() }
-                    function on_cChanged() { sparkCanvas.requestPaint() }
+                    function on_hChanged() {
+                        sparkCanvas.requestPaint();
+                    }
+                    function on_cChanged() {
+                        sparkCanvas.requestPaint();
+                    }
                 }
             }
 
             Text {
                 text: {
-                    if (!compact._valid) return "…"
-                    if (compact._root.showPingSection)   return compact._root.lastPing >= 0 ? compact._root.lastPing.toFixed(0) + "ms" : "—"
-                    if (compact._root.showNetworkSpeed)  return compact._fmtSpeed(compact._root.downloadSpeed)
-                    if (compact._root.showCpuSection)    return compact._root.cpuPercent.toFixed(0) + "%"
-                    if (compact._root.showMemorySection) return compact._root.memPercent.toFixed(0) + "%"
-                    return compact._root.customValue.toFixed(1)
+                    if (!compact._valid)
+                        return "…";
+                    if (compact._root.showPingSection)
+                        return compact._root.lastPing >= 0 ? compact._root.lastPing.toFixed(0) + "ms" : "—";
+                    if (compact._root.showNetworkSpeed)
+                        return compact._fmtSpeed(compact._root.downloadSpeed);
+                    if (compact._root.showCpuSection)
+                        return compact._root.cpuPercent.toFixed(0) + "%";
+                    if (compact._root.showMemorySection)
+                        return compact._root.memPercent.toFixed(0) + "%";
+                    return compact._root.customValue.toFixed(1);
                 }
                 color: {
-                    if (!compact._valid) return Kirigami.Theme.highlightColor
-                    if (compact._root.showPingSection)   return compact._root.isAlerting ? "#ff6666" : compact._root.lineColor
-                    if (compact._root.showNetworkSpeed)  return compact._root.dlColor
-                    if (compact._root.showCpuSection)    return compact._root.cpuColor
-                    if (compact._root.showMemorySection) return compact._root.memColor
-                    return Qt.color(plasmoid.configuration.customCmdColor || "#ffaa00")
+                    if (!compact._valid)
+                        return Kirigami.Theme.highlightColor;
+                    if (compact._root.showPingSection)
+                        return compact._root.isAlerting ? "#ff6666" : compact._root.lineColor;
+                    if (compact._root.showNetworkSpeed)
+                        return compact._root.dlColor;
+                    if (compact._root.showCpuSection)
+                        return compact._root.cpuColor;
+                    if (compact._root.showMemorySection)
+                        return compact._root.memColor;
+                    return Qt.color(plasmoid.configuration.customCmdColor || "#ffaa00");
                 }
                 font.pixelSize: Math.max(9, Math.min(14, compact.height * 0.45))
                 font.bold: true
@@ -179,26 +249,33 @@ Item {
 
             // the currently-active section loader (only one is active at a time)
             readonly property Loader activeLoader: {
-                if (netLoader.active)    return netLoader
-                if (diskLoader.active)   return diskLoader
-                if (cpuLoader.active)    return cpuLoader
-                if (memLoader.active)    return memLoader
-                if (pingLoader.active)   return pingLoader
-                if (gpuLoader.active)    return gpuLoader
-                if (customLoader.active) return customLoader
-                return null
+                if (netLoader.active)
+                    return netLoader;
+                if (diskLoader.active)
+                    return diskLoader;
+                if (cpuLoader.active)
+                    return cpuLoader;
+                if (memLoader.active)
+                    return memLoader;
+                if (pingLoader.active)
+                    return pingLoader;
+                if (gpuLoader.active)
+                    return gpuLoader;
+                if (customLoader.active)
+                    return customLoader;
+                return null;
             }
-            readonly property real contentW: activeLoader && activeLoader.item ? activeLoader.item.implicitWidth  : 0
+            readonly property real contentW: activeLoader && activeLoader.item ? activeLoader.item.implicitWidth : 0
             readonly property real contentH: activeLoader && activeLoader.item ? activeLoader.item.implicitHeight : 0
 
-            implicitWidth:  contentW + hPad * 2
+            implicitWidth: contentW + hPad * 2
             implicitHeight: contentH + vPad * 2
 
             // glassy pill background — sized to content, centered
             Rectangle {
                 id: pill
                 anchors.centerIn: parent
-                width:  Math.min(parent.width,  Math.max(20, panelRoot.contentW + panelRoot.hPad * 2))
+                width: Math.min(parent.width, Math.max(20, panelRoot.contentW + panelRoot.hPad * 2))
                 height: Math.min(parent.height, Math.max(16, panelRoot.contentH + panelRoot.vPad * 2))
                 radius: Math.min(width, height) / 2
                 color: plasmoid.configuration.bgColor || "#800d0f1a"
@@ -206,9 +283,16 @@ Item {
                 border.width: 1
                 // inner highlight line
                 Rectangle {
-                    anchors { left: parent.left; right: parent.right; top: parent.top }
-                    anchors.leftMargin: 8; anchors.rightMargin: 8; anchors.topMargin: 1
-                    height: 1; radius: 0.5
+                    anchors {
+                        left: parent.left
+                        right: parent.right
+                        top: parent.top
+                    }
+                    anchors.leftMargin: 8
+                    anchors.rightMargin: 8
+                    anchors.topMargin: 1
+                    height: 1
+                    radius: 0.5
                     color: Qt.rgba(1, 1, 1, 0.22)
                 }
             }
@@ -294,24 +378,34 @@ Item {
                             text: plasmoid.configuration.cpuTitle || "CPU"
                             color: Qt.rgba(compact._root.textColor.r, compact._root.textColor.g, compact._root.textColor.b, 0.50)
                             font.pixelSize: Math.max(7, compact.height * 0.22)
-                            Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter
+                            Layout.fillWidth: true
+                            horizontalAlignment: Text.AlignHCenter
                         }
                         Text {
                             text: compact._root.cpuPercent.toFixed(1) + "%"
                             color: compact._root.cpuColor
                             font.pixelSize: Math.max(10, compact.height * 0.38)
                             font.bold: true
-                            Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter
+                            Layout.fillWidth: true
+                            horizontalAlignment: Text.AlignHCenter
                         }
                         // thin bar
                         Rectangle {
-                            Layout.fillWidth: true; height: 3; radius: 1.5
+                            Layout.fillWidth: true
+                            height: 3
+                            radius: 1.5
                             color: Qt.rgba(compact._root.cpuColor.r, compact._root.cpuColor.g, compact._root.cpuColor.b, 0.20)
                             Rectangle {
                                 width: parent.width * Math.min(1, compact._root.cpuPercent / 100)
-                                height: parent.height; radius: parent.radius
+                                height: parent.height
+                                radius: parent.radius
                                 color: compact._root.cpuColor
-                                Behavior on width { NumberAnimation { duration: 400; easing.type: Easing.OutCubic } }
+                                Behavior on width {
+                                    NumberAnimation {
+                                        duration: 400
+                                        easing.type: Easing.OutCubic
+                                    }
+                                }
                             }
                         }
                     }
@@ -331,23 +425,33 @@ Item {
                             text: plasmoid.configuration.memoryTitle || "RAM"
                             color: Qt.rgba(compact._root.textColor.r, compact._root.textColor.g, compact._root.textColor.b, 0.50)
                             font.pixelSize: Math.max(7, compact.height * 0.22)
-                            Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter
+                            Layout.fillWidth: true
+                            horizontalAlignment: Text.AlignHCenter
                         }
                         Text {
                             text: compact._root.memPercent.toFixed(1) + "%"
                             color: compact._root.memColor
                             font.pixelSize: Math.max(10, compact.height * 0.38)
                             font.bold: true
-                            Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter
+                            Layout.fillWidth: true
+                            horizontalAlignment: Text.AlignHCenter
                         }
                         Rectangle {
-                            Layout.fillWidth: true; height: 3; radius: 1.5
+                            Layout.fillWidth: true
+                            height: 3
+                            radius: 1.5
                             color: Qt.rgba(compact._root.memColor.r, compact._root.memColor.g, compact._root.memColor.b, 0.20)
                             Rectangle {
                                 width: parent.width * Math.min(1, compact._root.memPercent / 100)
-                                height: parent.height; radius: parent.radius
+                                height: parent.height
+                                radius: parent.radius
                                 color: compact._root.memColor
-                                Behavior on width { NumberAnimation { duration: 400; easing.type: Easing.OutCubic } }
+                                Behavior on width {
+                                    NumberAnimation {
+                                        duration: 400
+                                        easing.type: Easing.OutCubic
+                                    }
+                                }
                             }
                         }
                     }
@@ -365,18 +469,18 @@ Item {
                         spacing: 1
                         Text {
                             text: plasmoid.configuration.pingTitle || "Ping"
-                            color: compact._root.isAlerting
-                                ? "#ff6666"
-                                : Qt.rgba(compact._root.textColor.r, compact._root.textColor.g, compact._root.textColor.b, 0.50)
+                            color: compact._root.isAlerting ? "#ff6666" : Qt.rgba(compact._root.textColor.r, compact._root.textColor.g, compact._root.textColor.b, 0.50)
                             font.pixelSize: Math.max(7, compact.height * 0.22)
-                            Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter
+                            Layout.fillWidth: true
+                            horizontalAlignment: Text.AlignHCenter
                         }
                         Text {
                             text: compact._root.lastPing >= 0 ? compact._root.lastPing.toFixed(0) + "ms" : "—"
                             color: compact._root.isAlerting ? "#ff6666" : compact._root.lineColor
                             font.pixelSize: Math.max(10, compact.height * 0.38)
                             font.bold: true
-                            Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter
+                            Layout.fillWidth: true
+                            horizontalAlignment: Text.AlignHCenter
                         }
                     }
                 }
@@ -395,23 +499,33 @@ Item {
                             text: plasmoid.configuration.gpuTitle || "GPU"
                             color: Qt.rgba(compact._root.textColor.r, compact._root.textColor.g, compact._root.textColor.b, 0.50)
                             font.pixelSize: Math.max(7, compact.height * 0.22)
-                            Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter
+                            Layout.fillWidth: true
+                            horizontalAlignment: Text.AlignHCenter
                         }
                         Text {
                             text: compact._root.gpuPercent.toFixed(1) + "%"
                             color: compact._root.gpuColor
                             font.pixelSize: Math.max(10, compact.height * 0.38)
                             font.bold: true
-                            Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter
+                            Layout.fillWidth: true
+                            horizontalAlignment: Text.AlignHCenter
                         }
                         Rectangle {
-                            Layout.fillWidth: true; height: 3; radius: 1.5
+                            Layout.fillWidth: true
+                            height: 3
+                            radius: 1.5
                             color: Qt.rgba(compact._root.gpuColor.r, compact._root.gpuColor.g, compact._root.gpuColor.b, 0.20)
                             Rectangle {
                                 width: parent.width * Math.min(1, compact._root.gpuPercent / 100)
-                                height: parent.height; radius: parent.radius
+                                height: parent.height
+                                radius: parent.radius
                                 color: compact._root.gpuColor
-                                Behavior on width { NumberAnimation { duration: 400; easing.type: Easing.OutCubic } }
+                                Behavior on width {
+                                    NumberAnimation {
+                                        duration: 400
+                                        easing.type: Easing.OutCubic
+                                    }
+                                }
                             }
                         }
                     }
@@ -482,14 +596,16 @@ Item {
                             text: plasmoid.configuration.customCmdTitle || "Sensor"
                             color: Qt.rgba(compact._root.textColor.r, compact._root.textColor.g, compact._root.textColor.b, 0.50)
                             font.pixelSize: Math.max(7, compact.height * 0.22)
-                            Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter
+                            Layout.fillWidth: true
+                            horizontalAlignment: Text.AlignHCenter
                         }
                         Text {
                             text: compact._root.customValue.toFixed(1) + (plasmoid.configuration.customCmdUnit || "")
                             color: Qt.color(plasmoid.configuration.customCmdColor || "#ffaa00")
                             font.pixelSize: Math.max(10, compact.height * 0.38)
                             font.bold: true
-                            Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter
+                            Layout.fillWidth: true
+                            horizontalAlignment: Text.AlignHCenter
                         }
                     }
                 }

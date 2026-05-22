@@ -5,7 +5,6 @@ import org.kde.plasma.components 3.0 as PlasmaComponents3
 import org.kde.plasma.plasma5support as P5Support
 import org.kde.kirigami as Kirigami
 
-
 ColumnLayout {
     id: netSection
     spacing: 3
@@ -26,24 +25,19 @@ ColumnLayout {
 
         // position relative to the info icon, opening above or below depending on panel edge
         x: {
-            const gp = connInfoIcon.mapToItem(netSection, 0, 0)
-            return Math.max(0, Math.min(gp.x + connInfoIcon.width / 2 - width / 2,
-                                        netSection.width - width))
+            const gp = connInfoIcon.mapToItem(netSection, 0, 0);
+            return Math.max(0, Math.min(gp.x + connInfoIcon.width / 2 - width / 2, netSection.width - width));
         }
         y: {
-            const gp = connInfoIcon.mapToItem(netSection, 0, 0)
-            const screenMid = netSection.mapToGlobal(0, netSection.height / 2).y
-            const screenH   = Qt.application.screens[0] ? Qt.application.screens[0].height : 1080
-            return screenMid < screenH / 2
-                ? gp.y + connInfoIcon.height + 4   // panel at top → open downward
-                : gp.y - height - 4                // panel at bottom → open upward
+            const gp = connInfoIcon.mapToItem(netSection, 0, 0);
+            const screenMid = netSection.mapToGlobal(0, netSection.height / 2).y;
+            const screenH = Qt.application.screens[0] ? Qt.application.screens[0].height : 1080;
+            return screenMid < screenH / 2 ? gp.y + connInfoIcon.height + 4   // panel at top → open downward
+            : gp.y - height - 4;                // panel at bottom → open upward
         }
 
         background: Rectangle {
-            color: Qt.rgba(
-                root.textColor.r * 0.05 + 0.05,
-                root.textColor.g * 0.05 + 0.05,
-                root.textColor.b * 0.05 + 0.05, 0.96)
+            color: Qt.rgba(root.textColor.r * 0.05 + 0.05, root.textColor.g * 0.05 + 0.05, root.textColor.b * 0.05 + 0.05, 0.96)
             radius: 6
             border.color: Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.15)
             border.width: 1
@@ -60,7 +54,8 @@ ColumnLayout {
 
                 Kirigami.Icon {
                     source: "network-connect"
-                    width: 16; height: 16
+                    width: 16
+                    height: 16
                     color: root.textColor
                 }
                 Text {
@@ -78,12 +73,14 @@ ColumnLayout {
                 }
                 PlasmaComponents3.ToolButton {
                     icon.name: "view-refresh"
-                    implicitWidth: 22; implicitHeight: 22
+                    implicitWidth: 22
+                    implicitHeight: 22
                     onClicked: connDialog.refresh()
                 }
                 PlasmaComponents3.ToolButton {
                     icon.name: "window-close"
-                    implicitWidth: 22; implicitHeight: 22
+                    implicitWidth: 22
+                    implicitHeight: 22
                     onClicked: connDialog.close()
                 }
             }
@@ -124,21 +121,25 @@ ColumnLayout {
                 delegate: Rectangle {
                     width: connList.width
                     height: connRow.implicitHeight + 8
-                    color: connRowMouse.containsMouse
-                        ? Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.06)
-                        : "transparent"
+                    color: connRowMouse.containsMouse ? Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.06) : "transparent"
                     radius: 3
 
                     RowLayout {
                         id: connRow
-                        anchors { left: parent.left; right: parent.right; verticalCenter: parent.verticalCenter }
-                        anchors.leftMargin: 4; anchors.rightMargin: 4
+                        anchors {
+                            left: parent.left
+                            right: parent.right
+                            verticalCenter: parent.verticalCenter
+                        }
+                        anchors.leftMargin: 4
+                        anchors.rightMargin: 4
                         spacing: 7
 
                         Kirigami.Icon {
                             source: modelData.procName
                             fallback: "application-x-executable"
-                            width: 18; height: 18
+                            width: 18
+                            height: 18
                         }
 
                         ColumnLayout {
@@ -157,23 +158,22 @@ ColumnLayout {
                                 }
                                 Rectangle {
                                     visible: modelData.proto !== ""
-                                    height: 14; width: protoLabel.implicitWidth + 6
+                                    height: 14
+                                    width: protoLabel.implicitWidth + 6
                                     radius: 3
-                                    color: modelData.proto === "tcp"
-                                        ? Qt.rgba(0.2, 0.6, 1.0, 0.25)
-                                        : Qt.rgba(0.4, 0.8, 0.4, 0.25)
+                                    color: modelData.proto === "tcp" ? Qt.rgba(0.2, 0.6, 1.0, 0.25) : Qt.rgba(0.4, 0.8, 0.4, 0.25)
                                     Text {
                                         id: protoLabel
                                         anchors.centerIn: parent
                                         text: modelData.proto.toUpperCase()
-                                        color: modelData.proto === "tcp"
-                                            ? Qt.rgba(0.4, 0.8, 1.0, 0.9)
-                                            : Qt.rgba(0.5, 1.0, 0.5, 0.9)
+                                        color: modelData.proto === "tcp" ? Qt.rgba(0.4, 0.8, 1.0, 0.9) : Qt.rgba(0.5, 1.0, 0.5, 0.9)
                                         font.pixelSize: 8
                                         font.bold: true
                                     }
                                 }
-                                Item { Layout.fillWidth: true }
+                                Item {
+                                    Layout.fillWidth: true
+                                }
                                 Text {
                                     text: ":" + modelData.port
                                     color: Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.45)
@@ -202,9 +202,9 @@ ColumnLayout {
         }
 
         function refresh() {
-            connDialog.loading = true
-            connDialog.connections = []
-            ssSource.connectSource("ss -tunp 2>/dev/null | awk 'NR>1{remote=$6;proc=\"\";for(i=7;i<=NF;i++)proc=proc\" \"$i;match(proc,/\"([^\"]+)\"/,m);if(m[1]!=\"\")print $1\"|\"remote\"|\"m[1]}'")
+            connDialog.loading = true;
+            connDialog.connections = [];
+            ssSource.connectSource("ss -tunp 2>/dev/null | awk 'NR>1{remote=$6;proc=\"\";for(i=7;i<=NF;i++)proc=proc\" \"$i;match(proc,/\"([^\"]+)\"/,m);if(m[1]!=\"\")print $1\"|\"remote\"|\"m[1]}'");
         }
     }
 
@@ -212,49 +212,67 @@ ColumnLayout {
         id: ssSource
         engine: "executable"
         connectedSources: []
-        onNewData: function(sourceName, data) {
-            ssSource.disconnectSource(sourceName)
-            connDialog.loading = false
-            const out = (data["stdout"] || "").trim()
-            if (out === "") { connDialog.connections = []; return }
+        onNewData: function (sourceName, data) {
+            ssSource.disconnectSource(sourceName);
+            connDialog.loading = false;
+            const out = (data["stdout"] || "").trim();
+            if (out === "") {
+                connDialog.connections = [];
+                return;
+            }
 
-            const lines = out.split("\n")
-            const seen = {}
-            const result = []
+            const lines = out.split("\n");
+            const seen = {};
+            const result = [];
 
             for (let i = 0; i < lines.length; i++) {
-                const parts = lines[i].split("|")
-                if (parts.length < 3) continue
-
-                const proto = parts[0].trim().toLowerCase().replace(/[0-9]/g, "")  // tcp/udp
-                const remote = parts[1].trim()
-                let procName = parts[2].trim()
+                const parts = lines[i].split("|");
+                if (parts.length < 3)
+                    continue;
+                const proto = parts[0].trim().toLowerCase().replace(/[0-9]/g, "");  // tcp/udp
+                const remote = parts[1].trim();
+                let procName = parts[2].trim();
 
                 // filter loopback
-                if (remote.startsWith("127.") || remote.startsWith("[::1]") || remote === "") continue
+                if (remote.startsWith("127.") || remote.startsWith("[::1]") || remote === "")
+                    continue;
 
                 // clean up process names
-                if (procName === ".zen-wrapped") procName = "zen"
-                procName = procName.replace(/^\./, "")
+                if (procName === ".zen-wrapped")
+                    procName = "zen";
+                procName = procName.replace(/^\./, "");
 
                 // split host:port — handle IPv6 [::]:port
-                let remoteHost = remote, port = ""
-                const ipv6m = remote.match(/^\[(.+)\]:(\d+)$/)
-                const ipv4m = remote.match(/^([^:]+):(\d+)$/)
-                if (ipv6m) { remoteHost = ipv6m[1]; port = ipv6m[2] }
-                else if (ipv4m) { remoteHost = ipv4m[1]; port = ipv4m[2] }
+                let remoteHost = remote, port = "";
+                const ipv6m = remote.match(/^\[(.+)\]:(\d+)$/);
+                const ipv4m = remote.match(/^([^:]+):(\d+)$/);
+                if (ipv6m) {
+                    remoteHost = ipv6m[1];
+                    port = ipv6m[2];
+                } else if (ipv4m) {
+                    remoteHost = ipv4m[1];
+                    port = ipv4m[2];
+                }
 
                 // deduplicate by proc+host
-                const key = procName + "|" + remoteHost
-                if (seen[key]) continue
-                seen[key] = true
+                const key = procName + "|" + remoteHost;
+                if (seen[key])
+                    continue;
+                seen[key] = true;
 
-                result.push({ procName: procName, remoteHost: remoteHost, port: port, proto: proto })
+                result.push({
+                    procName: procName,
+                    remoteHost: remoteHost,
+                    port: port,
+                    proto: proto
+                });
             }
 
             // sort by procName
-            result.sort(function(a, b) { return a.procName < b.procName ? -1 : a.procName > b.procName ? 1 : 0 })
-            connDialog.connections = result
+            result.sort(function (a, b) {
+                return a.procName < b.procName ? -1 : a.procName > b.procName ? 1 : 0;
+            });
+            connDialog.connections = result;
         }
     }
 
@@ -279,7 +297,11 @@ ColumnLayout {
                     color: ifaceMouseArea.containsMouse ? root.textColor : Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.38)
                     font.pixelSize: 10
                     font.bold: ifaceMouseArea.containsMouse
-                    Behavior on color { ColorAnimation { duration: 150 } }
+                    Behavior on color {
+                        ColorAnimation {
+                            duration: 150
+                        }
+                    }
                 }
 
                 Text {
@@ -287,19 +309,26 @@ ColumnLayout {
                     color: ifaceMouseArea.containsMouse ? root.textColor : Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.38)
                     font.pixelSize: 10
                     anchors.verticalCenter: ifaceText.verticalCenter
-                    Behavior on color { ColorAnimation { duration: 150 } }
+                    Behavior on color {
+                        ColorAnimation {
+                            duration: 150
+                        }
+                    }
                 }
             }
 
             Kirigami.Icon {
                 id: connInfoIcon
                 source: connDialog.opened ? "network-connect" : "network-disconnect"
-                width: 12; height: 12
+                width: 12
+                height: 12
                 anchors.verticalCenter: parent.verticalCenter
-                color: connInfoMouse.containsMouse || connDialog.opened
-                    ? root.textColor
-                    : Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.38)
-                Behavior on color { ColorAnimation { duration: 150 } }
+                color: connInfoMouse.containsMouse || connDialog.opened ? root.textColor : Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.38)
+                Behavior on color {
+                    ColorAnimation {
+                        duration: 150
+                    }
+                }
 
                 MouseArea {
                     id: connInfoMouse
@@ -308,10 +337,10 @@ ColumnLayout {
                     cursorShape: Qt.PointingHandCursor
                     onClicked: {
                         if (connDialog.opened) {
-                            connDialog.close()
+                            connDialog.close();
                         } else {
-                            connDialog.open()
-                            connDialog.refresh()
+                            connDialog.open();
+                            connDialog.refresh();
                         }
                     }
                 }
@@ -336,7 +365,7 @@ ColumnLayout {
                     checkable: true
                     checked: (plasmoid.configuration.networkInterface || "auto") === modelData
                     onTriggered: {
-                        plasmoid.configuration.networkInterface = modelData
+                        plasmoid.configuration.networkInterface = modelData;
                     }
                 }
             }
@@ -346,123 +375,228 @@ ColumnLayout {
     // ── network graph ────────────────────────────────────────────────────────
     Canvas {
         id: netGraph
-        Layout.fillWidth: true; Layout.fillHeight: true
+        Layout.fillWidth: true
+        Layout.fillHeight: true
         visible: plasmoid.configuration.chartType !== 6
-        antialiasing: true; renderStrategy: Canvas.Cooperative
+        antialiasing: true
+        renderStrategy: Canvas.Cooperative
 
         Connections {
             target: root
-            function onDlHistoryChanged()     { netGraph.requestPaint() }
-            function onUlHistoryChanged()     { netGraph.requestPaint() }
-            function onTextColorChanged()     { netGraph.requestPaint() }
-            function onScrollTickChanged()    { if (root._netPhaseStart > 0 && root.netScrollPhase() < 2) netGraph.requestPaint() }
+            function onDlHistoryChanged() {
+                netGraph.requestPaint();
+            }
+            function onUlHistoryChanged() {
+                netGraph.requestPaint();
+            }
+            function onTextColorChanged() {
+                netGraph.requestPaint();
+            }
+            function onScrollTickChanged() {
+                if (root._netPhaseStart > 0 && root.netScrollPhase() < 2)
+                    netGraph.requestPaint();
+            }
         }
         Connections {
-            target: plasmoid.configuration; ignoreUnknownSignals: true
-            function onGlowLineChanged()     { netGraph.requestPaint() }
-            function onLineWidthChanged()    { netGraph.requestPaint() }
-            function onShowYLabelsChanged()  { netGraph.requestPaint() }
-            function onDlColorChanged()      { netGraph.requestPaint() }
-            function onUlColorChanged()      { netGraph.requestPaint() }
-            function onChartTypeChanged()    { netGraph.requestPaint() }
-            function onShowGridLinesChanged(){ netGraph.requestPaint() }
-            function onAutoYRangeChanged()   { netGraph.requestPaint() }
-            function onSmoothLinesChanged()  { netGraph.requestPaint() }
+            target: plasmoid.configuration
+            ignoreUnknownSignals: true
+            function onGlowLineChanged() {
+                netGraph.requestPaint();
+            }
+            function onLineWidthChanged() {
+                netGraph.requestPaint();
+            }
+            function onShowYLabelsChanged() {
+                netGraph.requestPaint();
+            }
+            function onDlColorChanged() {
+                netGraph.requestPaint();
+            }
+            function onUlColorChanged() {
+                netGraph.requestPaint();
+            }
+            function onChartTypeChanged() {
+                netGraph.requestPaint();
+            }
+            function onShowGridLinesChanged() {
+                netGraph.requestPaint();
+            }
+            function onAutoYRangeChanged() {
+                netGraph.requestPaint();
+            }
+            function onSmoothLinesChanged() {
+                netGraph.requestPaint();
+            }
         }
 
         onPaint: {
-            const ctx = getContext("2d"); ctx.reset()
-            const dl = root.dlHistory, ul = root.ulHistory
-            const maxH  = Math.max(10, plasmoid.configuration.historySize)
-            const yLW   = plasmoid.configuration.showYLabels ? 38 : 0
-            const gW    = width - yLW
-            const smooth = plasmoid.configuration.smoothLines
-            const ct    = plasmoid.configuration.chartType || 0
+            const ctx = getContext("2d");
+            ctx.reset();
+            const dl = root.dlHistory, ul = root.ulHistory;
+            const maxH = Math.max(10, plasmoid.configuration.historySize);
+            const yLW = plasmoid.configuration.showYLabels ? 38 : 0;
+            const gW = width - yLW;
+            const smooth = plasmoid.configuration.smoothLines;
+            const ct = plasmoid.configuration.chartType || 0;
 
-            if (dl.length < 1 && ul.length < 1) { cu.drawIdleLine(ctx, yLW, gW, height); return }
-            ctx.setLineDash([])
+            if (dl.length < 1 && ul.length < 1) {
+                cu.drawIdleLine(ctx, yLW, gW, height);
+                return;
+            }
+            ctx.setLineDash([]);
 
-            const allVals = dl.concat(ul)
-            const dataMax = allVals.length > 0 ? Math.max.apply(null, allVals) : 0
-            const maxBps  = Math.max(1024, dataMax * (plasmoid.configuration.autoYRange ? 1.10 : 1.20))
-            const tPad    = height * 0.06, uH = height * 0.88
-            const step    = gW / Math.max(1, maxH - 1)
-            const sf      = root.netScrollPhase()
-            function bToY(b)       { return height - tPad - (b / maxBps) * uH }
-            function iToX(i, len)  { return yLW + gW - (len - 2 - i + sf) * step }
+            const allVals = dl.concat(ul);
+            const dataMax = allVals.length > 0 ? Math.max.apply(null, allVals) : 0;
+            const maxBps = Math.max(1024, dataMax * (plasmoid.configuration.autoYRange ? 1.10 : 1.20));
+            const tPad = height * 0.06, uH = height * 0.88;
+            const step = gW / Math.max(1, maxH - 1);
+            const sf = root.netScrollPhase();
+            function bToY(b) {
+                return height - tPad - (b / maxBps) * uH;
+            }
+            function iToX(i, len) {
+                return yLW + gW - (len - 2 - i + sf) * step;
+            }
 
             if (ct === 3) {
-                const cx = yLW + gW / 2, cy = height / 2
-                const rad = Math.min(gW, height) * 0.33, lw = Math.max(6, rad * 0.22)
-                const dlPct = Math.min(100, (root.downloadSpeed / maxBps) * 100)
-                const ulPct = Math.min(100, (root.uploadSpeed  / maxBps) * 100)
+                const cx = yLW + gW / 2, cy = height / 2;
+                const rad = Math.min(gW, height) * 0.33, lw = Math.max(6, rad * 0.22);
+                const dlPct = Math.min(100, (root.downloadSpeed / maxBps) * 100);
+                const ulPct = Math.min(100, (root.uploadSpeed / maxBps) * 100);
                 if (!root.isLineDisabled("dl"))
-                    cu.drawDonut(ctx, cx, cy, rad, lw, dlPct, root.dlColor,
-                        "↓ " + cu.formatSpeed(root.downloadSpeed), "↑ " + cu.formatSpeed(root.uploadSpeed))
+                    cu.drawDonut(ctx, cx, cy, rad, lw, dlPct, root.dlColor, "↓ " + cu.formatSpeed(root.downloadSpeed), "↑ " + cu.formatSpeed(root.uploadSpeed));
                 if (!root.isLineDisabled("ul"))
-                    cu.drawDonut(ctx, cx, cy, rad * 0.58, lw * 0.72, ulPct, root.ulColor, null, null)
-                return
+                    cu.drawDonut(ctx, cx, cy, rad * 0.58, lw * 0.72, ulPct, root.ulColor, null, null);
+                return;
             }
             if (ct === 4) {
-                const cx = yLW + gW / 2, cy = height / 2
-                const rad = Math.min(gW, height) * 0.33
-                const dlPct = Math.min(100, (root.downloadSpeed / maxBps) * 100)
-                const ulPct = Math.min(100, (root.uploadSpeed  / maxBps) * 100)
+                const cx = yLW + gW / 2, cy = height / 2;
+                const rad = Math.min(gW, height) * 0.33;
+                const dlPct = Math.min(100, (root.downloadSpeed / maxBps) * 100);
+                const ulPct = Math.min(100, (root.uploadSpeed / maxBps) * 100);
                 if (!root.isLineDisabled("dl"))
-                    cu.drawPie(ctx, cx, cy, rad, dlPct, root.dlColor,
-                        "↓ " + cu.formatSpeed(root.downloadSpeed), "↑ " + cu.formatSpeed(root.uploadSpeed))
+                    cu.drawPie(ctx, cx, cy, rad, dlPct, root.dlColor, "↓ " + cu.formatSpeed(root.downloadSpeed), "↑ " + cu.formatSpeed(root.uploadSpeed));
                 if (!root.isLineDisabled("ul"))
-                    cu.drawPie(ctx, cx, cy, rad * 0.58, ulPct, root.ulColor, null, null)
-                return
+                    cu.drawPie(ctx, cx, cy, rad * 0.58, ulPct, root.ulColor, null, null);
+                return;
             }
             if (ct === 5) {
-                const barH = 10, gap = 8, bx = yLW + 10, bw = gW - 20
-                let activeCount = (!root.isLineDisabled("dl") ? 1 : 0) + (!root.isLineDisabled("ul") ? 1 : 0)
-                let y = height / 2 - (activeCount * barH + (activeCount - 1) * gap) / 2
+                const barH = 10, gap = 8, bx = yLW + 10, bw = gW - 20;
+                let activeCount = (!root.isLineDisabled("dl") ? 1 : 0) + (!root.isLineDisabled("ul") ? 1 : 0);
+                let y = height / 2 - (activeCount * barH + (activeCount - 1) * gap) / 2;
                 if (!root.isLineDisabled("dl")) {
-                    cu.drawHorizontalBar(ctx, "Download",
-                        (root.downloadSpeed / maxBps) * 100, cu.formatSpeed(root.downloadSpeed), root.dlColor, bx, y, bw, barH)
-                    y += barH + gap
+                    cu.drawHorizontalBar(ctx, "Download", (root.downloadSpeed / maxBps) * 100, cu.formatSpeed(root.downloadSpeed), root.dlColor, bx, y, bw, barH);
+                    y += barH + gap;
                 }
                 if (!root.isLineDisabled("ul"))
-                    cu.drawHorizontalBar(ctx, "Upload",
-                        (root.uploadSpeed / maxBps) * 100, cu.formatSpeed(root.uploadSpeed), root.ulColor, bx, y, bw, barH)
-                return
+                    cu.drawHorizontalBar(ctx, "Upload", (root.uploadSpeed / maxBps) * 100, cu.formatSpeed(root.uploadSpeed), root.ulColor, bx, y, bw, barH);
+                return;
             }
             if (ct === 1) {
-                if (!root.isLineDisabled("dl")) cu.drawHistoryBars(ctx, dl, root.dlColor, yLW, gW, height, maxH, maxBps, 0)
+                if (!root.isLineDisabled("dl"))
+                    cu.drawHistoryBars(ctx, dl, root.dlColor, yLW, gW, height, maxH, maxBps, 0);
                 if (!root.isLineDisabled("ul")) {
-                    ctx.globalAlpha = 0.65
-                    cu.drawHistoryBars(ctx, ul, root.ulColor, yLW, gW, height, maxH, maxBps, 0)
-                    ctx.globalAlpha = 1.0
+                    ctx.globalAlpha = 0.65;
+                    cu.drawHistoryBars(ctx, ul, root.ulColor, yLW, gW, height, maxH, maxBps, 0);
+                    ctx.globalAlpha = 1.0;
                 }
-                return
+                return;
             }
 
             if (plasmoid.configuration.showYLabels) {
                 cu.drawYAxis(ctx, yLW, height, [
-                    { y: bToY(maxBps),     text: cu.formatSpeed(maxBps),     grid: false },
-                    { y: bToY(maxBps*0.5), text: cu.formatSpeed(maxBps*0.5), grid: true  },
-                    { y: bToY(0),          text: "0",                         grid: false }
-                ])
+                    {
+                        y: bToY(maxBps),
+                        text: cu.formatSpeed(maxBps),
+                        grid: false
+                    },
+                    {
+                        y: bToY(maxBps * 0.5),
+                        text: cu.formatSpeed(maxBps * 0.5),
+                        grid: true
+                    },
+                    {
+                        y: bToY(0),
+                        text: "0",
+                        grid: false
+                    }
+                ]);
             }
 
-            const fillA = ct === 2 ? 0.60 : 0.35
+            const fillA = ct === 2 ? 0.60 : 0.35;
             function drawLine(history, color, key) {
-                if (history.length < 2 || root.isLineDisabled(key)) return
-                const len = history.length
-                const isHov  = root.hoveredLine === key
-                const dimOth = (root.hoveredLine === "dl" || root.hoveredLine === "ul") && !isHov
-                ctx.save()
-                ctx.beginPath(); ctx.rect(yLW, 0, gW, height); ctx.clip()
-                ctx.globalAlpha = dimOth ? 0.15 : 1.0
-                ctx.lineWidth   = plasmoid.configuration.lineWidth
-                cu.drawLine(ctx, history, color, iToX, bToY, height, smooth, fillA,
-                    plasmoid.configuration.glowLine ? (isHov ? 12 : 6) : 0)
-                ctx.restore()
+                if (history.length < 2 || root.isLineDisabled(key))
+                    return;
+                const len = history.length;
+                const isHov = root.hoveredLine === key;
+                const dimOth = (root.hoveredLine === "dl" || root.hoveredLine === "ul") && !isHov;
+
+                // OPTIMIZATION: Precalculate all coordinates before drawing
+                const coords = new Array(len);
+                for (let i = 0; i < len; i++) {
+                    coords[i] = {
+                        x: iToX(i, len),
+                        y: bToY(history[i])
+                    };
+                }
+
+                ctx.save();
+                ctx.beginPath();
+                ctx.rect(yLW, 0, gW, height);
+                ctx.clip();
+                ctx.globalAlpha = dimOth ? 0.15 : 1.0;
+                ctx.lineWidth = plasmoid.configuration.lineWidth;
+
+                // OPTIMIZATION: Reduced glow blur for better performance
+                const glowAmount = plasmoid.configuration.glowLine ? (isHov ? 7 : 4) : 0;
+                if (glowAmount > 0) {
+                    ctx.shadowBlur = glowAmount;
+                    ctx.shadowColor = color;
+                }
+
+                // Draw stroke
+                ctx.beginPath();
+                ctx.strokeStyle = color;
+                ctx.lineCap = "round";
+                ctx.lineJoin = "round";
+                ctx.moveTo(coords[0].x, coords[0].y);
+                for (let i = 1; i < len; i++) {
+                    if (smooth) {
+                        const cx = (coords[i - 1].x + coords[i].x) / 2;
+                        ctx.bezierCurveTo(cx, coords[i - 1].y, cx, coords[i].y, coords[i].x, coords[i].y);
+                    } else {
+                        ctx.lineTo(coords[i].x, coords[i].y);
+                    }
+                }
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+
+                // Draw fill
+                if (fillA > 0) {
+                    ctx.beginPath();
+                    ctx.moveTo(coords[0].x, coords[0].y);
+                    for (let i = 1; i < len; i++) {
+                        if (smooth) {
+                            const cx = (coords[i - 1].x + coords[i].x) / 2;
+                            ctx.bezierCurveTo(cx, coords[i - 1].y, cx, coords[i].y, coords[i].x, coords[i].y);
+                        } else {
+                            ctx.lineTo(coords[i].x, coords[i].y);
+                        }
+                    }
+                    ctx.lineTo(coords[len - 1].x, height);
+                    ctx.lineTo(coords[0].x, height);
+                    ctx.closePath();
+                    const c = Qt.color(color);
+                    const g = ctx.createLinearGradient(0, 0, 0, height);
+                    g.addColorStop(0, Qt.rgba(c.r, c.g, c.b, fillA));
+                    g.addColorStop(1, Qt.rgba(c.r, c.g, c.b, 0));
+                    ctx.fillStyle = g;
+                    ctx.fill();
+                }
+                ctx.restore();
             }
-            drawLine(ul, root.ulColor, "ul")
-            drawLine(dl, root.dlColor, "dl")
+            drawLine(ul, root.ulColor, "ul");
+            drawLine(dl, root.dlColor, "dl");
         }
     }
 
@@ -470,15 +604,23 @@ ColumnLayout {
     RowLayout {
         Layout.fillWidth: true
         spacing: 4
-        Item { width: plasmoid.configuration.showYLabels ? 38 : 0 }
+        Item {
+            width: plasmoid.configuration.showYLabels ? 38 : 0
+        }
         Text {
             text: "↓ " + cu.formatBytes(root.sessionDlBytes)
-            color: root.dlColor; font.pixelSize: 10; opacity: 0.80
+            color: root.dlColor
+            font.pixelSize: 10
+            opacity: 0.80
         }
-        Item { Layout.fillWidth: true }
+        Item {
+            Layout.fillWidth: true
+        }
         Text {
             text: "↑ " + cu.formatBytes(root.sessionUlBytes)
-            color: root.ulColor; font.pixelSize: 10; opacity: 0.80
+            color: root.ulColor
+            font.pixelSize: 10
+            opacity: 0.80
         }
     }
 
@@ -486,79 +628,109 @@ ColumnLayout {
     RowLayout {
         Layout.fillWidth: true
         spacing: 6
-        Item { width: plasmoid.configuration.showYLabels ? 38 : 0 }
+        Item {
+            width: plasmoid.configuration.showYLabels ? 38 : 0
+        }
 
         Item {
-            implicitWidth: dlRow.implicitWidth; implicitHeight: dlRow.implicitHeight
+            implicitWidth: dlRow.implicitWidth
+            implicitHeight: dlRow.implicitHeight
             Row {
                 id: dlRow
                 spacing: 5
                 Rectangle {
-                    width: 8; height: 8; radius: 2; anchors.verticalCenter: parent.verticalCenter
+                    width: 8
+                    height: 8
+                    radius: 2
+                    anchors.verticalCenter: parent.verticalCenter
                     color: root.isLineDisabled("dl") ? "transparent" : root.dlColor
-                    border.color: root.dlColor; border.width: 1
+                    border.color: root.dlColor
+                    border.width: 1
                 }
                 Text {
                     text: "Download"
-                    color: root.isLineDisabled("dl")
-                        ? Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.3)
-                        : Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.7)
+                    color: root.isLineDisabled("dl") ? Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.3) : Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.7)
                     font.pixelSize: 10
                     font.strikeout: root.isLineDisabled("dl")
                     anchors.verticalCenter: parent.verticalCenter
                 }
                 Text {
                     text: cu.formatSpeed(root.downloadSpeed)
-                    color: root.isLineDisabled("dl")
-                        ? Qt.rgba(root.dlColor.r, root.dlColor.g, root.dlColor.b, 0.3)
-                        : root.dlColor
-                    font.pixelSize: 12; font.bold: true
+                    color: root.isLineDisabled("dl") ? Qt.rgba(root.dlColor.r, root.dlColor.g, root.dlColor.b, 0.3) : root.dlColor
+                    font.pixelSize: 12
+                    font.bold: true
                     anchors.verticalCenter: parent.verticalCenter
                 }
             }
             MouseArea {
-                anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
-                onClicked: { root.toggleLineDisabled("dl"); netGraph.requestPaint() }
-                onEntered: { root.hoveredLine = "dl"; netGraph.requestPaint() }
-                onExited:  { root.hoveredLine = "";   netGraph.requestPaint() }
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                hoverEnabled: true
+                onClicked: {
+                    root.toggleLineDisabled("dl");
+                    netGraph.requestPaint();
+                }
+                onEntered: {
+                    root.hoveredLine = "dl";
+                    netGraph.requestPaint();
+                }
+                onExited: {
+                    root.hoveredLine = "";
+                    netGraph.requestPaint();
+                }
             }
         }
 
-        Item { Layout.fillWidth: true }
+        Item {
+            Layout.fillWidth: true
+        }
 
         Item {
-            implicitWidth: ulRow.implicitWidth; implicitHeight: ulRow.implicitHeight
+            implicitWidth: ulRow.implicitWidth
+            implicitHeight: ulRow.implicitHeight
             Row {
                 id: ulRow
                 spacing: 5
                 Rectangle {
-                    width: 8; height: 8; radius: 2; anchors.verticalCenter: parent.verticalCenter
+                    width: 8
+                    height: 8
+                    radius: 2
+                    anchors.verticalCenter: parent.verticalCenter
                     color: root.isLineDisabled("ul") ? "transparent" : root.ulColor
-                    border.color: root.ulColor; border.width: 1
+                    border.color: root.ulColor
+                    border.width: 1
                 }
                 Text {
                     text: "Upload"
-                    color: root.isLineDisabled("ul")
-                        ? Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.3)
-                        : Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.7)
+                    color: root.isLineDisabled("ul") ? Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.3) : Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.7)
                     font.pixelSize: 10
                     font.strikeout: root.isLineDisabled("ul")
                     anchors.verticalCenter: parent.verticalCenter
                 }
                 Text {
                     text: cu.formatSpeed(root.uploadSpeed)
-                    color: root.isLineDisabled("ul")
-                        ? Qt.rgba(root.ulColor.r, root.ulColor.g, root.ulColor.b, 0.3)
-                        : root.ulColor
-                    font.pixelSize: 12; font.bold: true
+                    color: root.isLineDisabled("ul") ? Qt.rgba(root.ulColor.r, root.ulColor.g, root.ulColor.b, 0.3) : root.ulColor
+                    font.pixelSize: 12
+                    font.bold: true
                     anchors.verticalCenter: parent.verticalCenter
                 }
             }
             MouseArea {
-                anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
-                onClicked: { root.toggleLineDisabled("ul"); netGraph.requestPaint() }
-                onEntered: { root.hoveredLine = "ul"; netGraph.requestPaint() }
-                onExited:  { root.hoveredLine = "";   netGraph.requestPaint() }
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                hoverEnabled: true
+                onClicked: {
+                    root.toggleLineDisabled("ul");
+                    netGraph.requestPaint();
+                }
+                onEntered: {
+                    root.hoveredLine = "ul";
+                    netGraph.requestPaint();
+                }
+                onExited: {
+                    root.hoveredLine = "";
+                    netGraph.requestPaint();
+                }
             }
         }
     }
