@@ -13,7 +13,7 @@
         "Id": "org.muddyblack.glassySystemMonitor",
         "License": "MIT",
         "Name": "Glassy System Monitor",
-        "Version": "0.0.4-beta",
+        "Version": "0.0.5-beta",
         "Website": "https://github.com/Muddyblack/kde-glassy-system-monitor"
     },
     "X-Plasma-API-Minimum-Version": "6.0"

@@ -105,11 +105,22 @@ PlasmoidItem {
     function pingScrollPhase() { return _pingPhaseStart > 0 ? (Date.now() - _pingPhaseStart) / Math.max(500, plasmoid.configuration.pingInterval * 1000) : 0 }
     function gpuScrollPhase()  { return _gpuPhaseStart  > 0 ? (Date.now() - _gpuPhaseStart)  / 2000  : 0 }
 
-    // Bumps every 16ms; sections connect to this to call requestPaint().
+    // Bumps every 33ms (~30fps); sections connect to this to call requestPaint().
+    // 30fps is plenty smooth for a system monitor and halves the event-loop load
+    // vs 60fps — important when multiple instances are placed on the desktop.
     property int scrollTick: 0
+    readonly property bool _anyAnimating: !root.paused && (
+        (root.showPingSection    && root._pingPhaseStart > 0 && root.pingScrollPhase() < 2) ||
+        (root.showNetworkSpeed   && root._netPhaseStart  > 0 && root.netScrollPhase()  < 2) ||
+        (root.showCpuSection     && root._cpuPhaseStart  > 0 && root.cpuScrollPhase()  < 2) ||
+        (root.showMemorySection  && root._memPhaseStart  > 0 && root.memScrollPhase()  < 3) ||
+        (root.showDiskSection    && root._dskPhaseStart  > 0 && root.diskScrollPhase() < 2) ||
+        (root.showCustomSection  && root._custPhaseStart > 0 && root.custScrollPhase() < 2) ||
+        (root.showGpuSection     && root._gpuPhaseStart  > 0 && root.gpuScrollPhase()  < 3)
+    )
     Timer {
         id: scrollTicker
-        interval: 16; repeat: true; running: !root.paused
+        interval: 33; repeat: true; running: root._anyAnimating
         onTriggered: root.scrollTick = (root.scrollTick + 1) & 0x7fffffff
     }
 
