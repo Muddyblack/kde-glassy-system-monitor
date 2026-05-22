@@ -14,6 +14,7 @@ PlasmoidItem {
     readonly property bool showMemorySection: plasmoid.configuration.activeSection === 3
     readonly property bool showDiskSection:   plasmoid.configuration.activeSection === 5
     readonly property bool showCustomSection: plasmoid.configuration.activeSection === 4
+    readonly property bool showGpuSection:    plasmoid.configuration.activeSection === 6
 
     Layout.minimumWidth:  260
     Layout.preferredWidth: 400
@@ -32,6 +33,7 @@ PlasmoidItem {
         if (root.showMemorySection) h += graph + legend
         if (root.showDiskSection)   h += graph + legend
         if (root.showCustomSection) h += graph + legend
+        if (root.showGpuSection)    h += 22 + graph + legend
         return Math.max(120, h)
     }
     Layout.minimumHeight: 120
@@ -76,6 +78,7 @@ PlasmoidItem {
     property real _memPhaseStart:  0
     property real _dskPhaseStart:  0
     property real _custPhaseStart: 0
+    property real _gpuPhaseStart:  0
 
     function netScrollPhase()  { return _netPhaseStart  > 0 ? (Date.now() - _netPhaseStart)  / 1000  : 0 }
     function cpuScrollPhase()  { return _cpuPhaseStart  > 0 ? (Date.now() - _cpuPhaseStart)  / 1000  : 0 }
@@ -83,6 +86,7 @@ PlasmoidItem {
     function diskScrollPhase() { return _dskPhaseStart  > 0 ? (Date.now() - _dskPhaseStart)  / 1000  : 0 }
     function custScrollPhase() { return _custPhaseStart > 0 ? (Date.now() - _custPhaseStart) / Math.max(500, plasmoid.configuration.customCmdInterval * 1000) : 0 }
     function pingScrollPhase() { return _pingPhaseStart > 0 ? (Date.now() - _pingPhaseStart) / Math.max(500, plasmoid.configuration.pingInterval * 1000) : 0 }
+    function gpuScrollPhase()  { return _gpuPhaseStart  > 0 ? (Date.now() - _gpuPhaseStart)  / 2000  : 0 }
 
     // Bumps every 16ms; sections connect to this to call requestPaint().
     property int scrollTick: 0
@@ -97,6 +101,7 @@ PlasmoidItem {
     onCpuHistoryChanged:    { _cpuPhaseStart  = Date.now() }
     onMemHistoryChanged:    { _memPhaseStart  = Date.now() }
     onCustomHistoryChanged: { _custPhaseStart = Date.now() }
+    onGpuHistoryChanged:    { _gpuPhaseStart  = Date.now() }
 
     function restartDiskScroll() { _dskPhaseStart = Date.now() }
 
@@ -200,6 +205,7 @@ PlasmoidItem {
     property var  ulHistory:        []
     property var  lastNetBytes:     null
     property string activeIface:    ""
+    property var  availableIfaces:  ["auto"]
     property bool isReadingNet:     false
     property real sessionDlBytes:   0
     property real sessionUlBytes:   0
@@ -220,12 +226,20 @@ PlasmoidItem {
     function parseNetStats(text) {
         const cfgIface = plasmoid.configuration.networkInterface || "auto"
         let bestIface = "", bestRx = -1; const ifaceData = {}
+        const foundIfaces = ["auto"]
         for (const line of text.split("\n")) {
             const m = line.trim().match(/^(\w+):\s+(\d+)(?:\s+\d+){7}\s+(\d+)/)
             if (!m || m[1] === "lo") continue
             ifaceData[m[1]] = { rx: parseInt(m[2]), tx: parseInt(m[3]) }
+            foundIfaces.push(m[1])
             if (ifaceData[m[1]].rx > bestRx) { bestRx = ifaceData[m[1]].rx; bestIface = m[1] }
         }
+        
+        // Only update property if array changed (to avoid unnecessary re-renders)
+        if (root.availableIfaces.length !== foundIfaces.length || !root.availableIfaces.every((val, index) => val === foundIfaces[index])) {
+            root.availableIfaces = foundIfaces
+        }
+
         const iface = (cfgIface !== "auto" && ifaceData[cfgIface]) ? cfgIface : bestIface
         if (!iface || !ifaceData[iface]) return
         const now = Date.now(), { rx, tx } = ifaceData[iface]
@@ -368,6 +382,136 @@ PlasmoidItem {
         }
     }
 
+    // ── GPU state ─────────────────────────────────────────────────────────────
+    // gpuMode: "nvidia" | "amd" | "intel" | "fdinfo" | "none"
+    property string gpuMode:       ""
+    property string gpuVendor:     ""   // "nvidia" | "amd" | "intel" | ""
+    property real   gpuPercent:    0
+    property int    gpuFreqMhz:    0
+    property var    gpuHistory:    []
+    property int    gpuNoDataTicks: 0
+    property bool   isReadingGpu:  false
+    property bool   gpuDetected:   false
+
+    readonly property color gpuColor: Qt.color(plasmoid.configuration.gpuColor || "#ff6e40")
+
+    // Detect GPU backend once on startup
+    P5Support.DataSource {
+        id: gpuDetectSource; engine: "executable"; connectedSources: []
+        onNewData: function(sourceName, data) {
+            gpuDetectSource.disconnectSource(sourceName)
+            const out = (data["stdout"] || "").trim()
+            if (sourceName.indexOf("nvidia-smi") !== -1 && out.length > 0) {
+                root.gpuMode   = "nvidia"
+                root.gpuVendor = "nvidia"
+                root.gpuDetected = true
+            } else if (sourceName.indexOf("rocm-smi") !== -1 && out.length > 0 && !root.gpuDetected) {
+                root.gpuMode   = "amd"
+                root.gpuVendor = "amd"
+                root.gpuDetected = true
+            } else if (sourceName.indexOf("vendor") !== -1 && !root.gpuDetected) {
+                // sysfs vendor id: 0x8086=Intel, 0x1002=AMD, 0x10de=NVIDIA
+                if (out === "0x8086") { root.gpuVendor = "intel"; root.gpuMode = "intel"; root.gpuDetected = true }
+                else if (out === "0x1002") { root.gpuVendor = "amd"; root.gpuMode = "fdinfo"; root.gpuDetected = true }
+                else if (out === "0x10de") { root.gpuVendor = "nvidia"; root.gpuMode = "fdinfo"; root.gpuDetected = true }
+                else if (out.length > 0)  { root.gpuVendor = ""; root.gpuMode = "fdinfo"; root.gpuDetected = true }
+            }
+        }
+    }
+
+    P5Support.DataSource {
+        id: gpuSource; engine: "executable"; connectedSources: []
+        onNewData: function(sourceName, data) {
+            root.isReadingGpu = false
+            gpuSource.disconnectSource(sourceName)
+            root.parseGpuData(sourceName, data["stdout"] || "")
+        }
+    }
+
+    Timer {
+        id: gpuDetectTimer; interval: 200; repeat: false; running: root.showGpuSection
+        onTriggered: {
+            // Try nvidia-smi first, then rocm-smi, then sysfs vendor
+            gpuDetectSource.connectSource("nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits 2>/dev/null | head -1")
+            gpuDetectSource.connectSource("cat /sys/class/drm/card0/device/vendor 2>/dev/null || cat /sys/class/drm/card1/device/vendor 2>/dev/null")
+        }
+    }
+
+    Timer {
+        interval: 2000; running: root.showGpuSection; repeat: true
+        onTriggered: {
+            if (!root.isReadingGpu && root.gpuMode !== "") {
+                root.isReadingGpu = true
+                if (root.gpuMode === "nvidia") {
+                    gpuSource.connectSource("nvidia-smi --query-gpu=utilization.gpu,clocks.current.graphics --format=csv,noheader,nounits 2>/dev/null")
+                } else if (root.gpuMode === "amd") {
+                    gpuSource.connectSource("cat /sys/class/drm/card0/device/gpu_busy_percent 2>/dev/null || cat /sys/class/drm/card1/device/gpu_busy_percent 2>/dev/null")
+                } else if (root.gpuMode === "intel") {
+                    // Intel: rc6_residency_ms delta → busy %, plus current freq
+                    gpuSource.connectSource("cat /sys/class/drm/card1/gt/gt0/rc6_residency_ms 2>/dev/null || cat /sys/class/drm/card0/gt/gt0/rc6_residency_ms 2>/dev/null; echo; cat /sys/class/drm/card1/gt/gt0/rps_cur_freq_mhz 2>/dev/null || cat /sys/class/drm/card0/gt/gt0/rps_cur_freq_mhz 2>/dev/null; echo; cat /sys/class/drm/card1/gt/gt0/rps_act_freq_mhz 2>/dev/null || cat /sys/class/drm/card0/gt/gt0/rps_act_freq_mhz 2>/dev/null")
+                } else {
+                    // fdinfo fallback: sum drm-engine-render across all processes
+                    gpuSource.connectSource("grep -r 'drm-engine-render' /proc/*/fdinfo/ 2>/dev/null | awk '{sum+=$2} END{print sum}'")
+                }
+            } else if (!root.isReadingGpu && root.gpuMode === "" && root.gpuNoDataTicks < 2) {
+                root.isReadingGpu = true
+                gpuSource.connectSource("cat /sys/class/drm/card1/gt/gt0/rps_act_freq_mhz 2>/dev/null || cat /sys/class/drm/card0/device/gpu_busy_percent 2>/dev/null || echo ''")
+                root.gpuNoDataTicks++
+            } else {
+                root.isReadingGpu = false
+            }
+        }
+    }
+
+    property real _gpuLastRc6Ms: -1
+    property real _gpuLastPollMs: 0
+
+    function parseGpuData(src, text) {
+        const lines = text.trim().split("\n")
+        const maxH  = Math.max(10, plasmoid.configuration.historySize)
+
+        if (root.gpuMode === "nvidia") {
+            // "util, freq" per line (one GPU)
+            const parts = lines[0] ? lines[0].split(",") : []
+            const util  = parseFloat(parts[0])
+            const freq  = parseInt(parts[1])
+            if (!isNaN(util)) root.gpuPercent = Math.min(100, Math.max(0, util))
+            if (!isNaN(freq)) root.gpuFreqMhz = freq
+            root.gpuNoDataTicks = 0
+        } else if (root.gpuMode === "amd") {
+            // gpu_busy_percent sysfs → single int
+            const v = parseInt(lines[0])
+            if (!isNaN(v)) { root.gpuPercent = Math.min(100, Math.max(0, v)); root.gpuNoDataTicks = 0 }
+            else root.gpuNoDataTicks++
+        } else if (root.gpuMode === "intel") {
+            // line0: rc6_residency_ms, line1: rps_cur_freq_mhz, line2: rps_act_freq_mhz
+            const rc6Now = parseFloat(lines[0])
+            const cur    = parseInt(lines[1])
+            const act    = parseInt(lines[2])
+            const now    = Date.now()
+            if (!isNaN(cur))  root.gpuFreqMhz = isNaN(act) || act === 0 ? cur : act
+            if (!isNaN(rc6Now) && root._gpuLastRc6Ms >= 0 && root._gpuLastPollMs > 0) {
+                const dtMs  = now - root._gpuLastPollMs
+                const dRc6  = rc6Now - root._gpuLastRc6Ms
+                // rc6 = idle residency → busy = 1 - (dRc6 / dtMs), clamped
+                const busy  = Math.min(100, Math.max(0, (1.0 - dRc6 / dtMs) * 100))
+                root.gpuPercent = busy
+                root.gpuNoDataTicks = 0
+            }
+            root._gpuLastRc6Ms  = rc6Now
+            root._gpuLastPollMs = now
+        } else {
+            // fdinfo sum of nanoseconds — compare delta, approximate %
+            const ns = parseFloat(lines[0])
+            if (!isNaN(ns) && ns > 0) { root.gpuPercent = Math.min(100, ns / 20000000); root.gpuNoDataTicks = 0 }
+            else root.gpuNoDataTicks++
+        }
+
+        const nh = root.gpuHistory.slice(); nh.push(root.gpuPercent)
+        if (nh.length > maxH) nh.splice(0, nh.length - maxH)
+        root.gpuHistory = nh
+    }
+
     // ── shared interaction state ──────────────────────────────────────────────
     property string hoveredLine: ""
     property int    hoveredCore: -1
@@ -442,6 +586,7 @@ PlasmoidItem {
                         if (root.showCpuSection)    return plasmoid.configuration.cpuTitle     || "CPU"
                         if (root.showMemorySection) return plasmoid.configuration.memoryTitle  || "Memory"
                         if (root.showDiskSection)   return plasmoid.configuration.diskTitle    || "Disk I/O"
+                        if (root.showGpuSection)    return plasmoid.configuration.gpuTitle     || "GPU"
                         return plasmoid.configuration.customCmdTitle || "Custom Sensor"
                     }
                     color: root.textColor
@@ -449,24 +594,87 @@ PlasmoidItem {
                     renderType: Text.NativeRendering
                 }
 
-                // Network combined speed — only shown when Network section is active
+                // Network download total — only shown when Network section is active
                 Item {
                     visible: root.showNetworkSpeed
-                    anchors { right: parent.right; verticalCenter: parent.verticalCenter }
-                    implicitWidth: netTotalRow.implicitWidth; implicitHeight: netTotalRow.implicitHeight
+                    anchors { left: parent.left; verticalCenter: parent.verticalCenter }
+                    implicitWidth: netDlTotalRow.implicitWidth; implicitHeight: netDlTotalRow.implicitHeight
                     Row {
-                        id: netTotalRow
+                        id: netDlTotalRow
                         spacing: 4
                         Text {
-                            text: "↕"
-                            color: Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.45)
+                            text: "↓"
+                            color: Qt.rgba(root.dlColor.r, root.dlColor.g, root.dlColor.b, 0.6)
                             font.pixelSize: 11
                             anchors.verticalCenter: parent.verticalCenter
                         }
                         Text {
-                            text: cu.formatSpeed(root.downloadSpeed + root.uploadSpeed)
-                            color: root.textColor
-                            font.pixelSize: 13; font.bold: true
+                            text: cu.formatBytes(root.sessionDlBytes)
+                            color: root.dlColor
+                            font.pixelSize: 11; font.bold: true
+                            anchors.verticalCenter: parent.verticalCenter
+                        }
+                    }
+                }
+
+                // Network combined speed and upload total — only shown when Network section is active
+                Item {
+                    visible: root.showNetworkSpeed
+                    anchors { right: parent.right; verticalCenter: parent.verticalCenter }
+                    implicitWidth: netRightRow.implicitWidth; implicitHeight: netRightRow.implicitHeight
+                    Row {
+                        id: netRightRow
+                        spacing: 10
+                        Row {
+                            spacing: 4
+                            Text {
+                                text: "↕"
+                                color: Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.45)
+                                font.pixelSize: 11
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
+                            Text {
+                                text: cu.formatSpeed(root.downloadSpeed + root.uploadSpeed)
+                                color: root.textColor
+                                font.pixelSize: 13; font.bold: true
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
+                        }
+                        Row {
+                            spacing: 4
+                            Text {
+                                text: "↑"
+                                color: Qt.rgba(root.ulColor.r, root.ulColor.g, root.ulColor.b, 0.6)
+                                font.pixelSize: 11
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
+                            Text {
+                                text: cu.formatBytes(root.sessionUlBytes)
+                                color: root.ulColor
+                                font.pixelSize: 11; font.bold: true
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
+                        }
+                    }
+                }
+
+                // GPU total — only shown when GPU section is active
+                Item {
+                    visible: root.showGpuSection
+                    anchors { right: parent.right; verticalCenter: parent.verticalCenter }
+                    implicitWidth: gpuTotalRow.implicitWidth; implicitHeight: gpuTotalRow.implicitHeight
+                    Row {
+                        id: gpuTotalRow
+                        spacing: 5
+                        Rectangle {
+                            width: 9; height: 9; radius: 2; anchors.verticalCenter: parent.verticalCenter
+                            color: root.gpuColor
+                            border.color: root.gpuColor; border.width: 1
+                        }
+                        Text {
+                            text: root.gpuPercent.toFixed(1) + "%"
+                            color: root.gpuColor
+                            font.pixelSize: 15; font.bold: true
                             anchors.verticalCenter: parent.verticalCenter
                         }
                     }
@@ -578,6 +786,20 @@ PlasmoidItem {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 visible: root.showCustomSection
+            }
+
+            // gpu separator
+            Rectangle {
+                Layout.fillWidth: true; height: 1
+                color: Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.10)
+                visible: root.showGpuSection && (root.showPingSection || root.showNetworkSpeed || root.showCpuSection || root.showMemorySection || root.showDiskSection || root.showCustomSection)
+            }
+
+            // gpu
+            GpuSection {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                visible: root.showGpuSection
             }
         }
     }

@@ -61,6 +61,8 @@ KCM.SimpleKCM {
     property string cfg_diskTitle:         "Disk I/O"
     property alias  cfg_diskRdColor:       diskRdColorButton.color
     property alias  cfg_diskWrColor:       diskWrColorButton.color
+    property string cfg_gpuTitle:          "GPU"
+    property alias  cfg_gpuColor:          gpuColorButton.color
     property alias  cfg_showBg:            showBgCB.checked
     property alias  cfg_bgColor:           bgColorButton.color
     property alias  cfg_bgRadius:          bgRadiusSlider.value
@@ -91,6 +93,7 @@ KCM.SimpleKCM {
     KQuickControls.ColorButton { id: swapColorButton;   visible: false; showAlphaChannel: false }
     KQuickControls.ColorButton { id: diskRdColorButton; visible: false; showAlphaChannel: false }
     KQuickControls.ColorButton { id: diskWrColorButton; visible: false; showAlphaChannel: false }
+    KQuickControls.ColorButton { id: gpuColorButton;    visible: false; showAlphaChannel: false }
 
     P5Support.DataSource {
         id: ifaceSource; engine: "executable"; connectedSources: []
@@ -148,6 +151,7 @@ KCM.SimpleKCM {
         if (s === 3) return cfg_memoryTitle
         if (s === 4) return cfg_customCmdTitle
         if (s === 5) return cfg_diskTitle
+        if (s === 6) return cfg_gpuTitle
         return ""
     }
     function setTitleForSection(s, v) {
@@ -157,12 +161,13 @@ KCM.SimpleKCM {
         else if (s === 3) cfg_memoryTitle = v
         else if (s === 4) cfg_customCmdTitle = v
         else if (s === 5) cfg_diskTitle = v
+        else if (s === 6) cfg_gpuTitle = v
     }
 
     readonly property var sensorCategories: [
         { icon: "cpu-symbolic",                label: i18n("CPUs"),               section: 2  },
         { icon: "drive-harddisk-symbolic",     label: i18n("Disks"),              section: 5  },
-        { icon: "video-display-symbolic",      label: i18n("GPU"),                section: -1 },
+        { icon: "video-display-symbolic",      label: i18n("GPU"),                section: 6  },
         { icon: "sensor-symbolic",             label: i18n("Hardware Sensors"),   section: -1 },
         { icon: "media-flash-symbolic",        label: i18n("Memory"),             section: 3  },
         { icon: "network-wired-symbolic",      label: i18n("Network Devices"),    section: 1  },
@@ -832,6 +837,27 @@ KCM.SimpleKCM {
                             showAlphaChannel: false
                             color: diskWrColorButton.color
                             onColorChanged: diskWrColorButton.color = color
+                        }
+
+                        // GPU ─────────────────────────────────────────────────
+                        Kirigami.Separator {
+                            visible: cfg_activeSection === 6
+                            Kirigami.FormData.isSection: true
+                            Kirigami.FormData.label: i18n("GPU")
+                        }
+                        QQC.Label {
+                            visible: cfg_activeSection === 6
+                            text: i18n("Auto-detects NVIDIA (nvidia-smi), AMD (rocm-smi / sysfs), or Intel (i915 RC6). Falls back to kernel fdinfo on any GPU.")
+                            wrapMode: Text.WordWrap; opacity: 0.55; font.pixelSize: 10
+                            Layout.fillWidth: true
+                        }
+                        KQuickControls.ColorButton {
+                            id: gpuColorDetail
+                            visible: cfg_activeSection === 6
+                            Kirigami.FormData.label: i18n("GPU color:")
+                            showAlphaChannel: false
+                            color: gpuColorButton.color
+                            onColorChanged: gpuColorButton.color = color
                         }
 
                         // COMING SOON ─────────────────────────────────────────

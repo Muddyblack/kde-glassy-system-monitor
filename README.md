@@ -6,10 +6,11 @@
 
 [![KDE Store](https://img.shields.io/badge/KDE%20Store-Download-blue?logo=kde)](https://store.kde.org/)
 [![KDE Plasma](https://img.shields.io/badge/KDE%20Plasma-6.0%2B-1d99f3?logo=kde)](https://kde.org/plasma-desktop/)
+[![Widget Status: Beta](https://img.shields.io/badge/Widget%20Status-Beta-orange)](https://github.com/Muddyblack/kde-glassy-system-monitor)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow)](LICENSE)
 
 <p align="center">
-  <img src="./readme/demo.svg" alt="Widget demo" width="680"/>
+  <img src="./readme/network.svg" alt="Widget demo" width="680"/>
 </p>
 
 A glassy, real-time **ping · CPU · Memory · Network** diagnostic widget for KDE Plasma 6. Unlike built-in network widgets that only show bandwidth, this widget gives you live connection *quality* metrics — scrolling RTT graphs, jitter, and packet loss — alongside system stats.

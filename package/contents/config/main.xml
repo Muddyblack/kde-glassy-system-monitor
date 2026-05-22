@@ -154,6 +154,22 @@
         <entry name="customCmdColor" type="String">
             <default>#ffaa00</default>
         </entry>
+        <!-- GPU -->
+        <entry name="gpuTitle" type="String">
+            <default>GPU</default>
+        </entry>
+        <entry name="gpuColor" type="String">
+            <default>#ff6e40</default>
+        </entry>
+
+        <!-- Panel / compact mode -->
+        <entry name="panelMode" type="Bool">
+            <default>false</default>
+        </entry>
+        <entry name="panelShowSessionTotals" type="Bool">
+            <default>true</default>
+        </entry>
+
         <!-- Disk I/O -->
         <entry name="diskTitle" type="String">
             <default>Disk I/O</default>

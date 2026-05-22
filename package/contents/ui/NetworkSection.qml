@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import org.kde.plasma.components 3.0 as PlasmaComponents3
 
 ColumnLayout {
     id: netSection
@@ -7,11 +8,59 @@ ColumnLayout {
 
 
     // iface badge above graph
-    Text {
+    Item {
         Layout.leftMargin: plasmoid.configuration.showYLabels ? 42 : 4
-        text: root.activeIface || ""
-        color: Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.38)
-        font.pixelSize: 9; visible: root.activeIface !== ""
+        implicitWidth: ifaceRow.implicitWidth
+        implicitHeight: ifaceRow.implicitHeight
+        visible: root.activeIface !== ""
+
+        Row {
+            id: ifaceRow
+            spacing: 4
+            
+            Text {
+                id: ifaceText
+                text: root.activeIface || ""
+                color: ifaceMouseArea.containsMouse ? root.textColor : Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.38)
+                font.pixelSize: 10
+                font.bold: ifaceMouseArea.containsMouse
+                Behavior on color { ColorAnimation { duration: 150 } }
+            }
+            
+            Text {
+                text: "▾"
+                color: ifaceMouseArea.containsMouse ? root.textColor : Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.38)
+                font.pixelSize: 10
+                anchors.verticalCenter: ifaceText.verticalCenter
+                Behavior on color { ColorAnimation { duration: 150 } }
+            }
+        }
+
+        MouseArea {
+            id: ifaceMouseArea
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: {
+                ifaceMenu.popup()
+            }
+        }
+        
+        PlasmaComponents3.Menu {
+            id: ifaceMenu
+            
+            Repeater {
+                model: root.availableIfaces
+                delegate: PlasmaComponents3.MenuItem {
+                    text: modelData
+                    checkable: true
+                    checked: (plasmoid.configuration.networkInterface || "auto") === modelData
+                    onTriggered: {
+                        plasmoid.configuration.networkInterface = modelData
+                    }
+                }
+            }
+        }
     }
 
     Canvas {
