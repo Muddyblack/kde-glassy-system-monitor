@@ -73,7 +73,7 @@ Item {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 antialiasing: true
-                renderStrategy: Canvas.Cooperative
+                renderStrategy: Canvas.Threaded
 
                 readonly property var _h: {
                     if (!compact._valid) return []
