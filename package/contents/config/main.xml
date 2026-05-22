@@ -5,7 +5,7 @@
       http://www.kde.org/standards/kcfg/1.0/kcfg.xsd">
     <kcfgfile name=""/>
     <group name="General">
-        <!-- Active section (0=Ping, 1=Network, 2=CPU, 3=Memory) -->
+        <!-- Active section (0=Ping, 1=Network, 2=CPU, 3=Memory, 4=Custom, 5=Disk) -->
         <entry name="activeSection" type="Int">
             <default>0</default>
         </entry>
@@ -76,7 +76,7 @@
         </entry>
 
         <entry name="lineWidth" type="Double">
-            <default>1.8</default>
+            <default>2.2</default>
         </entry>
         <entry name="glowLine" type="Bool">
             <default>true</default>
@@ -107,9 +107,6 @@
         </entry>
         <entry name="chartType" type="Int">
             <default>0</default>
-        </entry>
-        <entry name="fillOpacity" type="Double">
-            <default>0.30</default>
         </entry>
         <entry name="smoothLines" type="Bool">
             <default>true</default>
@@ -156,6 +153,19 @@
         </entry>
         <entry name="customCmdColor" type="String">
             <default>#ffaa00</default>
+        </entry>
+        <!-- Disk I/O -->
+        <entry name="diskTitle" type="String">
+            <default>Disk I/O</default>
+        </entry>
+        <entry name="diskDevice" type="String">
+            <default>auto</default>
+        </entry>
+        <entry name="diskRdColor" type="String">
+            <default>#22ddff</default>
+        </entry>
+        <entry name="diskWrColor" type="String">
+            <default>#ffaa22</default>
         </entry>
     </group>
 </kcfg>

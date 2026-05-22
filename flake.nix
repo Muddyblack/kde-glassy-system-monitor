@@ -21,9 +21,16 @@
 
             installPhase = ''
               runHook preInstall
+              
+              # Install plasmoid package
               root=$out/share/plasma/plasmoids/org.muddyblack.glassySystemMonitor
               mkdir -p "$root"
               cp -r . "$root/"
+
+              # Register icon in hicolor theme so Plasma Widget Explorer picks it up
+              mkdir -p "$out/share/icons/hicolor/256x256/apps"
+              cp icon.png "$out/share/icons/hicolor/256x256/apps/org.muddyblack.glassySystemMonitor.png"
+
               runHook postInstall
             '';
 

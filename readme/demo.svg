@@ -1,0 +1,176 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 220" width="680" height="220">
+<defs>
+<style>
+@keyframes scrollLine{0%{transform:translateX(0)}100%{transform:translateX(-60px)}}
+@keyframes pulseAlert{0%,100%{opacity:0.15}50%{opacity:0.55}}
+@keyframes fadeIn{0%{opacity:0}100%{opacity:1}}
+@keyframes barCpu{0%,100%{width:148px}25%{width:174px}50%{width:128px}75%{width:162px}}
+@keyframes barRam{0%,100%{width:98px}33%{width:112px}66%{width:88px}}
+@keyframes barSwap{0%,100%{width:28px}50%{width:36px}}
+@keyframes dot1{0%,100%{opacity:0}10%,90%{opacity:1}}
+@keyframes dot2{0%,100%{opacity:0}30%,70%{opacity:1}}
+@keyframes statMs{0%,100%{}}
+@keyframes glowPulse{0%,100%{filter:url(#lineglow)}50%{filter:url(#lineglowStrong)}}
+</style>
+<linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+  <stop offset="0%" stop-color="#141626"/>
+  <stop offset="100%" stop-color="#0c0d1b"/>
+</linearGradient>
+<linearGradient id="lineGrad" x1="0" y1="0" x2="1" y2="0">
+  <stop offset="0%" stop-color="#00d4ff" stop-opacity="0.3"/>
+  <stop offset="40%" stop-color="#00d4ff" stop-opacity="1"/>
+  <stop offset="100%" stop-color="#7c3aed" stop-opacity="0.9"/>
+</linearGradient>
+<linearGradient id="fillGrad" x1="0" y1="0" x2="0" y2="1">
+  <stop offset="0%" stop-color="#00d4ff" stop-opacity="0.18"/>
+  <stop offset="100%" stop-color="#00d4ff" stop-opacity="0"/>
+</linearGradient>
+<linearGradient id="cpuBar" x1="0" y1="0" x2="1" y2="0">
+  <stop offset="0%" stop-color="#00d4ff"/>
+  <stop offset="100%" stop-color="#7c3aed"/>
+</linearGradient>
+<linearGradient id="ramBar" x1="0" y1="0" x2="1" y2="0">
+  <stop offset="0%" stop-color="#34d399"/>
+  <stop offset="100%" stop-color="#059669"/>
+</linearGradient>
+<linearGradient id="swapBar" x1="0" y1="0" x2="1" y2="0">
+  <stop offset="0%" stop-color="#f59e0b"/>
+  <stop offset="100%" stop-color="#d97706"/>
+</linearGradient>
+<filter id="shadow">
+  <feDropShadow dx="0" dy="6" stdDeviation="14" flood-color="#00d4ff" flood-opacity="0.12"/>
+</filter>
+<filter id="lineglow" x="-5%" y="-80%" width="110%" height="260%">
+  <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="b"/>
+  <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+</filter>
+<filter id="lineglowStrong" x="-5%" y="-80%" width="110%" height="260%">
+  <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="b"/>
+  <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+</filter>
+<clipPath id="graphClip">
+  <rect x="32" y="56" width="616" height="100"/>
+</clipPath>
+</defs>
+
+<!-- Card -->
+<rect width="680" height="220" rx="16" fill="url(#bg)" filter="url(#shadow)"/>
+<rect width="680" height="220" rx="16" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+<!-- Top highlight line -->
+<rect x="16" y="0.5" width="648" height="1" rx="0.5" fill="rgba(255,255,255,0.13)"/>
+
+<!-- Alert border pulse (subtle) -->
+<rect width="680" height="220" rx="16" fill="none" stroke="#00d4ff" stroke-width="1.5" opacity="0.08">
+  <animate attributeName="opacity" values="0.05;0.18;0.05" dur="3s" repeatCount="indefinite"/>
+</rect>
+
+<!-- Tabs row -->
+<g font-family="monospace,ui-monospace" font-size="11" fill="rgba(255,255,255,0.5)">
+  <!-- Active tab: PING -->
+  <rect x="20" y="16" width="52" height="22" rx="6" fill="rgba(0,212,255,0.15)" stroke="rgba(0,212,255,0.45)" stroke-width="1"/>
+  <text x="46" y="31" text-anchor="middle" fill="#00d4ff" font-weight="bold">PING</text>
+  <!-- Inactive tabs -->
+  <rect x="78" y="16" width="44" height="22" rx="6" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.10)" stroke-width="1"/>
+  <text x="100" y="31" text-anchor="middle">CPU</text>
+  <rect x="128" y="16" width="44" height="22" rx="6" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.10)" stroke-width="1"/>
+  <text x="150" y="31" text-anchor="middle">MEM</text>
+  <rect x="178" y="16" width="44" height="22" rx="6" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.10)" stroke-width="1"/>
+  <text x="200" y="31" text-anchor="middle">NET</text>
+  <!-- Live RTT badge -->
+  <text x="640" y="31" text-anchor="end" fill="rgba(255,255,255,0.35)" font-size="10">RTT</text>
+  <text x="660" y="31" text-anchor="end" fill="#00d4ff" font-size="13" font-weight="bold">
+    23
+    <animate attributeName="textLength" values="14;14;14;14;14;14;14;14;14;14" dur="4s" repeatCount="indefinite"/>
+  </text>
+  <text x="668" y="31" text-anchor="end" fill="rgba(255,255,255,0.4)" font-size="9">ms</text>
+</g>
+
+<!-- Graph area background -->
+<rect x="20" y="50" width="640" height="112" rx="8" fill="rgba(0,0,0,0.25)" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>
+
+<!-- Grid lines -->
+<g stroke="rgba(255,255,255,0.05)" stroke-width="1">
+  <line x1="32" y1="75" x2="648" y2="75"/>
+  <line x1="32" y1="100" x2="648" y2="100"/>
+  <line x1="32" y1="125" x2="648" y2="125"/>
+</g>
+<!-- Grid labels -->
+<g font-family="monospace" font-size="8" fill="rgba(255,255,255,0.20)" text-anchor="end">
+  <text x="30" y="78">200</text>
+  <text x="30" y="103">100</text>
+  <text x="30" y="128">0</text>
+</g>
+
+<!-- Animated scrolling graph — clipped -->
+<g clip-path="url(#graphClip)">
+  <!-- Fill under curve -->
+  <g style="animation:scrollLine 4s linear infinite">
+    <path fill="url(#fillGrad)" opacity="0.7">
+      <animate attributeName="d" calcMode="spline"
+        keyTimes="0;0.25;0.5;0.75;1"
+        keySplines="0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1"
+        values="
+          M -28,158 C 0,158 0,120 28,115 C 56,110 56,105 84,100 C 112,95 112,108 140,110 C 168,112 168,90 196,85 C 224,80 224,95 252,98 C 280,101 280,88 308,82 C 336,76 336,92 364,95 C 392,98 392,80 420,75 C 448,70 448,88 476,92 C 504,96 504,78 532,72 C 560,66 560,82 588,86 C 616,90 616,75 644,70 C 672,65 700,78 728,80 L 728,158 L -28,158 Z;
+          M -28,158 C 0,158 0,115 28,110 C 56,105 56,98 84,95 C 112,92 112,105 140,108 C 168,111 168,88 196,82 C 224,76 224,92 252,96 C 280,100 280,85 308,78 C 336,71 336,88 364,92 C 392,96 392,78 420,72 C 448,66 448,85 476,90 C 504,95 504,75 532,68 C 560,61 560,78 588,83 C 616,88 616,72 644,67 C 672,62 700,75 728,78 L 728,158 L -28,158 Z;
+          M -28,158 C 0,158 0,110 28,105 C 56,100 56,92 84,88 C 112,84 112,100 140,104 C 168,108 168,85 196,78 C 224,71 224,88 252,92 C 280,96 280,82 308,75 C 336,68 336,84 364,88 C 392,92 392,75 420,68 C 448,61 448,80 476,86 C 504,92 504,72 532,65 C 560,58 560,75 588,80 C 616,85 616,68 644,63 C 672,58 700,72 728,76 L 728,158 L -28,158 Z;
+          M -28,158 C 0,158 0,118 28,113 C 56,108 56,102 84,98 C 112,94 112,107 140,110 C 168,113 168,91 196,85 C 224,79 224,94 252,98 C 280,102 280,87 308,80 C 336,73 336,90 364,94 C 392,98 392,79 420,73 C 448,67 448,86 476,91 C 504,96 504,77 532,70 C 560,63 560,80 588,85 C 616,90 616,73 644,68 C 672,63 700,76 728,79 L 728,158 L -28,158 Z;
+          M -28,158 C 0,158 0,120 28,115 C 56,110 56,105 84,100 C 112,95 112,108 140,110 C 168,112 168,90 196,85 C 224,80 224,95 252,98 C 280,101 280,88 308,82 C 336,76 336,92 364,95 C 392,98 392,80 420,75 C 448,70 448,88 476,92 C 504,96 504,78 532,72 C 560,66 560,82 588,86 C 616,90 616,75 644,70 C 672,65 700,78 728,80 L 728,158 L -28,158 Z
+        " dur="8s" repeatCount="indefinite"/>
+    </path>
+    <!-- Neon line -->
+    <path fill="none" stroke="url(#lineGrad)" stroke-width="2" stroke-linecap="round" filter="url(#lineglow)">
+      <animate attributeName="d" calcMode="spline"
+        keyTimes="0;0.25;0.5;0.75;1"
+        keySplines="0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1"
+        values="
+          M -28,115 C 0,115 0,120 28,115 C 56,110 56,105 84,100 C 112,95 112,108 140,110 C 168,112 168,90 196,85 C 224,80 224,95 252,98 C 280,101 280,88 308,82 C 336,76 336,92 364,95 C 392,98 392,80 420,75 C 448,70 448,88 476,92 C 504,96 504,78 532,72 C 560,66 560,82 588,86 C 616,90 616,75 644,70 C 672,65 700,78 728,80;
+          M -28,110 C 0,110 0,115 28,110 C 56,105 56,98 84,95 C 112,92 112,105 140,108 C 168,111 168,88 196,82 C 224,76 224,92 252,96 C 280,100 280,85 308,78 C 336,71 336,88 364,92 C 392,96 392,78 420,72 C 448,66 448,85 476,90 C 504,95 504,75 532,68 C 560,61 560,78 588,83 C 616,88 616,72 644,67 C 672,62 700,75 728,78;
+          M -28,105 C 0,105 0,110 28,105 C 56,100 56,92 84,88 C 112,84 112,100 140,104 C 168,108 168,85 196,78 C 224,71 224,88 252,92 C 280,96 280,82 308,75 C 336,68 336,84 364,88 C 392,92 392,75 420,68 C 448,61 448,80 476,86 C 504,92 504,72 532,65 C 560,58 560,75 588,80 C 616,85 616,68 644,63 C 672,58 700,72 728,76;
+          M -28,113 C 0,113 0,118 28,113 C 56,108 56,102 84,98 C 112,94 112,107 140,110 C 168,113 168,91 196,85 C 224,79 224,94 252,98 C 280,102 280,87 308,80 C 336,73 336,90 364,94 C 392,98 392,79 420,73 C 448,67 448,86 476,91 C 504,96 504,77 532,70 C 560,63 560,80 588,85 C 616,90 616,73 644,68 C 672,63 700,76 728,79;
+          M -28,115 C 0,115 0,120 28,115 C 56,110 56,105 84,100 C 112,95 112,108 140,110 C 168,112 168,90 196,85 C 224,80 224,95 252,98 C 280,101 280,88 308,82 C 336,76 336,92 364,95 C 392,98 392,80 420,75 C 448,70 448,88 476,92 C 504,96 504,78 532,72 C 560,66 560,82 588,86 C 616,90 616,75 644,70 C 672,65 700,78 728,80
+        " dur="8s" repeatCount="indefinite"/>
+    </path>
+  </g>
+
+  <!-- Packet loss red dots (appear/disappear) -->
+  <circle cx="180" cy="155" r="3" fill="#ef4444" opacity="0">
+    <animate attributeName="opacity" values="0;0;0;1;1;0;0;0;0;0" dur="8s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="460" cy="155" r="3" fill="#ef4444" opacity="0">
+    <animate attributeName="opacity" values="0;0;0;0;0;0;1;1;0;0" dur="8s" repeatCount="indefinite"/>
+  </circle>
+</g>
+
+<!-- Stats bar -->
+<rect x="20" y="168" width="640" height="38" rx="8" fill="rgba(0,0,0,0.20)" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>
+
+<g font-family="monospace,ui-monospace" font-size="9" fill="rgba(255,255,255,0.38)" text-anchor="middle">
+  <!-- Jitter -->
+  <text x="100" y="183">JITTER</text>
+  <text x="100" y="197" fill="rgba(255,255,255,0.80)" font-size="11">3.2 ms</text>
+
+  <line x1="168" y1="172" x2="168" y2="202" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+
+  <!-- Loss -->
+  <text x="230" y="183">LOSS</text>
+  <text x="230" y="197" fill="#ef4444" font-size="11">1.6 %</text>
+
+  <line x1="298" y1="172" x2="298" y2="202" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+
+  <!-- Min -->
+  <text x="356" y="183">MIN</text>
+  <text x="356" y="197" fill="rgba(255,255,255,0.80)" font-size="11">18 ms</text>
+
+  <line x1="414" y1="172" x2="414" y2="202" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+
+  <!-- Max -->
+  <text x="472" y="183">MAX</text>
+  <text x="472" y="197" fill="rgba(255,255,255,0.80)" font-size="11">31 ms</text>
+
+  <line x1="530" y1="172" x2="530" y2="202" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+
+  <!-- Target -->
+  <text x="594" y="183">TARGET</text>
+  <text x="594" y="197" fill="#00d4ff" font-size="10">8.8.8.8</text>
+</g>
+</svg>
