@@ -9,7 +9,7 @@ ColumnLayout {
         id: memGraph
         Layout.fillWidth: true; Layout.fillHeight: true
         visible: plasmoid.configuration.chartType !== 6
-        antialiasing: true; renderStrategy: Canvas.Threaded
+        antialiasing: true; renderStrategy: Canvas.Cooperative
 
         Connections {
             target: root
@@ -183,7 +183,7 @@ ColumnLayout {
         }
 
         Item {
-            visible: root.hasSwap && root.swapUsedGiB > 0.01
+            visible: root.hasSwap
             Layout.minimumWidth: 0
             Layout.preferredWidth: swapRow.implicitWidth
             implicitHeight: swapRow.implicitHeight

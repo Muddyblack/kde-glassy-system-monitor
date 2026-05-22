@@ -81,6 +81,12 @@
         <entry name="glowLine" type="Bool">
             <default>true</default>
         </entry>
+        <!-- Target scroll animation framerate. Higher = smoother but more CPU.
+             30 fps is plenty smooth for a system monitor; 60 fps matches most
+             displays; 120 fps is for high-refresh setups. -->
+        <entry name="targetFps" type="Int">
+            <default>60</default>
+        </entry>
         <entry name="showStats" type="Bool">
             <default>true</default>
         </entry>

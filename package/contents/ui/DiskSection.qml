@@ -106,7 +106,7 @@ ColumnLayout {
         id: diskGraph
         Layout.fillWidth: true; Layout.fillHeight: true
         visible: plasmoid.configuration.chartType !== 6
-        antialiasing: true; renderStrategy: Canvas.Threaded
+        antialiasing: true; renderStrategy: Canvas.Cooperative
 
         Connections {
             target: diskSection

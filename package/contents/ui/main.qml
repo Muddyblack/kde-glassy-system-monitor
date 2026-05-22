@@ -105,10 +105,12 @@ PlasmoidItem {
     function pingScrollPhase() { return _pingPhaseStart > 0 ? (Date.now() - _pingPhaseStart) / Math.max(500, plasmoid.configuration.pingInterval * 1000) : 0 }
     function gpuScrollPhase()  { return _gpuPhaseStart  > 0 ? (Date.now() - _gpuPhaseStart)  / 2000  : 0 }
 
-    // Bumps every 33ms (~30fps); sections connect to this to call requestPaint().
-    // 30fps is plenty smooth for a system monitor and halves the event-loop load
-    // vs 60fps — important when multiple instances are placed on the desktop.
+    // Scroll animation ticker. Interval is derived from configured targetFps;
+    // 30/60/120 fps are the typical values. Only runs while a visible section
+    // is within its post-data scroll window, so it auto-pauses when idle —
+    // important when multiple instances are placed on the desktop.
     property int scrollTick: 0
+    readonly property int _tickInterval: Math.max(8, Math.round(1000 / Math.max(15, plasmoid.configuration.targetFps || 60)))
     readonly property bool _anyAnimating: !root.paused && (
         (root.showPingSection    && root._pingPhaseStart > 0 && root.pingScrollPhase() < 2) ||
         (root.showNetworkSpeed   && root._netPhaseStart  > 0 && root.netScrollPhase()  < 2) ||
@@ -120,7 +122,7 @@ PlasmoidItem {
     )
     Timer {
         id: scrollTicker
-        interval: 33; repeat: true; running: root._anyAnimating
+        interval: root._tickInterval; repeat: true; running: root._anyAnimating
         onTriggered: root.scrollTick = (root.scrollTick + 1) & 0x7fffffff
     }
 
