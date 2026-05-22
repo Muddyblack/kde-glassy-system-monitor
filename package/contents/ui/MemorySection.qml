@@ -5,25 +5,6 @@ ColumnLayout {
     id: memSection
     spacing: 3
 
-
-    RowLayout {
-        Layout.fillWidth: true
-        spacing: 6
-        Item { width: plasmoid.configuration.showYLabels ? 38 : 0 }
-        Item { Layout.fillWidth: true }
-        Text {
-            text: root.memUsedGiB.toFixed(1) + " / " + root.memTotalGiB.toFixed(1) + " GiB"
-            color: root.memColor; font.pixelSize: 13; font.bold: true
-        }
-        Item { width: 6; visible: root.hasSwap }
-        Rectangle { width: 8; height: 8; radius: 2; color: root.swapColor; opacity: 0.85; visible: root.hasSwap }
-        Text {
-            visible: root.hasSwap
-            text: "SWAP " + root.swapPercent.toFixed(0) + "%"
-            color: root.swapColor; font.pixelSize: 13; font.bold: true
-        }
-    }
-
     Canvas {
         id: memGraph
         Layout.fillWidth: true; Layout.fillHeight: true
@@ -148,26 +129,86 @@ ColumnLayout {
         }
     }
 
+    // ── legend + live values ─────────────────────────────────────────────────
     RowLayout {
         Layout.fillWidth: true
         visible: plasmoid.configuration.showLegend
-        spacing: 12
+        spacing: 6
         Item { width: plasmoid.configuration.showYLabels ? 38 : 0 }
-        LegendItem {
-            text: "RAM"; color: root.memColor; textColor: root.textColor
-            active: !root.isLineDisabled("ram")
-            highlighted: root.hoveredLine === "ram"
-            onClicked: { root.toggleLineDisabled("ram"); memGraph.requestPaint() }
-            onHovered: function(h) { root.hoveredLine = h ? "ram" : ""; memGraph.requestPaint() }
+
+        Item {
+            implicitWidth: ramRow.implicitWidth; implicitHeight: ramRow.implicitHeight
+            Row {
+                id: ramRow
+                spacing: 5
+                Rectangle {
+                    width: 8; height: 8; radius: 2; anchors.verticalCenter: parent.verticalCenter
+                    color: root.isLineDisabled("ram") ? "transparent" : root.memColor
+                    border.color: root.memColor; border.width: 1
+                }
+                Text {
+                    text: "RAM"
+                    color: root.isLineDisabled("ram")
+                        ? Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.3)
+                        : Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.7)
+                    font.pixelSize: 10
+                    font.strikeout: root.isLineDisabled("ram")
+                    anchors.verticalCenter: parent.verticalCenter
+                }
+                Text {
+                    text: root.memUsedGiB.toFixed(1) + " / " + root.memTotalGiB.toFixed(1) + " GiB"
+                    color: root.isLineDisabled("ram")
+                        ? Qt.rgba(root.memColor.r, root.memColor.g, root.memColor.b, 0.3)
+                        : root.memColor
+                    font.pixelSize: 12; font.bold: true
+                    anchors.verticalCenter: parent.verticalCenter
+                }
+            }
+            MouseArea {
+                anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
+                onClicked: { root.toggleLineDisabled("ram"); memGraph.requestPaint() }
+                onEntered: { root.hoveredLine = "ram"; memGraph.requestPaint() }
+                onExited:  { root.hoveredLine = "";    memGraph.requestPaint() }
+            }
         }
-        LegendItem {
-            text: "Swap"; color: root.swapColor; textColor: root.textColor
-            visible: root.hasSwap
-            active: !root.isLineDisabled("swap")
-            highlighted: root.hoveredLine === "swap"
-            onClicked: { root.toggleLineDisabled("swap"); memGraph.requestPaint() }
-            onHovered: function(h) { root.hoveredLine = h ? "swap" : ""; memGraph.requestPaint() }
-        }
+
         Item { Layout.fillWidth: true }
+
+        Item {
+            visible: root.hasSwap
+            implicitWidth: swapRow.implicitWidth; implicitHeight: swapRow.implicitHeight
+            Row {
+                id: swapRow
+                spacing: 5
+                Rectangle {
+                    width: 8; height: 8; radius: 2; anchors.verticalCenter: parent.verticalCenter
+                    color: root.isLineDisabled("swap") ? "transparent" : root.swapColor
+                    border.color: root.swapColor; border.width: 1
+                }
+                Text {
+                    text: "Swap"
+                    color: root.isLineDisabled("swap")
+                        ? Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.3)
+                        : Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.7)
+                    font.pixelSize: 10
+                    font.strikeout: root.isLineDisabled("swap")
+                    anchors.verticalCenter: parent.verticalCenter
+                }
+                Text {
+                    text: root.swapPercent.toFixed(0) + "%"
+                    color: root.isLineDisabled("swap")
+                        ? Qt.rgba(root.swapColor.r, root.swapColor.g, root.swapColor.b, 0.3)
+                        : root.swapColor
+                    font.pixelSize: 12; font.bold: true
+                    anchors.verticalCenter: parent.verticalCenter
+                }
+            }
+            MouseArea {
+                anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
+                onClicked: { root.toggleLineDisabled("swap"); memGraph.requestPaint() }
+                onEntered: { root.hoveredLine = "swap"; memGraph.requestPaint() }
+                onExited:  { root.hoveredLine = "";     memGraph.requestPaint() }
+            }
+        }
     }
 }

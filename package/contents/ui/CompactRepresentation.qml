@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Controls as QQC2
 import org.kde.plasma.plasmoid
 import org.kde.kirigami as Kirigami
 
@@ -29,7 +30,28 @@ Item {
 
     MouseArea {
         anchors.fill: parent
-        onClicked: plasmoid.expanded = !plasmoid.expanded
+        acceptedButtons: Qt.LeftButton | Qt.RightButton
+        onClicked: function(mouse) {
+            if (mouse.button === Qt.RightButton) contextMenu.popup()
+            else plasmoid.expanded = !plasmoid.expanded
+        }
+    }
+
+    QQC2.Menu {
+        id: contextMenu
+        QQC2.MenuItem {
+            text: compact._valid && compact._root.paused ? "Resume" : "Pause"
+            onTriggered: { if (compact._valid) compact._root.paused = !compact._root.paused }
+        }
+    }
+
+    // pause overlay badge
+    Text {
+        visible: compact._valid && compact._root.paused
+        anchors { right: parent.right; top: parent.top; margins: 2 }
+        text: "⏸"
+        font.pixelSize: Math.max(8, Math.min(14, compact.height * 0.38))
+        opacity: 0.85
     }
 
     // ── Panel mode: rich stacked layout ──────────────────────────────────────
@@ -151,11 +173,34 @@ Item {
         Item {
             id: panelRoot
 
-            // glassy pill background
+            // padding around the content, inside the pill
+            readonly property int hPad: 8
+            readonly property int vPad: 3
+
+            // the currently-active section loader (only one is active at a time)
+            readonly property Loader activeLoader: {
+                if (netLoader.active)    return netLoader
+                if (diskLoader.active)   return diskLoader
+                if (cpuLoader.active)    return cpuLoader
+                if (memLoader.active)    return memLoader
+                if (pingLoader.active)   return pingLoader
+                if (gpuLoader.active)    return gpuLoader
+                if (customLoader.active) return customLoader
+                return null
+            }
+            readonly property real contentW: activeLoader && activeLoader.item ? activeLoader.item.implicitWidth  : 0
+            readonly property real contentH: activeLoader && activeLoader.item ? activeLoader.item.implicitHeight : 0
+
+            implicitWidth:  contentW + hPad * 2
+            implicitHeight: contentH + vPad * 2
+
+            // glassy pill background — sized to content, centered
             Rectangle {
-                anchors.fill: parent
-                anchors.margins: 1
-                radius: height / 2
+                id: pill
+                anchors.centerIn: parent
+                width:  Math.min(parent.width,  Math.max(20, panelRoot.contentW + panelRoot.hPad * 2))
+                height: Math.min(parent.height, Math.max(16, panelRoot.contentH + panelRoot.vPad * 2))
+                radius: Math.min(width, height) / 2
                 color: plasmoid.configuration.bgColor || "#800d0f1a"
                 border.color: Qt.rgba(1, 1, 1, 0.13)
                 border.width: 1
@@ -170,27 +215,28 @@ Item {
 
             // ── Network section: ↓ on top, ↑ below ───────────────────────────
             Loader {
-                anchors.fill: parent
-                anchors.margins: 4
+                id: netLoader
+                anchors.centerIn: pill
+                width: pill.width - panelRoot.hPad * 2
                 active: compact._valid && compact._root.showNetworkSpeed
                 sourceComponent: Component {
                     ColumnLayout {
-                        spacing: 1
+                        spacing: 0
                         // Download row
                         RowLayout {
                             Layout.fillWidth: true
-                            spacing: 3
+                            spacing: 4
                             Text {
                                 text: "↓"
                                 color: Qt.rgba(compact._root.dlColor.r, compact._root.dlColor.g, compact._root.dlColor.b, 0.65)
-                                font.pixelSize: Math.max(8, compact.height * 0.28)
+                                font.pixelSize: Math.max(8, compact.height * 0.26)
                                 font.bold: true
                                 Layout.alignment: Qt.AlignVCenter
                             }
                             Text {
                                 text: compact._fmtSpeed(compact._root.downloadSpeed)
                                 color: compact._root.dlColor
-                                font.pixelSize: Math.max(9, compact.height * 0.32)
+                                font.pixelSize: Math.max(9, compact.height * 0.30)
                                 font.bold: true
                                 Layout.alignment: Qt.AlignVCenter
                                 Layout.fillWidth: true
@@ -207,18 +253,18 @@ Item {
                         // Upload row
                         RowLayout {
                             Layout.fillWidth: true
-                            spacing: 3
+                            spacing: 4
                             Text {
                                 text: "↑"
                                 color: Qt.rgba(compact._root.ulColor.r, compact._root.ulColor.g, compact._root.ulColor.b, 0.65)
-                                font.pixelSize: Math.max(8, compact.height * 0.28)
+                                font.pixelSize: Math.max(8, compact.height * 0.26)
                                 font.bold: true
                                 Layout.alignment: Qt.AlignVCenter
                             }
                             Text {
                                 text: compact._fmtSpeed(compact._root.uploadSpeed)
                                 color: compact._root.ulColor
-                                font.pixelSize: Math.max(9, compact.height * 0.32)
+                                font.pixelSize: Math.max(9, compact.height * 0.30)
                                 font.bold: true
                                 Layout.alignment: Qt.AlignVCenter
                                 Layout.fillWidth: true
@@ -237,8 +283,9 @@ Item {
 
             // ── CPU section: label + % ────────────────────────────────────────
             Loader {
-                anchors.fill: parent
-                anchors.margins: 4
+                id: cpuLoader
+                anchors.centerIn: pill
+                width: pill.width - panelRoot.hPad * 2
                 active: compact._valid && compact._root.showCpuSection
                 sourceComponent: Component {
                     ColumnLayout {
@@ -273,8 +320,9 @@ Item {
 
             // ── Memory section ────────────────────────────────────────────────
             Loader {
-                anchors.fill: parent
-                anchors.margins: 4
+                id: memLoader
+                anchors.centerIn: pill
+                width: pill.width - panelRoot.hPad * 2
                 active: compact._valid && compact._root.showMemorySection
                 sourceComponent: Component {
                     ColumnLayout {
@@ -308,8 +356,9 @@ Item {
 
             // ── Ping section ──────────────────────────────────────────────────
             Loader {
-                anchors.fill: parent
-                anchors.margins: 4
+                id: pingLoader
+                anchors.centerIn: pill
+                width: pill.width - panelRoot.hPad * 2
                 active: compact._valid && compact._root.showPingSection
                 sourceComponent: Component {
                     ColumnLayout {
@@ -335,8 +384,9 @@ Item {
 
             // ── GPU section ───────────────────────────────────────────────────
             Loader {
-                anchors.fill: parent
-                anchors.margins: 4
+                id: gpuLoader
+                anchors.centerIn: pill
+                width: pill.width - panelRoot.hPad * 2
                 active: compact._valid && compact._root.showGpuSection
                 sourceComponent: Component {
                     ColumnLayout {
@@ -370,8 +420,9 @@ Item {
 
             // ── Disk I/O section: R on top, W below ───────────────────────────
             Loader {
-                anchors.fill: parent
-                anchors.margins: 4
+                id: diskLoader
+                anchors.centerIn: pill
+                width: pill.width - panelRoot.hPad * 2
                 active: compact._valid && compact._root.showDiskSection
                 sourceComponent: Component {
                     ColumnLayout {
@@ -420,8 +471,9 @@ Item {
 
             // ── Custom section ────────────────────────────────────────────────
             Loader {
-                anchors.fill: parent
-                anchors.margins: 4
+                id: customLoader
+                anchors.centerIn: pill
+                width: pill.width - panelRoot.hPad * 2
                 active: compact._valid && compact._root.showCustomSection
                 sourceComponent: Component {
                     ColumnLayout {

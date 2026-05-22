@@ -24,10 +24,10 @@ PlasmoidItem {
                                       || Plasmoid.location === PlasmaCore.Types.LeftEdge
                                       || Plasmoid.location === PlasmaCore.Types.RightEdge
 
-    Layout.minimumWidth:   root.isInPanel ? 60 : 260
+    Layout.minimumWidth:   root.isInPanel ? 60 : 140
     Layout.preferredWidth: root.isInPanel
                                ? (root.showNetworkSpeed || root.showDiskSection ? 110 : 72)
-                               : 400
+                               : 260
     Layout.preferredHeight: {
         if (root.isInPanel) return -1
         const m      = plasmoid.configuration.showBg ? 20 : 4
@@ -80,6 +80,9 @@ PlasmoidItem {
         showGridLines: plasmoid.configuration.showGridLines
     }
 
+    // ── pause state ───────────────────────────────────────────────────────
+    property bool paused: false
+
     // ── smooth scroll: timestamp-based, computed at paint time ───────────────
     // Each section reads scrollPhase(start, interval) directly in onPaint via
     // Date.now() — no intermediate property, no signal cascade, no race.
@@ -106,7 +109,7 @@ PlasmoidItem {
     property int scrollTick: 0
     Timer {
         id: scrollTicker
-        interval: 16; repeat: true; running: true
+        interval: 16; repeat: true; running: !root.paused
         onTriggered: root.scrollTick = (root.scrollTick + 1) & 0x7fffffff
     }
 
@@ -160,7 +163,7 @@ PlasmoidItem {
 
     Timer {
         interval: Math.max(1, plasmoid.configuration.pingInterval) * 1000
-        running: root.showPingSection; repeat: true
+        running: root.showPingSection && !root.paused; repeat: true
         onTriggered: root.triggerPing()
     }
 
@@ -233,7 +236,7 @@ PlasmoidItem {
         }
     }
     Timer {
-        interval: 1000; running: root.showNetworkSpeed; repeat: true
+        interval: 1000; running: root.showNetworkSpeed && !root.paused; repeat: true
         onTriggered: { if (!root.isReadingNet) { root.isReadingNet = true; netSource.connectSource("cat /proc/net/dev") } }
     }
 
@@ -291,7 +294,7 @@ PlasmoidItem {
         }
     }
     Timer {
-        interval: 1000; running: root.showCpuSection; repeat: true
+        interval: 1000; running: root.showCpuSection && !root.paused; repeat: true
         onTriggered: { if (!root.isReadingCpu) { root.isReadingCpu = true; cpuSource.connectSource("cat /proc/stat") } }
     }
 
@@ -348,7 +351,7 @@ PlasmoidItem {
         }
     }
     Timer {
-        interval: 2000; running: root.showMemorySection; repeat: true
+        interval: 2000; running: root.showMemorySection && !root.paused; repeat: true
         onTriggered: { if (!root.isReadingMem) { root.isReadingMem = true; memSource.connectSource("cat /proc/meminfo") } }
     }
 
@@ -393,7 +396,7 @@ PlasmoidItem {
     }
     Timer {
         interval: Math.max(1, plasmoid.configuration.customCmdInterval) * 1000
-        running: root.showCustomSection; repeat: true
+        running: root.showCustomSection && !root.paused; repeat: true
         onTriggered: {
             if (!root.isReadingCustom && plasmoid.configuration.customCmd) {
                 root.isReadingCustom = true
@@ -458,7 +461,7 @@ PlasmoidItem {
     }
 
     Timer {
-        interval: 2000; running: root.showGpuSection; repeat: true
+        interval: 2000; running: root.showGpuSection && !root.paused; repeat: true
         onTriggered: {
             if (!root.isReadingGpu && root.gpuMode !== "") {
                 root.isReadingGpu = true
