@@ -10,64 +10,100 @@ KCM.SimpleKCM {
     id: root
 
     // ── cfg_ bindings ─────────────────────────────────────────────────────────
-    property int    cfg_activeSection:      0
-    property alias  cfg_showCpuCores:       showCpuCoresCB.checked
+    property int cfg_activeSection: 0
+    property alias cfg_showCpuCores: showCpuCoresCB.checked
 
-    property alias  cfg_pingTitle:          pingTitleField.text
-    property alias  cfg_networkTitle:       networkTitleField.text
-    property alias  cfg_cpuTitle:           cpuTitleField.text
-    property alias  cfg_memoryTitle:        memoryTitleField.text
-    property alias  cfg_customCmdTitle:     customCmdTitleField.text
+    property alias cfg_pingTitle: pingTitleField.text
+    property alias cfg_networkTitle: networkTitleField.text
+    property alias cfg_cpuTitle: cpuTitleField.text
+    property alias cfg_memoryTitle: memoryTitleField.text
+    property alias cfg_customCmdTitle: customCmdTitleField.text
 
-    property alias  cfg_customCmd:          customCmdField.text
-    property alias  cfg_customCmdUnit:      customCmdUnitField.text
-    property alias  cfg_customCmdMax:       customCmdMaxSpin.value
-    property alias  cfg_customCmdInterval:  customCmdIntervalSpin.value
-    property alias  cfg_customCmdColor:     customCmdColorButton.color
+    property alias cfg_customCmd: customCmdField.text
+    property alias cfg_customCmdUnit: customCmdUnitField.text
+    property alias cfg_customCmdMax: customCmdMaxSpin.value
+    property alias cfg_customCmdInterval: customCmdIntervalSpin.value
+    property alias cfg_customCmdColor: customCmdColorButton.color
 
-    property alias  cfg_targets:            targetsField.text
-    property alias  cfg_pingInterval:       pingIntervalSpin.value
-    property alias  cfg_pingTimeout:        pingTimeoutSpin.value
-    property alias  cfg_historySize:        historySizeSpin.value
-    property alias  cfg_latencyThreshold:   latencyThresholdSpin.value
-    property alias  cfg_lossThreshold:      lossThresholdSpin.value
+    property alias cfg_targets: targetsField.text
+    property alias cfg_pingInterval: pingIntervalSpin.value
+    property alias cfg_pingTimeout: pingTimeoutSpin.value
+    property alias cfg_historySize: historySizeSpin.value
+    property alias cfg_latencyThreshold: latencyThresholdSpin.value
+    property alias cfg_lossThreshold: lossThresholdSpin.value
 
-    property string cfg_networkInterface:   "auto"
+    property string cfg_networkInterface: "auto"
 
-    property alias  cfg_useSystemAccent:    useSystemAccentCB.checked
-    property alias  cfg_customColor:        customColorButton.color
-    property alias  cfg_useSystemTextColor: useSystemTextColorCB.checked
-    property alias  cfg_customTextColor:    customTextColorButton.color
+    property alias cfg_useSystemAccent: useSystemAccentCB.checked
+    property alias cfg_customColor: customColorButton.color
+    property alias cfg_useSystemTextColor: useSystemTextColorCB.checked
+    property alias cfg_customTextColor: customTextColorButton.color
 
-    property alias  cfg_dlColor:            dlColorButton.color
-    property alias  cfg_ulColor:            ulColorButton.color
-    property alias  cfg_cpuColor:           cpuColorButton.color
-    property alias  cfg_memColor:           memColorButton.color
-    property alias  cfg_swapColor:          swapColorButton.color
+    property alias cfg_dlColor: dlColorButton.color
+    property alias cfg_ulColor: ulColorButton.color
+    property alias cfg_cpuColor: cpuColorButton.color
+    property alias cfg_memColor: memColorButton.color
+    property alias cfg_swapColor: swapColorButton.color
 
     property string cfg_coreColorsStr: "#ff4466,#ff8833,#eebb00,#88dd00,#00ddbb,#22aaff,#9955ff,#ff44bb,#ff7744,#aaff44,#44ffdd,#4499ff,#ffaa44,#ccff44,#44ffcc,#aa44ff"
 
-    property alias  cfg_chartType:         chartTypeCombo.currentIndex
-    property alias  cfg_lineWidth:         lineWidthSlider.value
-    property alias  cfg_glowLine:          glowLineCB.checked
-    property alias  cfg_showStats:         showStatsCB.checked
-    property alias  cfg_showLegend:        showLegendCB.checked
-    property alias  cfg_showYLabels:       showYLabelsCB.checked
-    property alias  cfg_showGridLines:     showGridLinesCB.checked
-    property alias  cfg_autoYRange:        autoYRangeCB.checked
-    property alias  cfg_smoothLines:       smoothLinesCB.checked
-    property string cfg_disabledCoresStr:  ""
-    property string cfg_diskDevice:        "auto"
-    property string cfg_diskTitle:         "Disk I/O"
-    property alias  cfg_diskRdColor:       diskRdColorButton.color
-    property alias  cfg_diskWrColor:       diskWrColorButton.color
-    property string cfg_gpuTitle:          "GPU"
-    property alias  cfg_gpuColor:          gpuColorButton.color
-    property alias  cfg_showBg:                 showBgCB.checked
-    property alias  cfg_bgColor:                bgColorButton.color
-    property alias  cfg_bgRadius:               bgRadiusSlider.value
-    property alias  cfg_panelMode:              panelModeCB.checked
-    property alias  cfg_panelShowSessionTotals: panelShowSessionTotalsCB.checked
+    property alias cfg_chartType: chartTypeCombo.currentIndex
+    property alias cfg_lineWidth: lineWidthSlider.value
+    property alias cfg_glowLine: glowLineCB.checked
+    property alias cfg_showStats: showStatsCB.checked
+    property alias cfg_showLegend: showLegendCB.checked
+    property alias cfg_showYLabels: showYLabelsCB.checked
+    property alias cfg_showGridLines: showGridLinesCB.checked
+    property alias cfg_autoYRange: autoYRangeCB.checked
+    property alias cfg_smoothLines: smoothLinesCB.checked
+    property string cfg_disabledCoresStr: ""
+    property string cfg_diskDevice: "auto"
+    property string cfg_diskTitle: "Disk I/O"
+    property alias cfg_diskRdColor: diskRdColorButton.color
+    property alias cfg_diskWrColor: diskWrColorButton.color
+    property string cfg_gpuTitle: "GPU"
+    property alias cfg_gpuColor: gpuColorButton.color
+    property alias cfg_showBg: showBgCB.checked
+    property alias cfg_bgColor: bgColorButton.color
+    property alias cfg_bgRadius: bgRadiusSlider.value
+    property alias cfg_panelMode: panelModeCB.checked
+    property alias cfg_panelShowSessionTotals: panelShowSessionTotalsCB.checked
+    property alias cfg_panelPlainText: panelPlainTextCB.checked
+    property alias cfg_panelShowBg: panelShowBgCB.checked
+
+    property alias cfg_hwSensorsTitle: hwSensorsTitleField.text
+    property alias cfg_hwTempWarn: hwTempWarnSpin.value
+    property alias cfg_hwTempCrit: hwTempCritSpin.value
+    property alias cfg_osInfoTitle: osInfoTitleField.text
+    property alias cfg_powerTitle: powerTitleField.text
+
+    // Hidden fields for new section title aliases
+    QQC.TextField {
+        id: hwSensorsTitleField
+        visible: false
+    }
+    QQC.TextField {
+        id: osInfoTitleField
+        visible: false
+    }
+    QQC.TextField {
+        id: powerTitleField
+        visible: false
+    }
+    QQC.SpinBox {
+        id: hwTempWarnSpin
+        from: 30
+        to: 120
+        stepSize: 1
+        visible: false
+    }
+    QQC.SpinBox {
+        id: hwTempCritSpin
+        from: 30
+        to: 120
+        stepSize: 1
+        visible: false
+    }
 
     // Silence SimpleKCM warnings about missing default properties
     property var cfg_swapColorDefault
@@ -76,115 +112,245 @@ KCM.SimpleKCM {
     property var cfg_useSystemAccentDefault
     property var cfg_useSystemTextColorDefault
 
-
     // ── helpers ───────────────────────────────────────────────────────────────
     property var detectedIfaces: []
-    property var detectedDisks:  []
+    property var detectedDisks: []
 
     // Hidden fields so aliases don't break
-    QQC.TextField { id: pingTitleField;      visible: false }
-    QQC.TextField { id: networkTitleField;   visible: false }
-    QQC.TextField { id: cpuTitleField;       visible: false }
-    QQC.TextField { id: memoryTitleField;    visible: false }
-    QQC.TextField { id: customCmdTitleField; visible: false }
+    QQC.TextField {
+        id: pingTitleField
+        visible: false
+    }
+    QQC.TextField {
+        id: networkTitleField
+        visible: false
+    }
+    QQC.TextField {
+        id: cpuTitleField
+        visible: false
+    }
+    QQC.TextField {
+        id: memoryTitleField
+        visible: false
+    }
+    QQC.TextField {
+        id: customCmdTitleField
+        visible: false
+    }
 
-    KQuickControls.ColorButton { id: dlColorButton;     visible: false; showAlphaChannel: false }
-    KQuickControls.ColorButton { id: ulColorButton;     visible: false; showAlphaChannel: false }
-    KQuickControls.ColorButton { id: cpuColorButton;    visible: false; showAlphaChannel: false }
-    KQuickControls.ColorButton { id: memColorButton;    visible: false; showAlphaChannel: false }
-    KQuickControls.ColorButton { id: swapColorButton;   visible: false; showAlphaChannel: false }
-    KQuickControls.ColorButton { id: diskRdColorButton; visible: false; showAlphaChannel: false }
-    KQuickControls.ColorButton { id: diskWrColorButton; visible: false; showAlphaChannel: false }
-    KQuickControls.ColorButton { id: gpuColorButton;    visible: false; showAlphaChannel: false }
+    KQuickControls.ColorButton {
+        id: dlColorButton
+        visible: false
+        showAlphaChannel: false
+    }
+    KQuickControls.ColorButton {
+        id: ulColorButton
+        visible: false
+        showAlphaChannel: false
+    }
+    KQuickControls.ColorButton {
+        id: cpuColorButton
+        visible: false
+        showAlphaChannel: false
+    }
+    KQuickControls.ColorButton {
+        id: memColorButton
+        visible: false
+        showAlphaChannel: false
+    }
+    KQuickControls.ColorButton {
+        id: swapColorButton
+        visible: false
+        showAlphaChannel: false
+    }
+    KQuickControls.ColorButton {
+        id: diskRdColorButton
+        visible: false
+        showAlphaChannel: false
+    }
+    KQuickControls.ColorButton {
+        id: diskWrColorButton
+        visible: false
+        showAlphaChannel: false
+    }
+    KQuickControls.ColorButton {
+        id: gpuColorButton
+        visible: false
+        showAlphaChannel: false
+    }
 
     P5Support.DataSource {
-        id: ifaceSource; engine: "executable"; connectedSources: []
-        onNewData: function(sourceName, data) {
-            ifaceSource.disconnectSource(sourceName)
-            const ifaces = ["auto"]
+        id: ifaceSource
+        engine: "executable"
+        connectedSources: []
+        onNewData: function (sourceName, data) {
+            ifaceSource.disconnectSource(sourceName);
+            const ifaces = ["auto"];
             for (const line of (data["stdout"] || "").split("\n")) {
-                const m = line.trim().match(/^(\w+):/)
-                if (m && m[1] !== "lo") ifaces.push(m[1])
+                const m = line.trim().match(/^(\w+):/);
+                if (m && m[1] !== "lo")
+                    ifaces.push(m[1]);
             }
-            root.detectedIfaces = ifaces
-            const idx = ifaces.indexOf(root.cfg_networkInterface)
-            ifaceCombo.currentIndex = idx >= 0 ? idx : 0
+            root.detectedIfaces = ifaces;
+            const idx = ifaces.indexOf(root.cfg_networkInterface);
+            ifaceCombo.currentIndex = idx >= 0 ? idx : 0;
         }
     }
     P5Support.DataSource {
-        id: diskDetectSource; engine: "executable"; connectedSources: []
-        onNewData: function(sourceName, data) {
-            diskDetectSource.disconnectSource(sourceName)
-            const disks = ["auto"]
+        id: diskDetectSource
+        engine: "executable"
+        connectedSources: []
+        onNewData: function (sourceName, data) {
+            diskDetectSource.disconnectSource(sourceName);
+            const disks = ["auto"];
             for (const line of (data["stdout"] || "").split("\n")) {
-                const p = line.trim().split(/\s+/)
-                if (p.length < 3) continue
-                const name = p[2]
-                if (/^(loop|ram|zram)/.test(name)) continue
-                if (/[0-9]p[0-9]+$/.test(name)) continue
-                if (/^sd[a-z]+[0-9]+$/.test(name)) continue
-                if (/^vd[a-z]+[0-9]+$/.test(name)) continue
-                if (/^mmcblk[0-9]+p[0-9]+$/.test(name)) continue
-                disks.push(name)
+                const p = line.trim().split(/\s+/);
+                if (p.length < 3)
+                    continue;
+                const name = p[2];
+                if (/^(loop|ram|zram)/.test(name))
+                    continue;
+                if (/[0-9]p[0-9]+$/.test(name))
+                    continue;
+                if (/^sd[a-z]+[0-9]+$/.test(name))
+                    continue;
+                if (/^vd[a-z]+[0-9]+$/.test(name))
+                    continue;
+                if (/^mmcblk[0-9]+p[0-9]+$/.test(name))
+                    continue;
+                disks.push(name);
             }
-            root.detectedDisks = disks
+            root.detectedDisks = disks;
         }
     }
     Component.onCompleted: {
-        ifaceSource.connectSource("cat /proc/net/dev")
-        diskDetectSource.connectSource("cat /proc/diskstats")
+        ifaceSource.connectSource("cat /proc/net/dev");
+        diskDetectSource.connectSource("cat /proc/diskstats");
     }
 
     function coreColorAt(i) {
-        const parts = cfg_coreColorsStr.split(",")
-        return parts[i] || "#888888"
+        const parts = cfg_coreColorsStr.split(",");
+        return parts[i] || "#888888";
     }
     function setCoreColor(i, color) {
-        const parts = cfg_coreColorsStr.split(",")
-        while (parts.length <= i) parts.push("#888888")
-        parts[i] = color
-        cfg_coreColorsStr = parts.join(",")
+        const parts = cfg_coreColorsStr.split(",");
+        while (parts.length <= i)
+            parts.push("#888888");
+        parts[i] = color;
+        cfg_coreColorsStr = parts.join(",");
     }
 
     function titleForSection(s) {
-        if (s === 0) return cfg_pingTitle
-        if (s === 1) return cfg_networkTitle
-        if (s === 2) return cfg_cpuTitle
-        if (s === 3) return cfg_memoryTitle
-        if (s === 4) return cfg_customCmdTitle
-        if (s === 5) return cfg_diskTitle
-        if (s === 6) return cfg_gpuTitle
-        return ""
+        if (s === 0)
+            return cfg_pingTitle;
+        if (s === 1)
+            return cfg_networkTitle;
+        if (s === 2)
+            return cfg_cpuTitle;
+        if (s === 3)
+            return cfg_memoryTitle;
+        if (s === 4)
+            return cfg_customCmdTitle;
+        if (s === 5)
+            return cfg_diskTitle;
+        if (s === 6)
+            return cfg_gpuTitle;
+        if (s === 7)
+            return cfg_hwSensorsTitle;
+        if (s === 8)
+            return cfg_osInfoTitle;
+        if (s === 9)
+            return cfg_powerTitle;
+        return "";
     }
     function setTitleForSection(s, v) {
-        if      (s === 0) cfg_pingTitle = v
-        else if (s === 1) cfg_networkTitle = v
-        else if (s === 2) cfg_cpuTitle = v
-        else if (s === 3) cfg_memoryTitle = v
-        else if (s === 4) cfg_customCmdTitle = v
-        else if (s === 5) cfg_diskTitle = v
-        else if (s === 6) cfg_gpuTitle = v
+        if (s === 0)
+            cfg_pingTitle = v;
+        else if (s === 1)
+            cfg_networkTitle = v;
+        else if (s === 2)
+            cfg_cpuTitle = v;
+        else if (s === 3)
+            cfg_memoryTitle = v;
+        else if (s === 4)
+            cfg_customCmdTitle = v;
+        else if (s === 5)
+            cfg_diskTitle = v;
+        else if (s === 6)
+            cfg_gpuTitle = v;
+        else if (s === 7)
+            cfg_hwSensorsTitle = v;
+        else if (s === 8)
+            cfg_osInfoTitle = v;
+        else if (s === 9)
+            cfg_powerTitle = v;
     }
 
     readonly property var sensorCategories: [
-        { icon: "cpu-symbolic",                label: i18n("CPUs"),               section: 2  },
-        { icon: "drive-harddisk-symbolic",     label: i18n("Disks"),              section: 5  },
-        { icon: "video-display-symbolic",      label: i18n("GPU"),                section: 6  },
-        { icon: "sensor-symbolic",             label: i18n("Hardware Sensors"),   section: -1 },
-        { icon: "media-flash-symbolic",        label: i18n("Memory"),             section: 3  },
-        { icon: "network-wired-symbolic",      label: i18n("Network Devices"),    section: 1  },
-        { icon: "network-workgroup-symbolic",  label: i18n("Network / Ping"),     section: 0  },
-        { icon: "system-run-symbolic",         label: i18n("Operating System"),   section: -1 },
-        { icon: "battery-symbolic",            label: i18n("Power & Pressure"),   section: -1 },
-        { icon: "utilities-terminal-symbolic", label: i18n("Custom Command"),     section: 4  }
+        {
+            icon: "cpu-symbolic",
+            label: i18n("CPUs"),
+            section: 2
+        },
+        {
+            icon: "drive-harddisk-symbolic",
+            label: i18n("Disks"),
+            section: 5
+        },
+        {
+            icon: "video-display-symbolic",
+            label: i18n("GPU"),
+            section: 6
+        },
+        {
+            icon: "sensor-symbolic",
+            label: i18n("Hardware Sensors"),
+            section: 7
+        },
+        {
+            icon: "media-flash-symbolic",
+            label: i18n("Memory"),
+            section: 3
+        },
+        {
+            icon: "network-wired-symbolic",
+            label: i18n("Network Devices"),
+            section: 1
+        },
+        {
+            icon: "network-workgroup-symbolic",
+            label: i18n("Network / Ping"),
+            section: 0
+        },
+        {
+            icon: "system-run-symbolic",
+            label: i18n("Operating System"),
+            section: 8
+        },
+        {
+            icon: "battery-symbolic",
+            label: i18n("Power & Pressure"),
+            section: 9
+        },
+        {
+            icon: "utilities-terminal-symbolic",
+            label: i18n("Custom Command"),
+            section: 4
+        }
     ]
 
     // ── Root layout ───────────────────────────────────────────────────────────
     header: QQC.TabBar {
         id: tabBar
-        QQC.TabButton { text: i18n("Appearance") }
-        QQC.TabButton { text: i18n("Chart Details") }
-        QQC.TabButton { text: i18n("Sensor Details") }
+        QQC.TabButton {
+            text: i18n("Appearance")
+        }
+        QQC.TabButton {
+            text: i18n("Chart Details")
+        }
+        QQC.TabButton {
+            text: i18n("Sensor Details")
+        }
     }
 
     ColumnLayout {
@@ -203,6 +369,10 @@ KCM.SimpleKCM {
             // ══════════════════════════════════════════════════════════════════
             Kirigami.FormLayout {
                 Layout.fillWidth: true
+                // Pin width above Kirigami.FormLayout's wideMode bistability
+                // threshold — prevents the labels-beside ↔ labels-above flip
+                // that re-triggers implicitWidth computation and loops.
+                Layout.minimumWidth: 380
 
                 // Title ────────────────────────────────────────────────────────
                 Kirigami.Separator {
@@ -235,13 +405,27 @@ KCM.SimpleKCM {
                     Kirigami.FormData.label: i18n("Chart type:")
                     Layout.minimumWidth: 220
                     model: ListModel {
-                        ListElement { text: "Line  —  smooth curve"   }
-                        ListElement { text: "Bars  —  vertical bars"  }
-                        ListElement { text: "Filled Area"             }
-                        ListElement { text: "Donut / Ring"            }
-                        ListElement { text: "Pie Chart"               }
-                        ListElement { text: "Horizontal Bars"         }
-                        ListElement { text: "Text Only  —  no graph"  }
+                        ListElement {
+                            text: "Line  —  smooth curve"
+                        }
+                        ListElement {
+                            text: "Bars  —  vertical bars"
+                        }
+                        ListElement {
+                            text: "Filled Area"
+                        }
+                        ListElement {
+                            text: "Donut / Ring"
+                        }
+                        ListElement {
+                            text: "Pie Chart"
+                        }
+                        ListElement {
+                            text: "Horizontal Bars"
+                        }
+                        ListElement {
+                            text: "Text Only  —  no graph"
+                        }
                     }
                     textRole: "text"
                 }
@@ -252,24 +436,35 @@ KCM.SimpleKCM {
                     onClicked: {
                         // chartType is global so nothing else to set — this is just a visual affordance
                         // showing the user it already applies globally. Flash the combo briefly.
-                        chartTypeCombo.opacity = 0.4
-                        flashTimer.restart()
+                        chartTypeCombo.opacity = 0.4;
+                        flashTimer.restart();
                     }
                     Timer {
-                        id: flashTimer; interval: 250
+                        id: flashTimer
+                        interval: 250
                         onTriggered: chartTypeCombo.opacity = 1.0
                     }
                 }
                 QQC.Label {
                     text: i18n("Chart type already applies to all sections.")
-                    opacity: 0.50; font.pixelSize: 10; wrapMode: Text.WordWrap
+                    opacity: 0.50
+                    font.pixelSize: 10
+                    wrapMode: Text.WordWrap
                     Layout.fillWidth: true
                 }
 
                 RowLayout {
                     Kirigami.FormData.label: i18n("Min. update interval:")
-                    QQC.SpinBox { id: historySizeSpin; from: 10; to: 300; stepSize: 10 }
-                    QQC.Label { text: i18n("history points"); opacity: 0.55 }
+                    QQC.SpinBox {
+                        id: historySizeSpin
+                        from: 10
+                        to: 300
+                        stepSize: 10
+                    }
+                    QQC.Label {
+                        text: i18n("history points")
+                        opacity: 0.55
+                    }
                 }
 
                 // Colors ──────────────────────────────────────────────────────
@@ -318,14 +513,25 @@ KCM.SimpleKCM {
                 QQC.Label {
                     text: i18n("Use the alpha slider to control transparency.")
                     visible: showBgCB.checked
-                    opacity: 0.55; font.pixelSize: 10; wrapMode: Text.WordWrap
+                    opacity: 0.55
+                    font.pixelSize: 10
+                    wrapMode: Text.WordWrap
                     Layout.fillWidth: true
                 }
                 RowLayout {
                     visible: showBgCB.checked
                     Kirigami.FormData.label: i18n("Corner radius:")
-                    QQC.Slider { id: bgRadiusSlider; from: 0; to: 30; stepSize: 1; Layout.minimumWidth: 130 }
-                    QQC.Label { text: bgRadiusSlider.value.toFixed(0) + " px"; Layout.minimumWidth: 36 }
+                    QQC.Slider {
+                        id: bgRadiusSlider
+                        from: 0
+                        to: 30
+                        stepSize: 1
+                        Layout.minimumWidth: 130
+                    }
+                    QQC.Label {
+                        text: bgRadiusSlider.value.toFixed(0) + " px"
+                        Layout.minimumWidth: 36
+                    }
                 }
 
                 // Panel Mode ──────────────────────────────────────────────────
@@ -342,14 +548,28 @@ KCM.SimpleKCM {
                 QQC.Label {
                     text: i18n("Shrinks the widget to a compact pill that fits in the panel. Add multiple instances — one per metric — and set each to a different sensor in the Sensor Details tab.")
                     visible: panelModeCB.checked
-                    opacity: 0.55; font.pixelSize: 10; wrapMode: Text.WordWrap
+                    opacity: 0.55
+                    font.pixelSize: 10
+                    wrapMode: Text.WordWrap
                     Layout.fillWidth: true
+                }
+                QQC.CheckBox {
+                    id: panelShowBgCB
+                    visible: panelModeCB.checked
+                    Kirigami.FormData.label: i18n("Background:")
+                    text: i18n("Show background pill")
                 }
                 QQC.CheckBox {
                     id: panelShowSessionTotalsCB
                     visible: panelModeCB.checked
                     Kirigami.FormData.label: i18n("Session totals:")
                     text: i18n("Show session ↓/↑ byte totals next to speed (network only)")
+                }
+                QQC.CheckBox {
+                    id: panelPlainTextCB
+                    visible: panelModeCB.checked
+                    Kirigami.FormData.label: i18n("Text style:")
+                    text: i18n("Plain white text (no per-metric accent colors)")
                 }
             }
 
@@ -358,6 +578,7 @@ KCM.SimpleKCM {
             // ══════════════════════════════════════════════════════════════════
             Kirigami.FormLayout {
                 Layout.fillWidth: true
+                Layout.minimumWidth: 380
 
                 // Chart Style ──────────────────────────────────────────────────
                 Kirigami.Separator {
@@ -377,8 +598,17 @@ KCM.SimpleKCM {
                 }
                 RowLayout {
                     Kirigami.FormData.label: i18n("Line width:")
-                    QQC.Slider { id: lineWidthSlider; from: 0.8; to: 6.0; stepSize: 0.2; Layout.minimumWidth: 130 }
-                    QQC.Label { text: lineWidthSlider.value.toFixed(1) + " px"; Layout.minimumWidth: 36 }
+                    QQC.Slider {
+                        id: lineWidthSlider
+                        from: 0.8
+                        to: 6.0
+                        stepSize: 0.2
+                        Layout.minimumWidth: 130
+                    }
+                    QQC.Label {
+                        text: lineWidthSlider.value.toFixed(1) + " px"
+                        Layout.minimumWidth: 36
+                    }
                 }
                 // Legend & Axes ───────────────────────────────────────────────
                 Kirigami.Separator {
@@ -443,14 +673,18 @@ KCM.SimpleKCM {
 
                     ListView {
                         id: sensorCatList
-                        anchors { fill: parent; margins: 4 }
+                        anchors {
+                            fill: parent
+                            margins: 4
+                        }
                         clip: true
                         model: root.sensorCategories
                         currentIndex: {
                             for (let i = 0; i < root.sensorCategories.length; i++) {
-                                if (root.sensorCategories[i].section === cfg_activeSection) return i
+                                if (root.sensorCategories[i].section === cfg_activeSection)
+                                    return i;
                             }
-                            return 0
+                            return 0;
                         }
 
                         delegate: QQC.ItemDelegate {
@@ -465,15 +699,14 @@ KCM.SimpleKCM {
 
                                 Kirigami.Icon {
                                     source: modelData.icon
-                                    implicitWidth: 16; implicitHeight: 16
+                                    implicitWidth: 16
+                                    implicitHeight: 16
                                     opacity: catDelegate.enabled ? 1.0 : 0.35
                                 }
                                 QQC.Label {
                                     text: modelData.label
                                     font.pixelSize: 13
-                                    color: catDelegate.highlighted
-                                           ? Kirigami.Theme.highlightedTextColor
-                                           : Kirigami.Theme.textColor
+                                    color: catDelegate.highlighted ? Kirigami.Theme.highlightedTextColor : Kirigami.Theme.textColor
                                     opacity: catDelegate.enabled ? 1.0 : 0.35
                                     Layout.fillWidth: true
                                 }
@@ -487,7 +720,7 @@ KCM.SimpleKCM {
 
                             onClicked: {
                                 if (modelData.section >= 0) {
-                                    cfg_activeSection = modelData.section
+                                    cfg_activeSection = modelData.section;
                                 }
                             }
                         }
@@ -505,7 +738,8 @@ KCM.SimpleKCM {
 
                     Kirigami.FormLayout {
                         id: sensorDetailForm
-                        width: parent.width
+                        // anchors define the geometry; explicit `width: parent.width`
+                        // would double-bind through Flickable.contentWidth and loop wideMode.
                         anchors.left: parent.left
                         anchors.right: parent.right
 
@@ -543,52 +777,61 @@ KCM.SimpleKCM {
 
                                 // Parse "1-8, 10, 13-16" → set of 0-based disabled indices
                                 function applyRange(txt) {
-                                    const total = 16
-                                    const enabled = new Set()
-                                    const parts = txt.split(",")
+                                    const total = 16;
+                                    const enabled = new Set();
+                                    const parts = txt.split(",");
                                     for (const part of parts) {
-                                        const t = part.trim()
-                                        const rng = t.match(/^(\d+)\s*-\s*(\d+)$/)
+                                        const t = part.trim();
+                                        const rng = t.match(/^(\d+)\s*-\s*(\d+)$/);
                                         if (rng) {
-                                            const lo = Math.max(1, parseInt(rng[1]))
-                                            const hi = Math.min(total, parseInt(rng[2]))
-                                            for (let i = lo; i <= hi; i++) enabled.add(i)
+                                            const lo = Math.max(1, parseInt(rng[1]));
+                                            const hi = Math.min(total, parseInt(rng[2]));
+                                            for (let i = lo; i <= hi; i++)
+                                                enabled.add(i);
                                         } else {
-                                            const n = parseInt(t)
-                                            if (!isNaN(n) && n >= 1 && n <= total) enabled.add(n)
+                                            const n = parseInt(t);
+                                            if (!isNaN(n) && n >= 1 && n <= total)
+                                                enabled.add(n);
                                         }
                                     }
                                     // disabled = all cores NOT in the enabled set
-                                    const disabled = []
+                                    const disabled = [];
                                     for (let i = 1; i <= total; i++) {
-                                        if (!enabled.has(i)) disabled.push(i - 1) // 0-based
+                                        if (!enabled.has(i))
+                                            disabled.push(i - 1); // 0-based
                                     }
-                                    cfg_disabledCoresStr = disabled.join(",")
+                                    cfg_disabledCoresStr = disabled.join(",");
                                 }
 
                                 // Reflect current cfg back to the field
                                 function refreshFromCfg() {
-                                    const dis = new Set(
-                                        (cfg_disabledCoresStr || "").split(",").filter(Boolean).map(Number)
-                                    )
+                                    const dis = new Set((cfg_disabledCoresStr || "").split(",").filter(Boolean).map(Number));
                                     // Build compact range string for enabled cores
-                                    const enabled = []
+                                    const enabled = [];
                                     for (let i = 0; i < 16; i++) {
-                                        if (!dis.has(i)) enabled.push(i + 1)
+                                        if (!dis.has(i))
+                                            enabled.push(i + 1);
                                     }
-                                    if (enabled.length === 0) { text = ""; return }
-                                    if (enabled.length === 16) { text = "1-16"; return }
-                                    const ranges = []
-                                    let start = enabled[0], end = enabled[0]
+                                    if (enabled.length === 0) {
+                                        text = "";
+                                        return;
+                                    }
+                                    if (enabled.length === 16) {
+                                        text = "1-16";
+                                        return;
+                                    }
+                                    const ranges = [];
+                                    let start = enabled[0], end = enabled[0];
                                     for (let j = 1; j < enabled.length; j++) {
-                                        if (enabled[j] === end + 1) { end = enabled[j] }
-                                        else {
-                                            ranges.push(start === end ? String(start) : start + "-" + end)
-                                            start = end = enabled[j]
+                                        if (enabled[j] === end + 1) {
+                                            end = enabled[j];
+                                        } else {
+                                            ranges.push(start === end ? String(start) : start + "-" + end);
+                                            start = end = enabled[j];
                                         }
                                     }
-                                    ranges.push(start === end ? String(start) : start + "-" + end)
-                                    text = ranges.join(", ")
+                                    ranges.push(start === end ? String(start) : start + "-" + end);
+                                    text = ranges.join(", ");
                                 }
 
                                 Component.onCompleted: refreshFromCfg()
@@ -598,7 +841,7 @@ KCM.SimpleKCM {
                                     target: root
                                     function onCfg_disabledCoresStrChanged() {
                                         if (!coreRangeField.activeFocus)
-                                            coreRangeField.refreshFromCfg()
+                                            coreRangeField.refreshFromCfg();
                                     }
                                 }
                             }
@@ -607,25 +850,28 @@ KCM.SimpleKCM {
                                 text: i18n("All")
                                 implicitWidth: 48
                                 onClicked: {
-                                    cfg_disabledCoresStr = ""
-                                    coreRangeField.text = "1-16"
+                                    cfg_disabledCoresStr = "";
+                                    coreRangeField.text = "1-16";
                                 }
                             }
                             QQC.Button {
                                 text: i18n("None")
                                 implicitWidth: 52
                                 onClicked: {
-                                    const all = []
-                                    for (let i = 0; i < 16; i++) all.push(i)
-                                    cfg_disabledCoresStr = all.join(",")
-                                    coreRangeField.text = ""
+                                    const all = [];
+                                    for (let i = 0; i < 16; i++)
+                                        all.push(i);
+                                    cfg_disabledCoresStr = all.join(",");
+                                    coreRangeField.text = "";
                                 }
                             }
                         }
                         QQC.Label {
                             visible: cfg_activeSection === 2 && showCpuCoresCB.checked
                             text: i18n("Range syntax: 1-8, 10, 13-16  (press Enter to apply)")
-                            opacity: 0.50; font.pixelSize: 10; wrapMode: Text.WordWrap
+                            opacity: 0.50
+                            font.pixelSize: 10
+                            wrapMode: Text.WordWrap
                             Layout.fillWidth: true
                         }
 
@@ -637,18 +883,25 @@ KCM.SimpleKCM {
                         GridLayout {
                             visible: cfg_activeSection === 2 && showCpuCoresCB.checked
                             Kirigami.FormData.label: i18n("Core colors:")
-                            columns: 4; columnSpacing: 8; rowSpacing: 6
+                            columns: 4
+                            columnSpacing: 8
+                            rowSpacing: 6
                             Repeater {
                                 model: 16
                                 delegate: RowLayout {
                                     spacing: 4
                                     KQuickControls.ColorButton {
                                         showAlphaChannel: false
-                                        implicitWidth: 36; implicitHeight: 28
+                                        implicitWidth: 36
+                                        implicitHeight: 28
                                         color: root.coreColorAt(index)
                                         onColorChanged: root.setCoreColor(index, color.toString())
                                     }
-                                    QQC.Label { text: "C" + (index + 1); font.pixelSize: 9; opacity: 0.65 }
+                                    QQC.Label {
+                                        text: "C" + (index + 1)
+                                        font.pixelSize: 9
+                                        opacity: 0.65
+                                    }
                                 }
                             }
                         }
@@ -689,19 +942,23 @@ KCM.SimpleKCM {
                             model: root.detectedIfaces.length > 0 ? root.detectedIfaces : [root.cfg_networkInterface || "auto"]
                             onActivated: root.cfg_networkInterface = currentText
                             function syncFromConfig() {
-                                const idx = model.indexOf(root.cfg_networkInterface)
-                                currentIndex = idx >= 0 ? idx : 0
+                                const idx = model.indexOf(root.cfg_networkInterface);
+                                currentIndex = idx >= 0 ? idx : 0;
                             }
                             Component.onCompleted: syncFromConfig()
                             Connections {
                                 target: root
-                                function onDetectedIfacesChanged() { ifaceCombo.syncFromConfig() }
+                                function onDetectedIfacesChanged() {
+                                    ifaceCombo.syncFromConfig();
+                                }
                             }
                         }
                         QQC.Label {
                             visible: cfg_activeSection === 1
                             text: i18n("\"auto\" picks the busiest non-loopback interface.")
-                            opacity: 0.55; font.pixelSize: 10; wrapMode: Text.WordWrap
+                            opacity: 0.55
+                            font.pixelSize: 10
+                            wrapMode: Text.WordWrap
                             Layout.fillWidth: true
                         }
                         KQuickControls.ColorButton {
@@ -737,7 +994,8 @@ KCM.SimpleKCM {
                         QQC.Label {
                             visible: cfg_activeSection === 0
                             text: i18n("Comma-separated — each becomes a selectable tab.")
-                            opacity: 0.55; font.pixelSize: 10
+                            opacity: 0.55
+                            font.pixelSize: 10
                             Layout.fillWidth: true
                         }
                         Kirigami.Separator {
@@ -748,14 +1006,30 @@ KCM.SimpleKCM {
                         RowLayout {
                             visible: cfg_activeSection === 0
                             Kirigami.FormData.label: i18n("Interval:")
-                            QQC.SpinBox { id: pingIntervalSpin; from: 1; to: 60; stepSize: 1 }
-                            QQC.Label { text: i18n("seconds"); opacity: 0.55 }
+                            QQC.SpinBox {
+                                id: pingIntervalSpin
+                                from: 1
+                                to: 60
+                                stepSize: 1
+                            }
+                            QQC.Label {
+                                text: i18n("seconds")
+                                opacity: 0.55
+                            }
                         }
                         RowLayout {
                             visible: cfg_activeSection === 0
                             Kirigami.FormData.label: i18n("Timeout:")
-                            QQC.SpinBox { id: pingTimeoutSpin; from: 1; to: 10; stepSize: 1 }
-                            QQC.Label { text: i18n("seconds"); opacity: 0.55 }
+                            QQC.SpinBox {
+                                id: pingTimeoutSpin
+                                from: 1
+                                to: 10
+                                stepSize: 1
+                            }
+                            QQC.Label {
+                                text: i18n("seconds")
+                                opacity: 0.55
+                            }
                         }
                         Kirigami.Separator {
                             visible: cfg_activeSection === 0
@@ -765,14 +1039,30 @@ KCM.SimpleKCM {
                         RowLayout {
                             visible: cfg_activeSection === 0
                             Kirigami.FormData.label: i18n("Latency warning:")
-                            QQC.SpinBox { id: latencyThresholdSpin; from: 10; to: 2000; stepSize: 10 }
-                            QQC.Label { text: i18n("ms"); opacity: 0.55 }
+                            QQC.SpinBox {
+                                id: latencyThresholdSpin
+                                from: 10
+                                to: 2000
+                                stepSize: 10
+                            }
+                            QQC.Label {
+                                text: i18n("ms")
+                                opacity: 0.55
+                            }
                         }
                         RowLayout {
                             visible: cfg_activeSection === 0
                             Kirigami.FormData.label: i18n("Loss warning:")
-                            QQC.SpinBox { id: lossThresholdSpin; from: 0; to: 100; stepSize: 1 }
-                            QQC.Label { text: "%"; opacity: 0.55 }
+                            QQC.SpinBox {
+                                id: lossThresholdSpin
+                                from: 0
+                                to: 100
+                                stepSize: 1
+                            }
+                            QQC.Label {
+                                text: "%"
+                                opacity: 0.55
+                            }
                         }
                         KQuickControls.ColorButton {
                             id: pingColorDetail
@@ -799,7 +1089,8 @@ KCM.SimpleKCM {
                         QQC.Label {
                             visible: cfg_activeSection === 4
                             text: i18n("Must print a single number to stdout.")
-                            opacity: 0.55; font.pixelSize: 10
+                            opacity: 0.55
+                            font.pixelSize: 10
                             Layout.fillWidth: true
                         }
                         QQC.TextField {
@@ -811,13 +1102,26 @@ KCM.SimpleKCM {
                         RowLayout {
                             visible: cfg_activeSection === 4
                             Kirigami.FormData.label: i18n("Max value (Y-axis):")
-                            QQC.SpinBox { id: customCmdMaxSpin; from: 1; to: 100000; stepSize: 1 }
+                            QQC.SpinBox {
+                                id: customCmdMaxSpin
+                                from: 1
+                                to: 100000
+                                stepSize: 1
+                            }
                         }
                         RowLayout {
                             visible: cfg_activeSection === 4
                             Kirigami.FormData.label: i18n("Poll interval:")
-                            QQC.SpinBox { id: customCmdIntervalSpin; from: 1; to: 3600; stepSize: 1 }
-                            QQC.Label { text: i18n("seconds"); opacity: 0.55 }
+                            QQC.SpinBox {
+                                id: customCmdIntervalSpin
+                                from: 1
+                                to: 3600
+                                stepSize: 1
+                            }
+                            QQC.Label {
+                                text: i18n("seconds")
+                                opacity: 0.55
+                            }
                         }
                         KQuickControls.ColorButton {
                             id: customCmdColorButton
@@ -839,13 +1143,15 @@ KCM.SimpleKCM {
                             model: root.detectedDisks.length > 0 ? root.detectedDisks : [root.cfg_diskDevice || "auto"]
                             onActivated: root.cfg_diskDevice = currentText
                             function syncFromConfig() {
-                                const idx = model.indexOf(root.cfg_diskDevice)
-                                currentIndex = idx >= 0 ? idx : 0
+                                const idx = model.indexOf(root.cfg_diskDevice);
+                                currentIndex = idx >= 0 ? idx : 0;
                             }
                             Component.onCompleted: syncFromConfig()
                             Connections {
                                 target: root
-                                function onDetectedDisksChanged() { diskCombo.syncFromConfig() }
+                                function onDetectedDisksChanged() {
+                                    diskCombo.syncFromConfig();
+                                }
                             }
                         }
                         KQuickControls.ColorButton {
@@ -874,7 +1180,9 @@ KCM.SimpleKCM {
                         QQC.Label {
                             visible: cfg_activeSection === 6
                             text: i18n("Auto-detects NVIDIA (nvidia-smi), AMD (rocm-smi / sysfs), or Intel (i915 RC6). Falls back to kernel fdinfo on any GPU.")
-                            wrapMode: Text.WordWrap; opacity: 0.55; font.pixelSize: 10
+                            wrapMode: Text.WordWrap
+                            opacity: 0.55
+                            font.pixelSize: 10
                             Layout.fillWidth: true
                         }
                         KQuickControls.ColorButton {
@@ -886,16 +1194,92 @@ KCM.SimpleKCM {
                             onColorChanged: gpuColorButton.color = color
                         }
 
-                        // COMING SOON ─────────────────────────────────────────
+                        // HARDWARE SENSORS ────────────────────────────────────
                         Kirigami.Separator {
-                            visible: cfg_activeSection < 0
+                            visible: cfg_activeSection === 7
                             Kirigami.FormData.isSection: true
-                            Kirigami.FormData.label: i18n("Coming soon")
+                            Kirigami.FormData.label: i18n("Hardware Sensors")
                         }
                         QQC.Label {
-                            visible: cfg_activeSection < 0
-                            text: i18n("This sensor category will be available in a future version.")
-                            wrapMode: Text.WordWrap; opacity: 0.55
+                            visible: cfg_activeSection === 7
+                            text: i18n("Reads lm-sensors output. Run sudo sensors-detect once to configure chip drivers.")
+                            wrapMode: Text.WordWrap
+                            opacity: 0.55
+                            font.pixelSize: 10
+                            Layout.fillWidth: true
+                        }
+                        RowLayout {
+                            visible: cfg_activeSection === 7
+                            Kirigami.FormData.label: i18n("Warn above:")
+                            QQC.SpinBox {
+                                id: hwTempWarnSpinVisible
+                                from: 30
+                                to: 120
+                                stepSize: 1
+                                value: hwTempWarnSpin.value
+                                onValueModified: hwTempWarnSpin.value = value
+                                Connections {
+                                    target: hwTempWarnSpin
+                                    function onValueChanged() {
+                                        hwTempWarnSpinVisible.value = hwTempWarnSpin.value;
+                                    }
+                                }
+                            }
+                            QQC.Label {
+                                text: "°C"
+                                opacity: 0.55
+                            }
+                        }
+                        RowLayout {
+                            visible: cfg_activeSection === 7
+                            Kirigami.FormData.label: i18n("Critical above:")
+                            QQC.SpinBox {
+                                id: hwTempCritSpinVisible
+                                from: 30
+                                to: 120
+                                stepSize: 1
+                                value: hwTempCritSpin.value
+                                onValueModified: hwTempCritSpin.value = value
+                                Connections {
+                                    target: hwTempCritSpin
+                                    function onValueChanged() {
+                                        hwTempCritSpinVisible.value = hwTempCritSpin.value;
+                                    }
+                                }
+                            }
+                            QQC.Label {
+                                text: "°C"
+                                opacity: 0.55
+                            }
+                        }
+
+                        // OPERATING SYSTEM ────────────────────────────────────
+                        Kirigami.Separator {
+                            visible: cfg_activeSection === 8
+                            Kirigami.FormData.isSection: true
+                            Kirigami.FormData.label: i18n("Operating System")
+                        }
+                        QQC.Label {
+                            visible: cfg_activeSection === 8
+                            text: i18n("Shows OS name, kernel version, hostname, and uptime. Refreshes every 30 seconds.")
+                            wrapMode: Text.WordWrap
+                            opacity: 0.55
+                            font.pixelSize: 10
+                            Layout.fillWidth: true
+                        }
+
+                        // POWER & PRESSURE ────────────────────────────────────
+                        Kirigami.Separator {
+                            visible: cfg_activeSection === 9
+                            Kirigami.FormData.isSection: true
+                            Kirigami.FormData.label: i18n("Power & Pressure")
+                        }
+                        QQC.Label {
+                            visible: cfg_activeSection === 9
+                            text: i18n("Shows battery level and status, plus CPU and memory PSI pressure (avg10). Pressure bars scale to 20% = full.")
+                            wrapMode: Text.WordWrap
+                            opacity: 0.55
+                            font.pixelSize: 10
                             Layout.fillWidth: true
                         }
                     }

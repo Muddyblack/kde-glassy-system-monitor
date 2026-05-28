@@ -545,20 +545,13 @@ ColumnLayout {
                 ctx.rect(yLW, 0, gW, height);
                 ctx.clip();
                 ctx.globalAlpha = dimOth ? 0.15 : 1.0;
-                ctx.lineWidth = plasmoid.configuration.lineWidth;
-
-                // OPTIMIZATION: Reduced glow blur for better performance
-                const glowAmount = plasmoid.configuration.glowLine ? (isHov ? 7 : 4) : 0;
-                if (glowAmount > 0) {
-                    ctx.shadowBlur = glowAmount;
-                    ctx.shadowColor = color;
-                }
-
-                // Draw stroke
-                ctx.beginPath();
-                ctx.strokeStyle = color;
+                const lw = plasmoid.configuration.lineWidth;
                 ctx.lineCap = "round";
                 ctx.lineJoin = "round";
+
+                // Build path once, stroke twice for glow (no shadowBlur)
+                const nc = Qt.color(color);
+                ctx.beginPath();
                 ctx.moveTo(coords[0].x, coords[0].y);
                 for (let i = 1; i < len; i++) {
                     if (smooth) {
@@ -568,8 +561,14 @@ ColumnLayout {
                         ctx.lineTo(coords[i].x, coords[i].y);
                     }
                 }
+                if (plasmoid.configuration.glowLine) {
+                    ctx.lineWidth = lw * (isHov ? 4.5 : 3.5);
+                    ctx.strokeStyle = Qt.rgba(nc.r, nc.g, nc.b, 0.22);
+                    ctx.stroke();
+                }
+                ctx.lineWidth = lw;
+                ctx.strokeStyle = color;
                 ctx.stroke();
-                ctx.shadowBlur = 0;
 
                 // Draw fill
                 if (fillA > 0) {

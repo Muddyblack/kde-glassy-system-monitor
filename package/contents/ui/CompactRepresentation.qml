@@ -1,6 +1,5 @@
 import QtQuick
 import QtQuick.Layouts
-import QtQuick.Controls as QQC2
 import org.kde.plasma.plasmoid
 import org.kde.kirigami as Kirigami
 
@@ -16,6 +15,32 @@ Item {
     readonly property bool _valid: _root !== null && _root !== undefined
 
     // ── helpers ──────────────────────────────────────────────────────────────
+    function panelColor(c) {
+        return plasmoid.configuration.panelPlainText ? compact._root.textColor : Qt.color(c);
+    }
+    function panelAlphaColor(c, alpha) {
+        const pc = plasmoid.configuration.panelPlainText ? compact._root.textColor : Qt.color(c);
+        return Qt.rgba(pc.r, pc.g, pc.b, alpha);
+    }
+    function hwTempColor(value, crit) {
+        const c = crit > 0 ? crit : 90;
+        const r = Math.max(0, (value - 30) / Math.max(20, c - 30));
+        if (r >= 0.85)
+            return "#ff4444";
+        if (r >= 0.72)
+            return "#ff8844";
+        if (r >= 0.55)
+            return "#ffaa22";
+        return "#44ddaa";
+    }
+    function powerBatColor(pct) {
+        if (pct <= 15)
+            return "#ff4444";
+        if (pct <= 30)
+            return "#ffaa00";
+        return "#44dd88";
+    }
+
     function _fmtSpeed(bps) {
         if (bps >= 1073741824)
             return (bps / 1073741824).toFixed(1) + "G/s";
@@ -37,37 +62,7 @@ Item {
 
     MouseArea {
         anchors.fill: parent
-        acceptedButtons: Qt.LeftButton | Qt.RightButton
-        onClicked: function (mouse) {
-            if (mouse.button === Qt.RightButton)
-                contextMenu.popup();
-            else
-                plasmoid.expanded = !plasmoid.expanded;
-        }
-    }
-
-    QQC2.Menu {
-        id: contextMenu
-        QQC2.MenuItem {
-            text: compact._valid && compact._root.paused ? "Resume" : "Pause"
-            onTriggered: {
-                if (compact._valid)
-                    compact._root.paused = !compact._root.paused;
-            }
-        }
-    }
-
-    // pause overlay badge
-    Text {
-        visible: compact._valid && compact._root.paused
-        anchors {
-            right: parent.right
-            top: parent.top
-            margins: 2
-        }
-        text: "⏸"
-        font.pixelSize: Math.max(8, Math.min(14, compact.height * 0.38))
-        opacity: 0.85
+        onClicked: plasmoid.expanded = !plasmoid.expanded
     }
 
     // ── Panel mode: rich stacked layout ──────────────────────────────────────
@@ -159,13 +154,7 @@ Item {
                     function iToX(i) {
                         return i * step;
                     }
-                    // OPTIMIZATION: Reduced glow blur from 6 to 4 for better performance
-                    if (plasmoid.configuration.glowLine) {
-                        ctx.shadowBlur = 4;
-                        ctx.shadowColor = c;
-                    }
-                    ctx.strokeStyle = c;
-                    ctx.lineWidth = 1.5;
+                    const cc = Qt.color(c);
                     ctx.lineCap = "round";
                     ctx.lineJoin = "round";
                     ctx.beginPath();
@@ -174,8 +163,14 @@ Item {
                         const cx = (iToX(i - 1) + iToX(i)) / 2;
                         ctx.bezierCurveTo(cx, vToY(h[i - 1]), cx, vToY(h[i]), iToX(i), vToY(h[i]));
                     }
+                    if (plasmoid.configuration.glowLine) {
+                        ctx.lineWidth = 5.5;
+                        ctx.strokeStyle = Qt.rgba(cc.r, cc.g, cc.b, 0.22);
+                        ctx.stroke();
+                    }
+                    ctx.lineWidth = 1.5;
+                    ctx.strokeStyle = c;
                     ctx.stroke();
-                    ctx.shadowBlur = 0;
                     ctx.beginPath();
                     ctx.moveTo(iToX(0), vToY(h[0]));
                     for (let i = 1; i < n; i++) {
@@ -244,7 +239,7 @@ Item {
             id: panelRoot
 
             // padding around the content, inside the pill
-            readonly property int hPad: 8
+            readonly property int hPad: 5
             readonly property int vPad: 3
 
             // the currently-active section loader (only one is active at a time)
@@ -263,6 +258,12 @@ Item {
                     return gpuLoader;
                 if (customLoader.active)
                     return customLoader;
+                if (hwSensorsLoader.active)
+                    return hwSensorsLoader;
+                if (osInfoLoader.active)
+                    return osInfoLoader;
+                if (powerLoader.active)
+                    return powerLoader;
                 return null;
             }
             readonly property real contentW: activeLoader && activeLoader.item ? activeLoader.item.implicitWidth : 0
@@ -271,13 +272,17 @@ Item {
             implicitWidth: contentW + hPad * 2
             implicitHeight: contentH + vPad * 2
 
-            // glassy pill background — sized to content, centered
+            // glassy pill background — fills allocated panel slot edge-to-edge
             Rectangle {
                 id: pill
-                anchors.centerIn: parent
-                width: Math.min(parent.width, Math.max(20, panelRoot.contentW + panelRoot.hPad * 2))
-                height: Math.min(parent.height, Math.max(16, panelRoot.contentH + panelRoot.vPad * 2))
-                radius: Math.min(width, height) / 2
+                visible: plasmoid.configuration.panelShowBg
+                anchors {
+                    left: parent.left
+                    right: parent.right
+                    verticalCenter: parent.verticalCenter
+                }
+                height: Math.min(parent.height - 2, Math.max(16, panelRoot.contentH + panelRoot.vPad * 2))
+                radius: height / 2
                 color: plasmoid.configuration.bgColor || "#800d0f1a"
                 border.color: Qt.rgba(1, 1, 1, 0.13)
                 border.width: 1
@@ -312,14 +317,14 @@ Item {
                             spacing: 4
                             Text {
                                 text: "↓"
-                                color: Qt.rgba(compact._root.dlColor.r, compact._root.dlColor.g, compact._root.dlColor.b, 0.65)
+                                color: compact.panelAlphaColor(compact._root.dlColor, 0.65)
                                 font.pixelSize: Math.max(8, compact.height * 0.26)
                                 font.bold: true
                                 Layout.alignment: Qt.AlignVCenter
                             }
                             Text {
                                 text: compact._fmtSpeed(compact._root.downloadSpeed)
-                                color: compact._root.dlColor
+                                color: compact.panelColor(compact._root.dlColor)
                                 font.pixelSize: Math.max(9, compact.height * 0.30)
                                 font.bold: true
                                 Layout.alignment: Qt.AlignVCenter
@@ -329,7 +334,7 @@ Item {
                             Text {
                                 visible: plasmoid.configuration.panelShowSessionTotals && compact.height >= 30
                                 text: compact._fmtBytes(compact._root.sessionDlBytes)
-                                color: Qt.rgba(compact._root.dlColor.r, compact._root.dlColor.g, compact._root.dlColor.b, 0.5)
+                                color: compact.panelAlphaColor(compact._root.dlColor, 0.5)
                                 font.pixelSize: Math.max(7, compact.height * 0.22)
                                 Layout.alignment: Qt.AlignVCenter
                             }
@@ -340,14 +345,14 @@ Item {
                             spacing: 4
                             Text {
                                 text: "↑"
-                                color: Qt.rgba(compact._root.ulColor.r, compact._root.ulColor.g, compact._root.ulColor.b, 0.65)
+                                color: compact.panelAlphaColor(compact._root.ulColor, 0.65)
                                 font.pixelSize: Math.max(8, compact.height * 0.26)
                                 font.bold: true
                                 Layout.alignment: Qt.AlignVCenter
                             }
                             Text {
                                 text: compact._fmtSpeed(compact._root.uploadSpeed)
-                                color: compact._root.ulColor
+                                color: compact.panelColor(compact._root.ulColor)
                                 font.pixelSize: Math.max(9, compact.height * 0.30)
                                 font.bold: true
                                 Layout.alignment: Qt.AlignVCenter
@@ -356,7 +361,7 @@ Item {
                             Text {
                                 visible: plasmoid.configuration.panelShowSessionTotals && compact.height >= 30
                                 text: compact._fmtBytes(compact._root.sessionUlBytes)
-                                color: Qt.rgba(compact._root.ulColor.r, compact._root.ulColor.g, compact._root.ulColor.b, 0.5)
+                                color: compact.panelAlphaColor(compact._root.ulColor, 0.5)
                                 font.pixelSize: Math.max(7, compact.height * 0.22)
                                 Layout.alignment: Qt.AlignVCenter
                             }
@@ -383,7 +388,7 @@ Item {
                         }
                         Text {
                             text: compact._root.cpuPercent.toFixed(1) + "%"
-                            color: compact._root.cpuColor
+                            color: compact.panelColor(compact._root.cpuColor)
                             font.pixelSize: Math.max(10, compact.height * 0.38)
                             font.bold: true
                             Layout.fillWidth: true
@@ -394,12 +399,12 @@ Item {
                             Layout.fillWidth: true
                             height: 3
                             radius: 1.5
-                            color: Qt.rgba(compact._root.cpuColor.r, compact._root.cpuColor.g, compact._root.cpuColor.b, 0.20)
+                            color: compact.panelAlphaColor(compact._root.cpuColor, 0.20)
                             Rectangle {
                                 width: parent.width * Math.min(1, compact._root.cpuPercent / 100)
                                 height: parent.height
                                 radius: parent.radius
-                                color: compact._root.cpuColor
+                                color: compact.panelColor(compact._root.cpuColor)
                                 Behavior on width {
                                     NumberAnimation {
                                         duration: 400
@@ -430,7 +435,7 @@ Item {
                         }
                         Text {
                             text: compact._root.memPercent.toFixed(1) + "%"
-                            color: compact._root.memColor
+                            color: compact.panelColor(compact._root.memColor)
                             font.pixelSize: Math.max(10, compact.height * 0.38)
                             font.bold: true
                             Layout.fillWidth: true
@@ -440,12 +445,12 @@ Item {
                             Layout.fillWidth: true
                             height: 3
                             radius: 1.5
-                            color: Qt.rgba(compact._root.memColor.r, compact._root.memColor.g, compact._root.memColor.b, 0.20)
+                            color: compact.panelAlphaColor(compact._root.memColor, 0.20)
                             Rectangle {
                                 width: parent.width * Math.min(1, compact._root.memPercent / 100)
                                 height: parent.height
                                 radius: parent.radius
-                                color: compact._root.memColor
+                                color: compact.panelColor(compact._root.memColor)
                                 Behavior on width {
                                     NumberAnimation {
                                         duration: 400
@@ -476,7 +481,7 @@ Item {
                         }
                         Text {
                             text: compact._root.lastPing >= 0 ? compact._root.lastPing.toFixed(0) + "ms" : "—"
-                            color: compact._root.isAlerting ? "#ff6666" : compact._root.lineColor
+                            color: compact._root.isAlerting ? "#ff6666" : compact.panelColor(compact._root.lineColor)
                             font.pixelSize: Math.max(10, compact.height * 0.38)
                             font.bold: true
                             Layout.fillWidth: true
@@ -504,7 +509,7 @@ Item {
                         }
                         Text {
                             text: compact._root.gpuPercent.toFixed(1) + "%"
-                            color: compact._root.gpuColor
+                            color: compact.panelColor(compact._root.gpuColor)
                             font.pixelSize: Math.max(10, compact.height * 0.38)
                             font.bold: true
                             Layout.fillWidth: true
@@ -514,12 +519,12 @@ Item {
                             Layout.fillWidth: true
                             height: 3
                             radius: 1.5
-                            color: Qt.rgba(compact._root.gpuColor.r, compact._root.gpuColor.g, compact._root.gpuColor.b, 0.20)
+                            color: compact.panelAlphaColor(compact._root.gpuColor, 0.20)
                             Rectangle {
                                 width: parent.width * Math.min(1, compact._root.gpuPercent / 100)
                                 height: parent.height
                                 radius: parent.radius
-                                color: compact._root.gpuColor
+                                color: compact.panelColor(compact._root.gpuColor)
                                 Behavior on width {
                                     NumberAnimation {
                                         duration: 400
@@ -546,14 +551,14 @@ Item {
                             spacing: 3
                             Text {
                                 text: "R"
-                                color: Qt.rgba(compact._root.diskRdColor.r, compact._root.diskRdColor.g, compact._root.diskRdColor.b, 0.65)
+                                color: compact.panelAlphaColor(compact._root.diskRdColor, 0.65)
                                 font.pixelSize: Math.max(8, compact.height * 0.28)
                                 font.bold: true
                                 Layout.alignment: Qt.AlignVCenter
                             }
                             Text {
                                 text: compact._fmtSpeed(compact._root.diskReadSpeed)
-                                color: compact._root.diskRdColor
+                                color: compact.panelColor(compact._root.diskRdColor)
                                 font.pixelSize: Math.max(9, compact.height * 0.32)
                                 font.bold: true
                                 Layout.alignment: Qt.AlignVCenter
@@ -565,14 +570,14 @@ Item {
                             spacing: 3
                             Text {
                                 text: "W"
-                                color: Qt.rgba(compact._root.diskWrColor.r, compact._root.diskWrColor.g, compact._root.diskWrColor.b, 0.65)
+                                color: compact.panelAlphaColor(compact._root.diskWrColor, 0.65)
                                 font.pixelSize: Math.max(8, compact.height * 0.28)
                                 font.bold: true
                                 Layout.alignment: Qt.AlignVCenter
                             }
                             Text {
                                 text: compact._fmtSpeed(compact._root.diskWriteSpeed)
-                                color: compact._root.diskWrColor
+                                color: compact.panelColor(compact._root.diskWrColor)
                                 font.pixelSize: Math.max(9, compact.height * 0.32)
                                 font.bold: true
                                 Layout.alignment: Qt.AlignVCenter
@@ -601,11 +606,124 @@ Item {
                         }
                         Text {
                             text: compact._root.customValue.toFixed(1) + (plasmoid.configuration.customCmdUnit || "")
-                            color: Qt.color(plasmoid.configuration.customCmdColor || "#ffaa00")
+                            color: compact.panelColor(Qt.color(plasmoid.configuration.customCmdColor || "#ffaa00"))
                             font.pixelSize: Math.max(10, compact.height * 0.38)
                             font.bold: true
                             Layout.fillWidth: true
                             horizontalAlignment: Text.AlignHCenter
+                        }
+                    }
+                }
+            }
+
+            // ── Hardware Sensors section ──────────────────────────────────────
+            Loader {
+                id: hwSensorsLoader
+                anchors.centerIn: pill
+                width: pill.width - panelRoot.hPad * 2
+                active: compact._valid && compact._root.showHwSensors
+                sourceComponent: Component {
+                    ColumnLayout {
+                        spacing: 1
+                        Text {
+                            text: plasmoid.configuration.hwSensorsTitle || "Temp"
+                            color: Qt.rgba(compact._root.textColor.r, compact._root.textColor.g, compact._root.textColor.b, 0.50)
+                            font.pixelSize: Math.max(7, compact.height * 0.22)
+                            Layout.fillWidth: true
+                            horizontalAlignment: Text.AlignHCenter
+                        }
+                        Text {
+                            text: compact._root.hwMaxTemp.toFixed(1) + "°C"
+                            color: compact.panelColor(compact.hwTempColor(compact._root.hwMaxTemp, compact._root.hwMaxTempCrit))
+                            font.pixelSize: Math.max(10, compact.height * 0.38)
+                            font.bold: true
+                            Layout.fillWidth: true
+                            horizontalAlignment: Text.AlignHCenter
+                        }
+                        Rectangle {
+                            Layout.fillWidth: true
+                            height: 3
+                            radius: 1.5
+                            color: compact.panelAlphaColor(compact.hwTempColor(compact._root.hwMaxTemp, compact._root.hwMaxTempCrit), 0.20)
+                            Rectangle {
+                                width: parent.width * Math.max(0.05, Math.min(1, compact._root.hwMaxTemp / (compact._root.hwMaxTempCrit > 0 ? compact._root.hwMaxTempCrit : 90)))
+                                height: parent.height
+                                radius: parent.radius
+                                color: compact.panelColor(compact.hwTempColor(compact._root.hwMaxTemp, compact._root.hwMaxTempCrit))
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ── OS Info section ───────────────────────────────────────────────
+            Loader {
+                id: osInfoLoader
+                anchors.centerIn: pill
+                width: pill.width - panelRoot.hPad * 2
+                active: compact._valid && compact._root.showOsInfo
+                sourceComponent: Component {
+                    ColumnLayout {
+                        spacing: 1
+                        Text {
+                            text: plasmoid.configuration.osInfoTitle || "Uptime"
+                            color: Qt.rgba(compact._root.textColor.r, compact._root.textColor.g, compact._root.textColor.b, 0.50)
+                            font.pixelSize: Math.max(7, compact.height * 0.22)
+                            Layout.fillWidth: true
+                            horizontalAlignment: Text.AlignHCenter
+                        }
+                        Text {
+                            text: compact._root.osUptime || "—"
+                            color: compact.panelColor(compact._root.lineColor)
+                            font.pixelSize: Math.max(8, compact.height * 0.33)
+                            font.bold: true
+                            Layout.fillWidth: true
+                            horizontalAlignment: Text.AlignHCenter
+                        }
+                    }
+                }
+            }
+
+            // ── Power section ─────────────────────────────────────────────────
+            Loader {
+                id: powerLoader
+                anchors.centerIn: pill
+                width: pill.width - panelRoot.hPad * 2
+                active: compact._valid && compact._root.showPowerSection
+                sourceComponent: Component {
+                    ColumnLayout {
+                        spacing: 1
+                        Text {
+                            text: plasmoid.configuration.powerTitle || "BAT"
+                            color: Qt.rgba(compact._root.textColor.r, compact._root.textColor.g, compact._root.textColor.b, 0.50)
+                            font.pixelSize: Math.max(7, compact.height * 0.22)
+                            Layout.fillWidth: true
+                            horizontalAlignment: Text.AlignHCenter
+                        }
+                        Text {
+                            text: {
+                                if (!compact._root.batteryPresent)
+                                    return "No Bat";
+                                let isChg = compact._root.batteryStatus === "Charging";
+                                return (isChg ? "⚡ " : "") + compact._root.batteryPercent + "%";
+                            }
+                            color: compact.panelColor(compact.powerBatColor(compact._root.batteryPercent))
+                            font.pixelSize: Math.max(10, compact.height * 0.38)
+                            font.bold: true
+                            Layout.fillWidth: true
+                            horizontalAlignment: Text.AlignHCenter
+                        }
+                        Rectangle {
+                            Layout.fillWidth: true
+                            height: 3
+                            radius: 1.5
+                            color: compact.panelAlphaColor(compact.powerBatColor(compact._root.batteryPercent), 0.20)
+                            Rectangle {
+                                width: parent.width * Math.min(1, compact._root.batteryPercent / 100)
+                                height: parent.height
+                                radius: parent.radius
+                                color: compact.panelColor(compact.powerBatColor(compact._root.batteryPercent))
+                            }
                         }
                     }
                 }

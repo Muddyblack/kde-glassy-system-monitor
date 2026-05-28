@@ -155,14 +155,17 @@ ColumnLayout {
                     x: iToX(n - 1, n),
                     y: valToY(h[n - 1])
                 };
-                // OPTIMIZATION: Reduced glow blur from 14 to 8 for better performance
-                ctx.shadowBlur = plasmoid.configuration.glowLine ? 8 : 0;
-                ctx.shadowColor = color;
+                const ec = Qt.color(color);
+                if (plasmoid.configuration.glowLine) {
+                    ctx.beginPath();
+                    ctx.arc(lp.x, lp.y, 14, 0, Math.PI * 2);
+                    ctx.fillStyle = Qt.rgba(ec.r, ec.g, ec.b, 0.18);
+                    ctx.fill();
+                }
                 ctx.beginPath();
                 ctx.arc(lp.x, lp.y, 3.2, 0, Math.PI * 2);
                 ctx.fillStyle = color;
                 ctx.fill();
-                ctx.shadowBlur = 0;
             }
             ctx.restore();
         }

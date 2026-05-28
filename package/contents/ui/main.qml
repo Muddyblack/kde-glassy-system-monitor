@@ -16,12 +16,15 @@ PlasmoidItem {
     readonly property bool showDiskSection: plasmoid.configuration.activeSection === 5
     readonly property bool showCustomSection: plasmoid.configuration.activeSection === 4
     readonly property bool showGpuSection: plasmoid.configuration.activeSection === 6
+    readonly property bool showHwSensors: plasmoid.configuration.activeSection === 7
+    readonly property bool showOsInfo: plasmoid.configuration.activeSection === 8
+    readonly property bool showPowerSection: plasmoid.configuration.activeSection === 9
 
     // isInPanel: true when Plasma places us on a panel edge, or user forces it.
     readonly property bool isInPanel: plasmoid.configuration.panelMode || Plasmoid.location === PlasmaCore.Types.TopEdge || Plasmoid.location === PlasmaCore.Types.BottomEdge || Plasmoid.location === PlasmaCore.Types.LeftEdge || Plasmoid.location === PlasmaCore.Types.RightEdge
 
     Layout.minimumWidth: root.isInPanel ? 60 : 120
-    Layout.preferredWidth: root.isInPanel ? (root.showNetworkSpeed || root.showDiskSection ? 110 : 72) : 200
+    Layout.preferredWidth: root.isInPanel ? (root.showNetworkSpeed || root.showDiskSection ? 82 : 68) : 200
     Layout.preferredHeight: {
         if (root.isInPanel)
             return -1;
@@ -47,6 +50,14 @@ PlasmoidItem {
             h += graph + legend;
         if (root.showGpuSection)
             h += 22 + graph + legend;
+        if (root.showHwSensors) {
+            const c = hwSensorRowsModel.count;
+            h += c > 0 ? c * 22 + 8 : 90;
+        }
+        if (root.showOsInfo)
+            h += 100;
+        if (root.showPowerSection)
+            h += 180;
         return Math.max(80, h);
     }
     Layout.minimumHeight: root.isInPanel ? 20 : 80
@@ -75,9 +86,6 @@ PlasmoidItem {
         glowEnabled: plasmoid.configuration.glowLine
         showGridLines: plasmoid.configuration.showGridLines
     }
-
-    // ── pause state ───────────────────────────────────────────────────────
-    property bool paused: false
 
     // ── smooth scroll: timestamp-based, computed at paint time ───────────────
     // Each section reads scrollPhase(start, interval) directly in onPaint via
@@ -123,7 +131,7 @@ PlasmoidItem {
     property int scrollTick: 0
     property int _frameSkipCounter: 0
     readonly property int _tickInterval: Math.max(8, Math.round(1000 / Math.max(15, plasmoid.configuration.targetFps || 60)))
-    readonly property bool _anyAnimating: !root.paused && ((root.showPingSection && root._pingPhaseStart > 0 && root.pingScrollPhase() < 2) || (root.showNetworkSpeed && root._netPhaseStart > 0 && root.netScrollPhase() < 2) || (root.showCpuSection && root._cpuPhaseStart > 0 && root.cpuScrollPhase() < 2) || (root.showMemorySection && root._memPhaseStart > 0 && root.memScrollPhase() < 3) || (root.showDiskSection && root._dskPhaseStart > 0 && root.diskScrollPhase() < 2) || (root.showCustomSection && root._custPhaseStart > 0 && root.custScrollPhase() < 2) || (root.showGpuSection && root._gpuPhaseStart > 0 && root.gpuScrollPhase() < 3))
+    readonly property bool _anyAnimating: (root.showPingSection && root._pingPhaseStart > 0 && root.pingScrollPhase() < 2) || (root.showNetworkSpeed && root._netPhaseStart > 0 && root.netScrollPhase() < 2) || (root.showCpuSection && root._cpuPhaseStart > 0 && root.cpuScrollPhase() < 2) || (root.showMemorySection && root._memPhaseStart > 0 && root.memScrollPhase() < 3) || (root.showDiskSection && root._dskPhaseStart > 0 && root.diskScrollPhase() < 2) || (root.showCustomSection && root._custPhaseStart > 0 && root.custScrollPhase() < 2) || (root.showGpuSection && root._gpuPhaseStart > 0 && root.gpuScrollPhase() < 3)
     Timer {
         id: scrollTicker
         interval: root._tickInterval
@@ -208,7 +216,7 @@ PlasmoidItem {
 
     Timer {
         interval: Math.max(1, plasmoid.configuration.pingInterval) * 1000
-        running: root.showPingSection && !root.paused
+        running: root.showPingSection
         repeat: true
         onTriggered: root.triggerPing()
     }
@@ -294,7 +302,7 @@ PlasmoidItem {
     }
     Timer {
         interval: 1000
-        running: root.showNetworkSpeed && !root.paused
+        running: root.showNetworkSpeed
         repeat: true
         onTriggered: {
             if (!root.isReadingNet) {
@@ -385,7 +393,7 @@ PlasmoidItem {
     }
     Timer {
         interval: 1000
-        running: root.showCpuSection && !root.paused
+        running: root.showCpuSection
         repeat: true
         onTriggered: {
             if (!root.isReadingCpu) {
@@ -476,7 +484,7 @@ PlasmoidItem {
     }
     Timer {
         interval: 2000
-        running: root.showMemorySection && !root.paused
+        running: root.showMemorySection
         repeat: true
         onTriggered: {
             if (!root.isReadingMem) {
@@ -551,7 +559,7 @@ PlasmoidItem {
     }
     Timer {
         interval: Math.max(1, plasmoid.configuration.customCmdInterval) * 1000
-        running: root.showCustomSection && !root.paused
+        running: root.showCustomSection
         repeat: true
         onTriggered: {
             if (!root.isReadingCustom && plasmoid.configuration.customCmd) {
@@ -638,7 +646,7 @@ PlasmoidItem {
 
     Timer {
         interval: 2000
-        running: root.showGpuSection && !root.paused
+        running: root.showGpuSection
         repeat: true
         onTriggered: {
             if (!root.isReadingGpu && root.gpuMode !== "") {
@@ -722,6 +730,441 @@ PlasmoidItem {
         if (nh.length > maxH)
             nh.splice(0, nh.length - maxH);
         root.gpuHistory = nh;
+    }
+
+    // ── Hardware Sensors state ────────────────────────────────────────────────
+    // Flat ListModel of rows (header + sensor). A stable ListModel (rather
+    // than a JS array we reassign every 3s) keeps delegates alive across
+    // refreshes — so `Behavior on width` animates from previous width to
+    // the new one, instead of recreating delegates that snap to 0.
+    ListModel {
+        id: hwSensorRowsModel
+        dynamicRoles: true
+    }
+    property alias hwSensorRows: hwSensorRowsModel
+    property bool isReadingHwSensors: false
+    property real hwMaxTemp: 0
+    property real hwMaxTempCrit: 0
+
+    P5Support.DataSource {
+        id: hwSensorsSource
+        engine: "executable"
+        connectedSources: []
+        onNewData: function (sourceName, data) {
+            root.isReadingHwSensors = false;
+            hwSensorsSource.disconnectSource(sourceName);
+            root.applyHwSensorUpdate(root.parseHwSensorsJson(data["stdout"] || ""));
+        }
+    }
+
+    Timer {
+        interval: 3000
+        running: root.showHwSensors
+        repeat: true
+        triggeredOnStart: true
+        onTriggered: {
+            if (!root.isReadingHwSensors) {
+                root.isReadingHwSensors = true;
+                hwSensorsSource.connectSource("sensors -j 2>/dev/null");
+            }
+        }
+    }
+
+    function friendlyChipName(n) {
+        const s = n.toLowerCase();
+        if (s.startsWith("coretemp"))
+            return "CPU (Intel)";
+        if (s.startsWith("k10temp"))
+            return "CPU (AMD)";
+        if (s.startsWith("zenpower"))
+            return "CPU (AMD Zen)";
+        if (s.startsWith("k8temp"))
+            return "CPU (AMD K8)";
+        if (s.startsWith("nvme"))
+            return "NVMe SSD";
+        if (s.startsWith("amdgpu"))
+            return "GPU (AMD)";
+        if (s.startsWith("nouveau"))
+            return "GPU (Nouveau)";
+        if (s.startsWith("radeon"))
+            return "GPU (Radeon)";
+        if (s.startsWith("i915"))
+            return "GPU (Intel)";
+        if (s.startsWith("acpitz"))
+            return "ACPI Thermal";
+        if (s.startsWith("iwlwifi"))
+            return "Wi-Fi";
+        if (s.startsWith("drivetemp"))
+            return "Drive";
+        if (s.startsWith("hddtemp"))
+            return "HDD";
+        if (s.startsWith("ucsi"))
+            return "USB-PD";
+        if (s.startsWith("nct") || s.startsWith("it8") || s.startsWith("w83") || s.startsWith("f71") || s.startsWith("nuvoton"))
+            return "Motherboard";
+        return n;
+    }
+
+    function parseHwSensorsJson(text) {
+        if (!text || !text.trim())
+            return [];
+        let data;
+        try {
+            data = JSON.parse(text);
+        } catch (e) {
+            return [];
+        }
+        const groups = [];
+        for (const chipKey in data) {
+            const chipData = data[chipKey];
+            if (typeof chipData !== "object")
+                continue;
+            const sensors = [];
+            const cores = [];
+            let maxTemp = 0;
+            let maxTempCrit = 0;
+
+            for (const sensorKey in chipData) {
+                if (sensorKey === "Adapter")
+                    continue;
+                const sd = chipData[sensorKey];
+                if (typeof sd !== "object")
+                    continue;
+
+                for (const key in sd) {
+                    if (!key.endsWith("_input"))
+                        continue;
+                    const prefix = key.slice(0, -6);
+                    const value = sd[key];
+                    if (typeof value !== "number")
+                        break;
+
+                    if (prefix.startsWith("temp")) {
+                        const crit = sd[prefix + "_crit"] || sd[prefix + "_max"] || 0;
+                        if (value > maxTemp) {
+                            maxTemp = value;
+                            maxTempCrit = crit;
+                        }
+                        if (/^Core \d+/.test(sensorKey)) {
+                            cores.push({
+                                label: sensorKey,
+                                value: value,
+                                crit: crit
+                            });
+                        } else {
+                            let label = sensorKey;
+                            if (/^Package id/.test(label))
+                                label = "Package";
+                            sensors.push({
+                                label: label,
+                                value: value,
+                                crit: crit,
+                                type: 'temp'
+                            });
+                        }
+                        break;
+                    } else if (prefix.startsWith("fan")) {
+                        if (value > 0)
+                            sensors.push({
+                                label: sensorKey,
+                                value: Math.round(value),
+                                type: 'fan'
+                            });
+                        break;
+                    }
+                }
+            }
+
+            // Aggregate cores when there are multiple
+            if (cores.length > 1) {
+                const values = cores.map(function (c) {
+                    return c.value;
+                });
+                let sum = 0, mn = values[0], mx = values[0];
+                for (let i = 0; i < values.length; i++) {
+                    sum += values[i];
+                    if (values[i] < mn)
+                        mn = values[i];
+                    if (values[i] > mx)
+                        mx = values[i];
+                }
+                sensors.push({
+                    label: cores.length + " cores",
+                    value: sum / values.length,
+                    min: mn,
+                    max: mx,
+                    crit: cores[0].crit,
+                    coreValues: values,
+                    type: 'cores'
+                });
+            } else if (cores.length === 1) {
+                sensors.push({
+                    label: cores[0].label,
+                    value: cores[0].value,
+                    crit: cores[0].crit,
+                    type: 'temp'
+                });
+            }
+
+            if (sensors.length > 0) {
+                groups.push({
+                    chip: chipKey,
+                    chipDisplay: root.friendlyChipName(chipKey),
+                    maxTemp: maxTemp,
+                    maxTempCrit: maxTempCrit,
+                    sensors: sensors
+                });
+            }
+        }
+        return groups;
+    }
+
+    // Flatten groups into ListModel rows. If row count + key sequence matches
+    // the existing model, update values in place (so delegates persist and
+    // bar widths animate smoothly). Otherwise, rebuild from scratch.
+    function applyHwSensorUpdate(groups) {
+        let globalMaxTemp = 0;
+        let globalMaxTempCrit = 0;
+        const newRows = [];
+        for (let gi = 0; gi < groups.length; gi++) {
+            const g = groups[gi];
+            if (g.maxTemp > globalMaxTemp) {
+                globalMaxTemp = g.maxTemp;
+                globalMaxTempCrit = g.maxTempCrit;
+            }
+            newRows.push({
+                rowType: 'header',
+                key: 'h:' + g.chip,
+                chipDisplay: g.chipDisplay,
+                maxTemp: g.maxTemp,
+                maxTempCrit: g.maxTempCrit || 0,
+                // sensor-row fields filled with defaults so ListModel role
+                // schema stays uniform across rows
+                label: '',
+                value: 0,
+                sensorKind: '',
+                crit: 0,
+                coreMin: 0,
+                coreMax: 0,
+                coreValues: []
+            });
+            for (let si = 0; si < g.sensors.length; si++) {
+                const s = g.sensors[si];
+                newRows.push({
+                    rowType: 'sensor',
+                    key: 's:' + g.chip + ':' + s.label,
+                    chipDisplay: '',
+                    maxTemp: 0,
+                    maxTempCrit: 0,
+                    label: s.label,
+                    value: s.value,
+                    sensorKind: s.type,
+                    crit: s.crit || 0,
+                    coreMin: s.min || 0,
+                    coreMax: s.max || 0,
+                    coreValues: s.coreValues || []
+                });
+            }
+        }
+
+        // Does the existing model have the same row structure?
+        let same = (hwSensorRowsModel.count === newRows.length);
+        if (same) {
+            for (let i = 0; i < newRows.length; i++) {
+                if (hwSensorRowsModel.get(i).key !== newRows[i].key) {
+                    same = false;
+                    break;
+                }
+            }
+        }
+
+        if (same) {
+            // In-place update — delegates stay alive, Behavior on width animates
+            for (let i = 0; i < newRows.length; i++) {
+                const r = newRows[i];
+                if (r.rowType === 'header') {
+                    hwSensorRowsModel.setProperty(i, 'maxTemp', r.maxTemp);
+                    hwSensorRowsModel.setProperty(i, 'maxTempCrit', r.maxTempCrit);
+                } else {
+                    hwSensorRowsModel.setProperty(i, 'value', r.value);
+                    hwSensorRowsModel.setProperty(i, 'coreMin', r.coreMin);
+                    hwSensorRowsModel.setProperty(i, 'coreMax', r.coreMax);
+                    hwSensorRowsModel.setProperty(i, 'coreValues', r.coreValues);
+                }
+            }
+        } else {
+            hwSensorRowsModel.clear();
+            for (let i = 0; i < newRows.length; i++)
+                hwSensorRowsModel.append(newRows[i]);
+        }
+        root.hwMaxTemp = globalMaxTemp;
+        root.hwMaxTempCrit = globalMaxTempCrit;
+    }
+
+    // ── OS Info state ─────────────────────────────────────────────────────────
+    property string osDistro: ""
+    property string osKernel: ""
+    property string osHostname: ""
+    property string osUptime: ""
+
+    P5Support.DataSource {
+        id: osInfoSource
+        engine: "executable"
+        connectedSources: []
+        onNewData: function (sourceName, data) {
+            osInfoSource.disconnectSource(sourceName);
+            const lines = (data["stdout"] || "").split('\n');
+            root.osDistro = (lines[0] || "").trim() || "Linux";
+            root.osKernel = (lines[1] || "").trim();
+            root.osHostname = (lines[2] || "").trim();
+            root.osUptime = (lines[3] || "").trim();
+        }
+    }
+
+    Timer {
+        interval: 30000
+        running: root.showOsInfo
+        repeat: true
+        triggeredOnStart: true
+        onTriggered: {
+            const cmd = "grep -m1 PRETTY_NAME /etc/os-release 2>/dev/null | cut -d= -f2 | tr -d '\"'; " + "uname -r 2>/dev/null; " + "cat /etc/hostname 2>/dev/null || hostname 2>/dev/null; " + "awk '{d=int($1/86400);h=int(($1%86400)/3600);m=int(($1%3600)/60);" + "if(d>0)printf \"%dd %dh %dm\\n\",d,h,m;" + "else if(h>0)printf \"%dh %dm\\n\",h,m;" + "else printf \"%dm\\n\",m}' /proc/uptime 2>/dev/null";
+            osInfoSource.connectSource(cmd);
+        }
+    }
+
+    // ── Power & Pressure state ────────────────────────────────────────────────
+    property int batteryPercent: 0
+    property string batteryStatus: ""
+    property bool batteryPresent: false
+    // Power draw: signed W. Positive = charging, negative = discharging, 0 = idle/full.
+    property real batteryPowerW: 0
+    property int batteryCycles: -1            // -1 = unknown
+    property real batteryHealthPct: 0         // 0 = unknown
+    property real batteryTempC: -999          // -999 = unknown
+    property real batteryTimeRemainHours: 0   // 0 = unknown / N/A
+    property var batteryPowerHistory: []      // |W| samples for sparkline
+    property real cpuPressureAvg10: 0
+    property real memPressureAvg10: 0
+    property bool isReadingPower: false
+
+    P5Support.DataSource {
+        id: powerSource
+        engine: "executable"
+        connectedSources: []
+        onNewData: function (sourceName, data) {
+            root.isReadingPower = false;
+            powerSource.disconnectSource(sourceName);
+            root.parsePowerData(data["stdout"] || "");
+        }
+    }
+
+    Timer {
+        interval: 5000
+        running: root.showPowerSection
+        repeat: true
+        triggeredOnStart: true
+        onTriggered: {
+            if (!root.isReadingPower) {
+                root.isReadingPower = true;
+                const cmd = "for p in /sys/class/power_supply/BAT0 /sys/class/power_supply/BAT1 " + "/sys/class/power_supply/battery /sys/class/power_supply/BATT; do " + "[ -f $p/capacity ] || continue; " + "echo bat=$(cat $p/capacity 2>/dev/null); " + "echo status=$(cat $p/status 2>/dev/null); " + "[ -f $p/cycle_count ] && echo cycles=$(cat $p/cycle_count 2>/dev/null); " + "[ -f $p/temp ] && echo temp=$(cat $p/temp 2>/dev/null); " + "en=$(cat $p/energy_now 2>/dev/null); " + "ef=$(cat $p/energy_full 2>/dev/null); " + "ed=$(cat $p/energy_full_design 2>/dev/null); " + "if [ -n \"$en\" ]; then echo useEnergy=1; else en=$(cat $p/charge_now 2>/dev/null); ef=$(cat $p/charge_full 2>/dev/null); ed=$(cat $p/charge_full_design 2>/dev/null); echo useEnergy=0; fi; " + "echo enow=${en:-0}; echo efull=${ef:-0}; echo edesign=${ed:-0}; " + "pw=$(cat $p/power_now 2>/dev/null); " + "if [ -z \"$pw\" ]; then v=$(cat $p/voltage_now 2>/dev/null); c=$(cat $p/current_now 2>/dev/null); " + "[ -n \"$v\" ] && [ -n \"$c\" ] && pw=$(awk -v v=\"$v\" -v c=\"$c\" 'BEGIN{printf \"%d\", v*c/1000000}'); fi; " + "echo power=${pw:-0}; break; done; " + "[ -f /proc/pressure/cpu ] && sed 's/^/cpu /' /proc/pressure/cpu 2>/dev/null | head -1; " + "[ -f /proc/pressure/memory ] && sed 's/^/mem /' /proc/pressure/memory 2>/dev/null | head -1";
+                powerSource.connectSource(cmd);
+            }
+        }
+    }
+
+    function parsePowerData(text) {
+        let bat = -1, status = '', powerUW = 0;
+        let cycles = -1, tempDeci = -9999;
+        let enow = 0, efull = 0, edesign = 0, useEnergy = false;
+        let cpuAvg10 = 0, memAvg10 = 0;
+
+        for (const line of text.split('\n')) {
+            const t = line.trim();
+            if (t.startsWith('bat=')) {
+                const v = parseInt(t.slice(4));
+                if (!isNaN(v) && v >= 0)
+                    bat = v;
+            } else if (t.startsWith('status=')) {
+                status = t.slice(7);
+            } else if (t.startsWith('cycles=')) {
+                const v = parseInt(t.slice(7));
+                if (!isNaN(v))
+                    cycles = v;
+            } else if (t.startsWith('temp=')) {
+                const v = parseInt(t.slice(5));
+                if (!isNaN(v))
+                    tempDeci = v;
+            } else if (t.startsWith('enow=')) {
+                const v = parseInt(t.slice(5));
+                if (!isNaN(v))
+                    enow = v;
+            } else if (t.startsWith('efull=')) {
+                const v = parseInt(t.slice(6));
+                if (!isNaN(v))
+                    efull = v;
+            } else if (t.startsWith('edesign=')) {
+                const v = parseInt(t.slice(8));
+                if (!isNaN(v))
+                    edesign = v;
+            } else if (t.startsWith('useEnergy=')) {
+                useEnergy = t.slice(10) === '1';
+            } else if (t.startsWith('power=')) {
+                const v = parseInt(t.slice(6));
+                if (!isNaN(v))
+                    powerUW = v;
+            } else if (t.startsWith('cpu some')) {
+                const m = t.match(/avg10=(\d+\.?\d*)/);
+                if (m)
+                    cpuAvg10 = parseFloat(m[1]);
+            } else if (t.startsWith('mem some')) {
+                const m = t.match(/avg10=(\d+\.?\d*)/);
+                if (m)
+                    memAvg10 = parseFloat(m[1]);
+            }
+        }
+
+        root.batteryPresent = bat >= 0;
+        if (bat >= 0)
+            root.batteryPercent = bat;
+        if (status)
+            root.batteryStatus = status;
+
+        // Sign convention: + when charging, - when discharging. sysfs power_now
+        // is usually unsigned and we infer direction from status.
+        let pw = Math.abs(powerUW) / 1000000.0;
+        if (status === 'Discharging')
+            pw = -pw;
+        else if (status !== 'Charging')
+            pw = (status === 'Full' || pw < 0.05) ? 0 : pw;
+        root.batteryPowerW = pw;
+
+        // History for sparkline (absolute value)
+        const maxH = Math.max(10, plasmoid.configuration.historySize);
+        const nh = root.batteryPowerHistory.slice();
+        nh.push(Math.abs(pw));
+        if (nh.length > maxH)
+            nh.splice(0, nh.length - maxH);
+        root.batteryPowerHistory = nh;
+
+        // Diagnostics
+        root.batteryCycles = cycles;
+        root.batteryTempC = tempDeci > -1000 ? tempDeci / 10.0 : -999;
+        root.batteryHealthPct = (edesign > 0 && efull > 0) ? (efull / edesign * 100.0) : 0;
+
+        // Time remaining only when units are µWh and we actually have power flow
+        if (useEnergy && Math.abs(powerUW) > 1000 && enow > 0 && efull > 0) {
+            if (status === 'Discharging')
+                root.batteryTimeRemainHours = enow / Math.abs(powerUW);
+            else if (status === 'Charging' && efull > enow)
+                root.batteryTimeRemainHours = (efull - enow) / Math.abs(powerUW);
+            else
+                root.batteryTimeRemainHours = 0;
+        } else {
+            root.batteryTimeRemainHours = 0;
+        }
+
+        root.cpuPressureAvg10 = cpuAvg10;
+        root.memPressureAvg10 = memAvg10;
     }
 
     // ── shared interaction state ──────────────────────────────────────────────
@@ -841,6 +1284,12 @@ PlasmoidItem {
                             return plasmoid.configuration.diskTitle || "Disk I/O";
                         if (root.showGpuSection)
                             return plasmoid.configuration.gpuTitle || "GPU";
+                        if (root.showHwSensors)
+                            return plasmoid.configuration.hwSensorsTitle || "Hardware Sensors";
+                        if (root.showOsInfo)
+                            return plasmoid.configuration.osInfoTitle || "System Info";
+                        if (root.showPowerSection)
+                            return plasmoid.configuration.powerTitle || "Power";
                         return plasmoid.configuration.customCmdTitle || "Custom Sensor";
                     }
                     color: root.textColor
@@ -1097,6 +1546,27 @@ PlasmoidItem {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 visible: root.showGpuSection
+            }
+
+            // hardware sensors
+            HwSensorsSection {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                visible: root.showHwSensors
+            }
+
+            // os info
+            OsInfoSection {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                visible: root.showOsInfo
+            }
+
+            // power & pressure
+            PowerSection {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                visible: root.showPowerSection
             }
         }
     }

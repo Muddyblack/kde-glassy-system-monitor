@@ -312,19 +312,14 @@ ColumnLayout {
                     continue;
                 const sMax = Math.max.apply(null, pts.map(p => p.ms));
                 const sc = sMax > threshold * 1.5 ? "#ff4444" : sMax > threshold ? "#ffaa22" : root.lineColor;
-                ctx.lineWidth = plasmoid.configuration.lineWidth;
-
-                // OPTIMIZATION: Draw line with precalculated coordinates
+                const plw = plasmoid.configuration.lineWidth;
+                const pc = Qt.color(sc);
                 ctx.save();
-                // OPTIMIZATION: Reduced glow blur from 8 to 5 for better performance
-                if (plasmoid.configuration.glowLine) {
-                    ctx.shadowBlur = 5;
-                    ctx.shadowColor = sc;
-                }
-                ctx.beginPath();
-                ctx.strokeStyle = sc;
                 ctx.lineCap = "round";
                 ctx.lineJoin = "round";
+
+                // Build path once, stroke twice for glow (no shadowBlur)
+                ctx.beginPath();
                 ctx.moveTo(pts[0].x, pts[0].y);
                 for (let i = 1; i < pts.length; i++) {
                     if (smooth) {
@@ -334,8 +329,13 @@ ColumnLayout {
                         ctx.lineTo(pts[i].x, pts[i].y);
                     }
                 }
-                ctx.stroke();
-                ctx.shadowBlur = 0;
+                if (plasmoid.configuration.glowLine) {
+                    ctx.lineWidth = plw * 3.5;
+                    ctx.strokeStyle = Qt.rgba(pc.r, pc.g, pc.b, 0.22);
+                    ctx.stroke();
+                }
+                ctx.lineWidth = plw;
+                ctx.strokeStyle = sc;
                 // fill
                 ctx.beginPath();
                 ctx.moveTo(pts[0].x, pts[0].y);
@@ -364,14 +364,17 @@ ColumnLayout {
                 const last = segments[segments.length - 1];
                 const lp = last[last.length - 1];
                 if (lp) {
-                    // OPTIMIZATION: Reduced glow blur from 14 to 8 for better performance
-                    ctx.shadowBlur = plasmoid.configuration.glowLine ? 8 : 0;
-                    ctx.shadowColor = root.lineColor;
+                    const dc = root.lineColor;
+                    if (plasmoid.configuration.glowLine) {
+                        ctx.beginPath();
+                        ctx.arc(lp.x, lp.y, 8, 0, Math.PI * 2);
+                        ctx.fillStyle = Qt.rgba(dc.r, dc.g, dc.b, 0.18);
+                        ctx.fill();
+                    }
                     ctx.beginPath();
                     ctx.arc(lp.x, lp.y, 3.2, 0, Math.PI * 2);
-                    ctx.fillStyle = root.lineColor;
+                    ctx.fillStyle = dc;
                     ctx.fill();
-                    ctx.shadowBlur = 0;
                 }
             }
             ctx.restore();
