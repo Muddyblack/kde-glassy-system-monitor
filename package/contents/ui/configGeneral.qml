@@ -56,6 +56,7 @@ KCM.SimpleKCM {
     property alias cfg_showGridLines: showGridLinesCB.checked
     property alias cfg_autoYRange: autoYRangeCB.checked
     property alias cfg_smoothLines: smoothLinesCB.checked
+    property alias cfg_smoothScroll: smoothScrollCB.checked
     property string cfg_disabledCoresStr: ""
     property string cfg_diskDevice: "auto"
     property string cfg_diskTitle: "Disk I/O"
@@ -590,6 +591,19 @@ KCM.SimpleKCM {
                     id: smoothLinesCB
                     Kirigami.FormData.label: i18n("Smooth lines:")
                     text: i18n("Bézier curve interpolation")
+                }
+                QQC.CheckBox {
+                    id: smoothScrollCB
+                    Kirigami.FormData.label: i18n("Smooth scroll:")
+                    text: i18n("Animate chart scrolling at target FPS")
+                }
+                QQC.Label {
+                    text: i18n("Disable to pause the per-frame ticker and save CPU — useful when running alongside an audio visualizer or other animated widget.")
+                    visible: !smoothScrollCB.checked
+                    opacity: 0.55
+                    font.pixelSize: 10
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
                 }
                 QQC.CheckBox {
                     id: glowLineCB

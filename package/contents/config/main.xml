@@ -87,6 +87,12 @@
         <entry name="targetFps" type="Int">
             <default>60</default>
         </entry>
+        <!-- Smooth scroll animation for chart history lines. Disable to cut
+             the per-frame canvas ticker and save CPU when other animated
+             widgets (e.g. an audio visualizer) are also running. -->
+        <entry name="smoothScroll" type="Bool">
+            <default>true</default>
+        </entry>
         <entry name="showStats" type="Bool">
             <default>true</default>
         </entry>

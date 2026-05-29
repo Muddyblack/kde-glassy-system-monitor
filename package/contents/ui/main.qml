@@ -131,7 +131,10 @@ PlasmoidItem {
     property int scrollTick: 0
     property int _frameSkipCounter: 0
     readonly property int _tickInterval: Math.max(8, Math.round(1000 / Math.max(15, plasmoid.configuration.targetFps || 60)))
-    readonly property bool _anyAnimating: (root.showPingSection && root._pingPhaseStart > 0 && root.pingScrollPhase() < 2) || (root.showNetworkSpeed && root._netPhaseStart > 0 && root.netScrollPhase() < 2) || (root.showCpuSection && root._cpuPhaseStart > 0 && root.cpuScrollPhase() < 2) || (root.showMemorySection && root._memPhaseStart > 0 && root.memScrollPhase() < 3) || (root.showDiskSection && root._dskPhaseStart > 0 && root.diskScrollPhase() < 2) || (root.showCustomSection && root._custPhaseStart > 0 && root.custScrollPhase() < 2) || (root.showGpuSection && root._gpuPhaseStart > 0 && root.gpuScrollPhase() < 3)
+    // Phase windows are normalised to 1.0 = one full data interval.
+    // Keep the threshold just above 1.0 so the animation expires between
+    // data updates rather than staying permanently active.
+    readonly property bool _anyAnimating: plasmoid.configuration.smoothScroll && ((root.showPingSection && root._pingPhaseStart > 0 && root.pingScrollPhase() < 1.05) || (root.showNetworkSpeed && root._netPhaseStart > 0 && root.netScrollPhase() < 1.05) || (root.showCpuSection && root._cpuPhaseStart > 0 && root.cpuScrollPhase() < 1.05) || (root.showMemorySection && root._memPhaseStart > 0 && root.memScrollPhase() < 1.05) || (root.showDiskSection && root._dskPhaseStart > 0 && root.diskScrollPhase() < 1.05) || (root.showCustomSection && root._custPhaseStart > 0 && root.custScrollPhase() < 1.05) || (root.showGpuSection && root._gpuPhaseStart > 0 && root.gpuScrollPhase() < 1.05))
     Timer {
         id: scrollTicker
         interval: root._tickInterval
