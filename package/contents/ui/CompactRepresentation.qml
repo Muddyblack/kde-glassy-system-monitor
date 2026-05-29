@@ -6,6 +6,9 @@ import org.kde.kirigami as Kirigami
 Item {
     id: compact
 
+    implicitWidth: (_valid && _root.isInPanel && mainLoader.item) ? mainLoader.item.implicitWidth : 0
+    implicitHeight: (_valid && _root.isInPanel && mainLoader.item) ? mainLoader.item.implicitHeight : 0
+
     readonly property var _root: {
         let p = compact.parent;
         while (p && !p.hasOwnProperty("showPingSection"))
@@ -67,6 +70,7 @@ Item {
 
     // ── Panel mode: rich stacked layout ──────────────────────────────────────
     Loader {
+        id: mainLoader
         anchors.fill: parent
         sourceComponent: (_valid && _root.isInPanel) ? panelComp : sparkComp
     }
@@ -311,6 +315,7 @@ Item {
                 sourceComponent: Component {
                     ColumnLayout {
                         spacing: 0
+                        implicitWidth: Math.max(64, compact.height * 2.4)
                         // Download row
                         RowLayout {
                             Layout.fillWidth: true
@@ -379,6 +384,7 @@ Item {
                 sourceComponent: Component {
                     ColumnLayout {
                         spacing: 1
+                        implicitWidth: Math.max(44, compact.height * 1.6)
                         Text {
                             text: plasmoid.configuration.cpuTitle || "CPU"
                             color: Qt.rgba(compact._root.textColor.r, compact._root.textColor.g, compact._root.textColor.b, 0.50)
@@ -426,6 +432,7 @@ Item {
                 sourceComponent: Component {
                     ColumnLayout {
                         spacing: 1
+                        implicitWidth: Math.max(44, compact.height * 1.6)
                         Text {
                             text: plasmoid.configuration.memoryTitle || "RAM"
                             color: Qt.rgba(compact._root.textColor.r, compact._root.textColor.g, compact._root.textColor.b, 0.50)
@@ -472,6 +479,7 @@ Item {
                 sourceComponent: Component {
                     ColumnLayout {
                         spacing: 1
+                        implicitWidth: Math.max(44, compact.height * 1.6)
                         Text {
                             text: plasmoid.configuration.pingTitle || "Ping"
                             color: compact._root.isAlerting ? "#ff6666" : Qt.rgba(compact._root.textColor.r, compact._root.textColor.g, compact._root.textColor.b, 0.50)
@@ -500,6 +508,7 @@ Item {
                 sourceComponent: Component {
                     ColumnLayout {
                         spacing: 1
+                        implicitWidth: Math.max(44, compact.height * 1.6)
                         Text {
                             text: plasmoid.configuration.gpuTitle || "GPU"
                             color: Qt.rgba(compact._root.textColor.r, compact._root.textColor.g, compact._root.textColor.b, 0.50)
@@ -546,6 +555,7 @@ Item {
                 sourceComponent: Component {
                     ColumnLayout {
                         spacing: 1
+                        implicitWidth: Math.max(60, compact.height * 2.2)
                         RowLayout {
                             Layout.fillWidth: true
                             spacing: 3
@@ -597,6 +607,7 @@ Item {
                 sourceComponent: Component {
                     ColumnLayout {
                         spacing: 1
+                        implicitWidth: Math.max(44, compact.height * 1.6)
                         Text {
                             text: plasmoid.configuration.customCmdTitle || "Sensor"
                             color: Qt.rgba(compact._root.textColor.r, compact._root.textColor.g, compact._root.textColor.b, 0.50)
@@ -625,6 +636,7 @@ Item {
                 sourceComponent: Component {
                     ColumnLayout {
                         spacing: 1
+                        implicitWidth: Math.max(44, compact.height * 1.6)
                         Text {
                             text: plasmoid.configuration.hwSensorsTitle || "Temp"
                             color: Qt.rgba(compact._root.textColor.r, compact._root.textColor.g, compact._root.textColor.b, 0.50)
@@ -665,6 +677,7 @@ Item {
                 sourceComponent: Component {
                     ColumnLayout {
                         spacing: 1
+                        implicitWidth: Math.max(48, compact.height * 1.8)
                         Text {
                             text: plasmoid.configuration.osInfoTitle || "Uptime"
                             color: Qt.rgba(compact._root.textColor.r, compact._root.textColor.g, compact._root.textColor.b, 0.50)
@@ -693,6 +706,7 @@ Item {
                 sourceComponent: Component {
                     ColumnLayout {
                         spacing: 1
+                        implicitWidth: Math.max(44, compact.height * 1.6)
                         Text {
                             text: plasmoid.configuration.powerTitle || "BAT"
                             color: Qt.rgba(compact._root.textColor.r, compact._root.textColor.g, compact._root.textColor.b, 0.50)
