@@ -57,6 +57,7 @@ KCM.SimpleKCM {
     property alias cfg_autoYRange: autoYRangeCB.checked
     property alias cfg_smoothLines: smoothLinesCB.checked
     property alias cfg_smoothScroll: smoothScrollCB.checked
+    property alias cfg_targetFps: targetFpsSpin.value
     property string cfg_disabledCoresStr: ""
     property string cfg_diskDevice: "auto"
     property string cfg_diskTitle: "Disk I/O"
@@ -344,13 +345,13 @@ KCM.SimpleKCM {
     header: QQC.TabBar {
         id: tabBar
         QQC.TabButton {
-            text: i18n("Appearance")
+            text: i18n("Style")
         }
         QQC.TabButton {
-            text: i18n("Chart Details")
+            text: i18n("Chart")
         }
         QQC.TabButton {
-            text: i18n("Sensor Details")
+            text: i18n("Sections")
         }
     }
 
@@ -366,39 +367,16 @@ KCM.SimpleKCM {
             currentIndex: tabBar.currentIndex
 
             // ══════════════════════════════════════════════════════════════════
-            // TAB 1 — APPEARANCE
+            // TAB 1 — STYLE
             // ══════════════════════════════════════════════════════════════════
             Kirigami.FormLayout {
                 Layout.fillWidth: true
-                // Pin width above Kirigami.FormLayout's wideMode bistability
-                // threshold — prevents the labels-beside ↔ labels-above flip
-                // that re-triggers implicitWidth computation and loops.
                 Layout.minimumWidth: 380
 
-                // Title ────────────────────────────────────────────────────────
+                // Widget ───────────────────────────────────────────────────────
                 Kirigami.Separator {
                     Kirigami.FormData.isSection: true
-                    Kirigami.FormData.label: i18n("Title")
-                }
-
-                QQC.TextField {
-                    id: titleEditField
-                    Kirigami.FormData.label: i18n("Widget title:")
-                    Layout.fillWidth: true
-                    text: root.titleForSection(cfg_activeSection)
-                    onTextEdited: root.setTitleForSection(cfg_activeSection, text)
-                }
-
-                QQC.CheckBox {
-                    id: showBgCB
-                    Kirigami.FormData.label: i18n("Background card:")
-                    text: i18n("Show glassy background")
-                }
-
-                // Display Style ───────────────────────────────────────────────
-                Kirigami.Separator {
-                    Kirigami.FormData.isSection: true
-                    Kirigami.FormData.label: i18n("Display Style")
+                    Kirigami.FormData.label: i18n("Widget")
                 }
 
                 QQC.ComboBox {
@@ -430,32 +408,15 @@ KCM.SimpleKCM {
                     }
                     textRole: "text"
                 }
-
-                QQC.Button {
-                    Kirigami.FormData.label: ""
-                    text: i18n("Apply chart type to all sections")
-                    onClicked: {
-                        // chartType is global so nothing else to set — this is just a visual affordance
-                        // showing the user it already applies globally. Flash the combo briefly.
-                        chartTypeCombo.opacity = 0.4;
-                        flashTimer.restart();
-                    }
-                    Timer {
-                        id: flashTimer
-                        interval: 250
-                        onTriggered: chartTypeCombo.opacity = 1.0
-                    }
-                }
                 QQC.Label {
-                    text: i18n("Chart type already applies to all sections.")
-                    opacity: 0.50
+                    text: i18n("Applies to all sections.")
+                    opacity: 0.45
                     font.pixelSize: 10
-                    wrapMode: Text.WordWrap
                     Layout.fillWidth: true
                 }
 
                 RowLayout {
-                    Kirigami.FormData.label: i18n("Min. update interval:")
+                    Kirigami.FormData.label: i18n("History length:")
                     QQC.SpinBox {
                         id: historySizeSpin
                         from: 10
@@ -463,58 +424,32 @@ KCM.SimpleKCM {
                         stepSize: 10
                     }
                     QQC.Label {
-                        text: i18n("history points")
+                        text: i18n("data points")
                         opacity: 0.55
                     }
                 }
 
-                // Colors ──────────────────────────────────────────────────────
+                // Background ──────────────────────────────────────────────────
                 Kirigami.Separator {
                     Kirigami.FormData.isSection: true
-                    Kirigami.FormData.label: i18n("Colors")
+                    Kirigami.FormData.label: i18n("Background")
                 }
 
                 QQC.CheckBox {
-                    id: useSystemTextColorCB
-                    Kirigami.FormData.label: i18n("Text color:")
-                    text: i18n("Use system text color")
+                    id: showBgCB
+                    Kirigami.FormData.label: i18n("Glassy card:")
+                    text: i18n("Show background card behind widget")
                 }
-                KQuickControls.ColorButton {
-                    id: customTextColorButton
-                    Kirigami.FormData.label: i18n("Custom text color:")
-                    visible: !useSystemTextColorCB.checked
-                    showAlphaChannel: false
-                }
-
-                QQC.CheckBox {
-                    id: useSystemAccentCB
-                    Kirigami.FormData.label: i18n("Accent / ping color:")
-                    text: i18n("Use system accent color")
-                }
-                KQuickControls.ColorButton {
-                    id: customColorButton
-                    Kirigami.FormData.label: i18n("Custom accent color:")
-                    visible: !useSystemAccentCB.checked
-                    showAlphaChannel: false
-                }
-
-                // Background Card ─────────────────────────────────────────────
-                Kirigami.Separator {
-                    visible: showBgCB.checked
-                    Kirigami.FormData.isSection: true
-                    Kirigami.FormData.label: i18n("Background Card")
-                }
-
                 KQuickControls.ColorButton {
                     id: bgColorButton
-                    Kirigami.FormData.label: i18n("Card color + opacity:")
+                    Kirigami.FormData.label: i18n("Card color:")
                     visible: showBgCB.checked
                     showAlphaChannel: true
                 }
                 QQC.Label {
                     text: i18n("Use the alpha slider to control transparency.")
                     visible: showBgCB.checked
-                    opacity: 0.55
+                    opacity: 0.50
                     font.pixelSize: 10
                     wrapMode: Text.WordWrap
                     Layout.fillWidth: true
@@ -535,6 +470,36 @@ KCM.SimpleKCM {
                     }
                 }
 
+                // Colors ──────────────────────────────────────────────────────
+                Kirigami.Separator {
+                    Kirigami.FormData.isSection: true
+                    Kirigami.FormData.label: i18n("Colors")
+                }
+
+                QQC.CheckBox {
+                    id: useSystemTextColorCB
+                    Kirigami.FormData.label: i18n("Text color:")
+                    text: i18n("Use system text color")
+                }
+                KQuickControls.ColorButton {
+                    id: customTextColorButton
+                    Kirigami.FormData.label: i18n("Custom:")
+                    visible: !useSystemTextColorCB.checked
+                    showAlphaChannel: false
+                }
+
+                QQC.CheckBox {
+                    id: useSystemAccentCB
+                    Kirigami.FormData.label: i18n("Accent color:")
+                    text: i18n("Use system accent color")
+                }
+                KQuickControls.ColorButton {
+                    id: customColorButton
+                    Kirigami.FormData.label: i18n("Custom:")
+                    visible: !useSystemAccentCB.checked
+                    showAlphaChannel: false
+                }
+
                 // Panel Mode ──────────────────────────────────────────────────
                 Kirigami.Separator {
                     Kirigami.FormData.isSection: true
@@ -547,7 +512,7 @@ KCM.SimpleKCM {
                     text: i18n("Compact inline widget for the panel bar")
                 }
                 QQC.Label {
-                    text: i18n("Shrinks the widget to a compact pill that fits in the panel. Add multiple instances — one per metric — and set each to a different sensor in the Sensor Details tab.")
+                    text: i18n("Shrinks the widget to a compact pill that fits in the panel. Add multiple instances — one per metric — and pick a different sensor for each in the Sections tab.")
                     visible: panelModeCB.checked
                     opacity: 0.55
                     font.pixelSize: 10
@@ -575,35 +540,22 @@ KCM.SimpleKCM {
             }
 
             // ══════════════════════════════════════════════════════════════════
-            // TAB 2 — CHART DETAILS
+            // TAB 2 — CHART
             // ══════════════════════════════════════════════════════════════════
             Kirigami.FormLayout {
                 Layout.fillWidth: true
                 Layout.minimumWidth: 380
 
-                // Chart Style ──────────────────────────────────────────────────
+                // Lines & Effects ──────────────────────────────────────────────
                 Kirigami.Separator {
                     Kirigami.FormData.isSection: true
-                    Kirigami.FormData.label: i18n("Chart Style")
+                    Kirigami.FormData.label: i18n("Lines & Effects")
                 }
 
                 QQC.CheckBox {
                     id: smoothLinesCB
                     Kirigami.FormData.label: i18n("Smooth lines:")
                     text: i18n("Bézier curve interpolation")
-                }
-                QQC.CheckBox {
-                    id: smoothScrollCB
-                    Kirigami.FormData.label: i18n("Smooth scroll:")
-                    text: i18n("Animate chart scrolling at target FPS")
-                }
-                QQC.Label {
-                    text: i18n("Disable to pause the per-frame ticker and save CPU — useful when running alongside an audio visualizer or other animated widget.")
-                    visible: !smoothScrollCB.checked
-                    opacity: 0.55
-                    font.pixelSize: 10
-                    wrapMode: Text.WordWrap
-                    Layout.fillWidth: true
                 }
                 QQC.CheckBox {
                     id: glowLineCB
@@ -624,50 +576,65 @@ KCM.SimpleKCM {
                         Layout.minimumWidth: 36
                     }
                 }
-                // Legend & Axes ───────────────────────────────────────────────
+
+                // Animation ───────────────────────────────────────────────────
                 Kirigami.Separator {
                     Kirigami.FormData.isSection: true
-                    Kirigami.FormData.label: i18n("Legend & Axes")
+                    Kirigami.FormData.label: i18n("Animation")
+                }
+
+                QQC.CheckBox {
+                    id: smoothScrollCB
+                    Kirigami.FormData.label: i18n("Smooth scroll:")
+                    text: i18n("Slide chart between data updates")
+                }
+                QQC.Label {
+                    text: i18n("Disable to save CPU when running alongside other animated widgets.")
+                    opacity: 0.50
+                    font.pixelSize: 10
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                }
+                RowLayout {
+                    visible: smoothScrollCB.checked
+                    Kirigami.FormData.label: i18n("Target FPS:")
+                    QQC.SpinBox {
+                        id: targetFpsSpin
+                        from: 15
+                        to: 144
+                        stepSize: 5
+                    }
+                    QQC.Label {
+                        text: i18n("fps")
+                        opacity: 0.55
+                    }
+                }
+
+                // Display ─────────────────────────────────────────────────────
+                Kirigami.Separator {
+                    Kirigami.FormData.isSection: true
+                    Kirigami.FormData.label: i18n("Display")
                 }
 
                 QQC.CheckBox {
                     id: showLegendCB
                     Kirigami.FormData.label: i18n("Legend:")
-                    text: i18n("Show color-coded legend below graph")
+                    text: i18n("Color-coded legend below graph")
                 }
                 QQC.CheckBox {
                     id: showGridLinesCB
                     Kirigami.FormData.label: i18n("Grid lines:")
-                    text: i18n("Horizontal grid lines on graph")
+                    text: i18n("Horizontal grid lines")
                 }
                 QQC.CheckBox {
                     id: showYLabelsCB
                     Kirigami.FormData.label: i18n("Y-axis labels:")
-                    text: i18n("Show scale labels on the left")
+                    text: i18n("Scale labels on the left")
                 }
-
-                // Data Ranges ─────────────────────────────────────────────────
-                Kirigami.Separator {
-                    Kirigami.FormData.isSection: true
-                    Kirigami.FormData.label: i18n("Data Ranges")
-                }
-
                 QQC.CheckBox {
                     id: autoYRangeCB
                     Kirigami.FormData.label: i18n("Auto Y-range:")
                     text: i18n("Fit axis to visible data")
-                }
-
-                // Ping Stats ───────────────────────────────────────────────────
-                Kirigami.Separator {
-                    Kirigami.FormData.isSection: true
-                    Kirigami.FormData.label: i18n("Ping Stats")
-                }
-
-                QQC.CheckBox {
-                    id: showStatsCB
-                    Kirigami.FormData.label: i18n("Stats bar:")
-                    text: i18n("Show AVG / jitter / loss / min-max")
                 }
             }
 
@@ -752,10 +719,24 @@ KCM.SimpleKCM {
 
                     Kirigami.FormLayout {
                         id: sensorDetailForm
-                        // anchors define the geometry; explicit `width: parent.width`
-                        // would double-bind through Flickable.contentWidth and loop wideMode.
                         anchors.left: parent.left
                         anchors.right: parent.right
+
+                        // Section title ───────────────────────────────────────
+                        QQC.TextField {
+                            id: titleEditField
+                            Kirigami.FormData.label: i18n("Section title:")
+                            Layout.fillWidth: true
+                            text: root.titleForSection(cfg_activeSection)
+                            onTextEdited: root.setTitleForSection(cfg_activeSection, text)
+                            Connections {
+                                target: root
+                                function onCfg_activeSectionChanged() {
+                                    if (!titleEditField.activeFocus)
+                                        titleEditField.text = root.titleForSection(root.cfg_activeSection);
+                                }
+                            }
+                        }
 
                         // CPU ─────────────────────────────────────────────────
                         Kirigami.Separator {
@@ -1085,6 +1066,12 @@ KCM.SimpleKCM {
                             showAlphaChannel: false
                             color: customColorButton.color
                             onColorChanged: customColorButton.color = color
+                        }
+                        QQC.CheckBox {
+                            id: showStatsCB
+                            visible: cfg_activeSection === 0
+                            Kirigami.FormData.label: i18n("Stats bar:")
+                            text: i18n("Show AVG / jitter / loss / min-max")
                         }
 
                         // CUSTOM COMMAND ──────────────────────────────────────
