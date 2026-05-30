@@ -85,7 +85,7 @@
              30 fps is plenty smooth for a system monitor; 60 fps matches most
              displays; 120 fps is for high-refresh setups. -->
         <entry name="targetFps" type="Int">
-            <default>60</default>
+            <default>24</default>
         </entry>
         <!-- Smooth scroll animation for chart history lines. Disable to cut
              the per-frame canvas ticker and save CPU when other animated
