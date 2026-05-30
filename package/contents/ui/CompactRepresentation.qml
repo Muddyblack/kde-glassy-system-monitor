@@ -315,7 +315,7 @@ Item {
                 sourceComponent: Component {
                     ColumnLayout {
                         spacing: 0
-                        implicitWidth: Math.max(64, compact.height * 2.4)
+                        implicitWidth: Math.max(40, compact.height * 1.9)
                         // Download row
                         RowLayout {
                             Layout.fillWidth: true
