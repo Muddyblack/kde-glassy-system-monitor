@@ -151,11 +151,11 @@ ColumnLayout {
                         if (root.isCoreDisabled(ci) || root.coreHistories[ci].length < 1)
                             continue;
                         ctx.globalAlpha = root.hoveredCore === ci ? 1.0 : (root.hoveredCore !== -1 ? 0.18 : 0.55);
-                        cu.drawHistoryBars(ctx, root.coreHistories[ci], root.coreColors[ci % root.coreColors.length] || "#888888", yLW, gW, height, maxH, 100, 0);
+                        cu.drawHistoryBars(ctx, root.coreHistories[ci], root.coreColors[ci % root.coreColors.length] || "#888888", yLW, gW, height, maxH, 100, sf);
                     }
                     ctx.globalAlpha = 1.0;
                 } else if (!root.isLineDisabled("cpuTotal")) {
-                    cu.drawHistoryBars(ctx, h, root.cpuColor, yLW, gW, height, maxH, 100, 0);
+                    cu.drawHistoryBars(ctx, h, root.cpuColor, yLW, gW, height, maxH, 100, sf);
                 }
                 return;
             }

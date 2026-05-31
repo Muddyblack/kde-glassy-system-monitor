@@ -185,6 +185,9 @@ QtObject {
         const n = history.length;
         if (n < 1)
             return;
+        // Clamp the phase so the newest bar lands exactly on the right edge and
+        // never overshoots into a visible gap between data updates.
+        sf = Math.max(0, Math.min(1, sf));
         const step = gW / Math.max(1, maxH - 1);
         const barW = Math.max(2, step * 0.62);
         const tPad = h * 0.06, uH = h * 0.88;
@@ -194,8 +197,14 @@ QtObject {
         ctx.beginPath();
         ctx.rect(gLeft, 0, gW, h);
         ctx.clip();
+        // Mirror the line path's phase model: the newest bar (i = n-1) enters
+        // from just off the right edge at sf=0 and slides to the right edge as
+        // sf→1, while the oldest bar slides off the left. With a non-zero sf the
+        // history holds one extra (off-screen) sample so removal happens behind
+        // the clip rect instead of popping. sf=0 keeps the old static layout.
+        const off = sf > 0 ? 2 : 1;
         for (let i = 0; i < n; i++) {
-            const x = gLeft + gW - (n - 1 - i + sf) * step;
+            const x = gLeft + gW - (n - off - i + sf) * step;
             if (x + barW / 2 < gLeft || x - barW / 2 > gLeft + gW)
                 continue;
             const v = Math.max(0, Math.min(1, history[i] / maxVal));

@@ -160,7 +160,7 @@ ColumnLayout {
                 return;
             }
             if (ct === 1) {
-                cu.drawHistoryBars(ctx, h, col, yLW, gW, height, maxH, 100, 0);
+                cu.drawHistoryBars(ctx, h, col, yLW, gW, height, maxH, 100, sf);
                 return;
             }
 

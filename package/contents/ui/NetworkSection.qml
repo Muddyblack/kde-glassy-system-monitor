@@ -494,10 +494,10 @@ ColumnLayout {
             }
             if (ct === 1) {
                 if (!root.isLineDisabled("dl"))
-                    cu.drawHistoryBars(ctx, dl, root.dlColor, yLW, gW, height, maxH, maxBps, 0);
+                    cu.drawHistoryBars(ctx, dl, root.dlColor, yLW, gW, height, maxH, maxBps, sf);
                 if (!root.isLineDisabled("ul")) {
                     ctx.globalAlpha = 0.65;
-                    cu.drawHistoryBars(ctx, ul, root.ulColor, yLW, gW, height, maxH, maxBps, 0);
+                    cu.drawHistoryBars(ctx, ul, root.ulColor, yLW, gW, height, maxH, maxBps, sf);
                     ctx.globalAlpha = 1.0;
                 }
                 return;

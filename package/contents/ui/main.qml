@@ -127,9 +127,7 @@ PlasmoidItem {
     // 30/60/120 fps are the typical values. Only runs while a visible section
     // is within its post-data scroll window, so it auto-pauses when idle —
     // important when multiple instances are placed on the desktop.
-    // OPTIMIZATION: Added frame skipping to reduce load when system is busy
     property int scrollTick: 0
-    property int _frameSkipCounter: 0
     readonly property int _tickInterval: Math.max(8, Math.round(1000 / Math.max(15, plasmoid.configuration.targetFps || 60)))
     // Phase windows are normalised to 1.0 = one full data interval.
     // Keep the threshold just above 1.0 so the animation expires between
@@ -141,12 +139,10 @@ PlasmoidItem {
         repeat: true
         running: root._anyAnimating
         onTriggered: {
-            // OPTIMIZATION: Skip every 3rd frame at 60fps to reduce load (effective 40fps)
-            // This is imperceptible to the eye but reduces CPU usage significantly
-            root._frameSkipCounter = (root._frameSkipCounter + 1) % 3;
-            if (root._frameSkipCounter !== 0 || plasmoid.configuration.targetFps <= 30) {
-                root.scrollTick = (root.scrollTick + 1) & 0x7fffffff;
-            }
+            // Advance every tick. The interval is already derived from targetFps,
+            // so the previous "skip every 3rd frame" only added an uneven 2-on/
+            // 1-off cadence (16/16/33 ms) — the very stutter it claimed to avoid.
+            root.scrollTick = (root.scrollTick + 1) & 0x7fffffff;
         }
     }
 
@@ -243,8 +239,8 @@ PlasmoidItem {
             return;
         const h = histories[idx].slice();
         h.push(ms);
-        if (h.length > maxH)
-            h.splice(0, h.length - maxH);
+        if (h.length > maxH + 1)
+            h.splice(0, h.length - (maxH + 1));
         const newH = histories.slice();
         newH[idx] = h;
         histories = newH;
@@ -357,13 +353,13 @@ PlasmoidItem {
                 const maxH = Math.max(10, plasmoid.configuration.historySize);
                 const nd = dlHistory.slice();
                 nd.push(downloadSpeed);
-                if (nd.length > maxH)
-                    nd.splice(0, nd.length - maxH);
+                if (nd.length > maxH + 1)
+                    nd.splice(0, nd.length - (maxH + 1));
                 dlHistory = nd;
                 const nu = ulHistory.slice();
                 nu.push(uploadSpeed);
-                if (nu.length > maxH)
-                    nu.splice(0, nu.length - maxH);
+                if (nu.length > maxH + 1)
+                    nu.splice(0, nu.length - (maxH + 1));
                 ulHistory = nu;
             }
         }
@@ -450,14 +446,14 @@ PlasmoidItem {
             const maxH = Math.max(10, plasmoid.configuration.historySize);
             const nh = cpuHistory.slice();
             nh.push(cpuPercent);
-            if (nh.length > maxH)
-                nh.splice(0, nh.length - maxH);
+            if (nh.length > maxH + 1)
+                nh.splice(0, nh.length - (maxH + 1));
             cpuHistory = nh;
             let ch = coreHistories.length === newCP.length ? coreHistories.map(h => h.slice()) : newCP.map(() => []);
             for (let i = 0; i < newCP.length; i++) {
                 ch[i].push(newCP[i]);
-                if (ch[i].length > maxH)
-                    ch[i].splice(0, ch[i].length - maxH);
+                if (ch[i].length > maxH + 1)
+                    ch[i].splice(0, ch[i].length - (maxH + 1));
             }
             coreHistories = ch;
         }
@@ -520,13 +516,13 @@ PlasmoidItem {
         const maxH = Math.max(10, plasmoid.configuration.historySize);
         const nm = memHistory.slice();
         nm.push(memPercent);
-        if (nm.length > maxH)
-            nm.splice(0, nm.length - maxH);
+        if (nm.length > maxH + 1)
+            nm.splice(0, nm.length - (maxH + 1));
         memHistory = nm;
         const ns = swapHistory.slice();
         ns.push(swapPercent);
-        if (ns.length > maxH)
-            ns.splice(0, ns.length - maxH);
+        if (ns.length > maxH + 1)
+            ns.splice(0, ns.length - (maxH + 1));
         swapHistory = ns;
     }
 
@@ -554,8 +550,8 @@ PlasmoidItem {
                 const maxH = Math.max(10, plasmoid.configuration.historySize);
                 const nh = root.customHistory.slice();
                 nh.push(val);
-                if (nh.length > maxH)
-                    nh.splice(0, nh.length - maxH);
+                if (nh.length > maxH + 1)
+                    nh.splice(0, nh.length - (maxH + 1));
                 root.customHistory = nh;
             }
         }
@@ -730,8 +726,8 @@ PlasmoidItem {
 
         const nh = root.gpuHistory.slice();
         nh.push(root.gpuPercent);
-        if (nh.length > maxH)
-            nh.splice(0, nh.length - maxH);
+        if (nh.length > maxH + 1)
+            nh.splice(0, nh.length - (maxH + 1));
         root.gpuHistory = nh;
     }
 
@@ -1145,8 +1141,8 @@ PlasmoidItem {
         const maxH = Math.max(10, plasmoid.configuration.historySize);
         const nh = root.batteryPowerHistory.slice();
         nh.push(Math.abs(pw));
-        if (nh.length > maxH)
-            nh.splice(0, nh.length - maxH);
+        if (nh.length > maxH + 1)
+            nh.splice(0, nh.length - (maxH + 1));
         root.batteryPowerHistory = nh;
 
         // Diagnostics

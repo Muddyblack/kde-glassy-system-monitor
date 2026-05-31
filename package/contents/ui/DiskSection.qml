@@ -103,13 +103,13 @@ ColumnLayout {
                 const maxH = Math.max(10, plasmoid.configuration.historySize);
                 const nr = rdHistory.slice();
                 nr.push(readSpeed);
-                if (nr.length > maxH)
-                    nr.splice(0, nr.length - maxH);
+                if (nr.length > maxH + 1)
+                    nr.splice(0, nr.length - (maxH + 1));
                 rdHistory = nr;
                 const nw = wrHistory.slice();
                 nw.push(writeSpeed);
-                if (nw.length > maxH)
-                    nw.splice(0, nw.length - maxH);
+                if (nw.length > maxH + 1)
+                    nw.splice(0, nw.length - (maxH + 1));
                 wrHistory = nw;
             }
         }
@@ -256,10 +256,10 @@ ColumnLayout {
             }
             if (ct === 1) {
                 if (!root.isLineDisabled("diskRd"))
-                    cu.drawHistoryBars(ctx, rd, diskSection.rdColor, yLW, gW, height, maxH, maxBps, 0);
+                    cu.drawHistoryBars(ctx, rd, diskSection.rdColor, yLW, gW, height, maxH, maxBps, sf);
                 if (!root.isLineDisabled("diskWr")) {
                     ctx.globalAlpha = 0.65;
-                    cu.drawHistoryBars(ctx, wr, diskSection.wrColor, yLW, gW, height, maxH, maxBps, 0);
+                    cu.drawHistoryBars(ctx, wr, diskSection.wrColor, yLW, gW, height, maxH, maxBps, sf);
                     ctx.globalAlpha = 1.0;
                 }
                 return;

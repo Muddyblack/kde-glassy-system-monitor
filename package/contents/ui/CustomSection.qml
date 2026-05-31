@@ -117,7 +117,7 @@ ColumnLayout {
                 return;
             }
             if (ct === 1) {
-                cu.drawHistoryBars(ctx, h, color, yLW, gW, height, maxH, maxVal, 0);
+                cu.drawHistoryBars(ctx, h, color, yLW, gW, height, maxH, maxVal, sf);
                 return;
             }
 

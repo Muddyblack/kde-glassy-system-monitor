@@ -121,11 +121,11 @@ ColumnLayout {
                 const sw2 = root.swapHistory;
                 if (root.hasSwap && sw2.length > 0 && !root.isLineDisabled("swap")) {
                     ctx.globalAlpha = 0.55;
-                    cu.drawHistoryBars(ctx, sw2, root.swapColor, yLW, gW, height, maxH, 100, 0);
+                    cu.drawHistoryBars(ctx, sw2, root.swapColor, yLW, gW, height, maxH, 100, sf);
                     ctx.globalAlpha = 1.0;
                 }
                 if (!root.isLineDisabled("ram"))
-                    cu.drawHistoryBars(ctx, h, root.memColor, yLW, gW, height, maxH, 100, 0);
+                    cu.drawHistoryBars(ctx, h, root.memColor, yLW, gW, height, maxH, 100, sf);
                 return;
             }
 
