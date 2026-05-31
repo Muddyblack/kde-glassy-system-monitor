@@ -24,7 +24,7 @@ PlasmoidItem {
     readonly property bool isInPanel: plasmoid.configuration.panelMode || Plasmoid.location === PlasmaCore.Types.TopEdge || Plasmoid.location === PlasmaCore.Types.BottomEdge || Plasmoid.location === PlasmaCore.Types.LeftEdge || Plasmoid.location === PlasmaCore.Types.RightEdge
 
     Layout.minimumWidth: root.isInPanel ? 60 : 120
-    Layout.preferredWidth: root.isInPanel ? (root.showNetworkSpeed || root.showDiskSection ? 82 : 68) : 200
+    Layout.preferredWidth: root.isInPanel ? (root.showNetworkSpeed || root.showDiskSection ? 82 : 68) : 320
     Layout.preferredHeight: {
         if (root.isInPanel)
             return -1;

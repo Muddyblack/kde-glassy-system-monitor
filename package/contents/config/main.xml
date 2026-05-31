@@ -7,7 +7,7 @@
     <group name="General">
         <!-- Active section (0=Ping, 1=Network, 2=CPU, 3=Memory, 4=Custom, 5=Disk) -->
         <entry name="activeSection" type="Int">
-            <default>0</default>
+            <default>2</default>
         </entry>
         <entry name="showCpuCores" type="Bool">
             <default>false</default>

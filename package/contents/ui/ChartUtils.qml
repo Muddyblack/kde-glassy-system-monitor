@@ -95,7 +95,6 @@ QtObject {
         ctx.stroke();
         if (percent > 0.1) {
             const a1 = -Math.PI / 2 + Math.min(1, percent / 100) * Math.PI * 2;
-            // OPTIMIZATION: Reduced glow blur from 10 to 6 for better performance
             if (glowEnabled) {
                 ctx.shadowBlur = 6;
                 ctx.shadowColor = color;
@@ -128,7 +127,6 @@ QtObject {
         ctx.fill();
         if (percent > 0.1) {
             const a1 = -Math.PI / 2 + Math.min(1, percent / 100) * Math.PI * 2;
-            // OPTIMIZATION: Reduced glow blur from 8 to 5 for better performance
             if (glowEnabled) {
                 ctx.shadowBlur = 5;
                 ctx.shadowColor = color;
@@ -161,7 +159,6 @@ QtObject {
         ctx.fill();
         if (percent > 0) {
             const filledW = Math.max(h, (Math.min(100, percent) / 100) * w);
-            // OPTIMIZATION: Reduced glow blur from 6 to 4 for better performance
             if (glowEnabled) {
                 ctx.shadowBlur = 4;
                 ctx.shadowColor = color;
@@ -230,66 +227,66 @@ QtObject {
         ctx.restore();
     }
 
+    // Flat reusable coordinate arrays — avoids allocating Array<{x,y}> objects
+    // on every paint frame. Grown lazily, never shrunk.
+    property var _xs: []
+    property var _ys: []
+
+    // Trace the line path into the current context using the pre-filled _xs/_ys.
+    function _traceLinePath(ctx, len, smooth) {
+        ctx.beginPath();
+        ctx.moveTo(_xs[0], _ys[0]);
+        for (let i = 1; i < len; i++) {
+            if (smooth) {
+                const cx = (_xs[i - 1] + _xs[i]) / 2;
+                ctx.bezierCurveTo(cx, _ys[i - 1], cx, _ys[i], _xs[i], _ys[i]);
+            } else {
+                ctx.lineTo(_xs[i], _ys[i]);
+            }
+        }
+    }
+
     // Draw a smooth bezier line + optional fill. Returns nothing.
     // smooth=true → bezier, false → straight segments
-    // OPTIMIZED: Reduced glow intensity and uses lighter shadow for better performance
     function drawLine(ctx, history, color, iToX, valToY, height, smooth, fillAlpha, glowStr, lineWidth) {
         const len = history.length;
         if (len < 2)
             return;
 
-        // Precalculate all coordinates to avoid repeated function calls
-        const coords = new Array(len);
+        // Fill flat reusable arrays — no per-point object allocation.
+        if (_xs.length < len) {
+            _xs = new Array(len);
+            _ys = new Array(len);
+        }
         for (let i = 0; i < len; i++) {
-            coords[i] = {
-                x: iToX(i, len),
-                y: valToY(history[i])
-            };
+            _xs[i] = iToX(i, len);
+            _ys[i] = valToY(history[i]);
         }
 
         ctx.save();
 
-        // OPTIMIZATION: Reduced glow blur radius for better performance
-        // Original was glowStr * 1.5, now using glowStr * 0.8 with compositing
+        const c = Qt.color(color);
+        const lw = lineWidth !== undefined ? lineWidth : 2;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+
         if (glowStr) {
-            ctx.shadowBlur = Math.min(6, glowStr * 0.8);
+            ctx.shadowBlur = Math.min(12, glowStr);
             ctx.shadowColor = color;
         }
 
-        ctx.beginPath();
+        // Core stroke
+        _traceLinePath(ctx, len, smooth);
         ctx.strokeStyle = color;
-        ctx.lineCap = "round";
-        ctx.lineJoin = "round";
-        if (lineWidth !== undefined)
-            ctx.lineWidth = lineWidth;
-
-        ctx.moveTo(coords[0].x, coords[0].y);
-        for (let i = 1; i < len; i++) {
-            if (smooth) {
-                const cx = (coords[i - 1].x + coords[i].x) / 2;
-                ctx.bezierCurveTo(cx, coords[i - 1].y, cx, coords[i].y, coords[i].x, coords[i].y);
-            } else {
-                ctx.lineTo(coords[i].x, coords[i].y);
-            }
-        }
+        ctx.lineWidth = lw;
         ctx.stroke();
         ctx.shadowBlur = 0;
 
         if (fillAlpha > 0) {
-            ctx.beginPath();
-            ctx.moveTo(coords[0].x, coords[0].y);
-            for (let i = 1; i < len; i++) {
-                if (smooth) {
-                    const cx = (coords[i - 1].x + coords[i].x) / 2;
-                    ctx.bezierCurveTo(cx, coords[i - 1].y, cx, coords[i].y, coords[i].x, coords[i].y);
-                } else {
-                    ctx.lineTo(coords[i].x, coords[i].y);
-                }
-            }
-            ctx.lineTo(coords[len - 1].x, height);
-            ctx.lineTo(coords[0].x, height);
+            _traceLinePath(ctx, len, smooth);
+            ctx.lineTo(_xs[len - 1], height);
+            ctx.lineTo(_xs[0], height);
             ctx.closePath();
-            const c = Qt.color(color);
             const g = ctx.createLinearGradient(0, 0, 0, height);
             g.addColorStop(0, Qt.rgba(c.r, c.g, c.b, fillAlpha));
             g.addColorStop(1, Qt.rgba(c.r, c.g, c.b, 0));
