@@ -5,11 +5,10 @@
 <h1 align="center">Glassy System Monitor</h1>
 
 <p align="center">
-  <a href="https://github.com/Muddyblack/kde-glassy-system-monitor">
-    <img src="https://img.shields.io/badge/KDE_Store-Not_Yet_Released-orange?style=for-the-badge&logo=kde&logoColor=white" alt="KDE Store" />
+  <a href="https://www.opendesktop.org/p/2360341">
+    <img src="https://img.shields.io/badge/KDE_Store-Available-1d99f3?style=for-the-badge&logo=kde&logoColor=white" alt="KDE Store" />
   </a>
   <img src="https://img.shields.io/badge/KDE_Plasma-6.0%2B-1d99f3?style=for-the-badge&logo=kde&logoColor=white" alt="KDE Plasma 6.0+" />
-  <img src="https://img.shields.io/badge/Status-Beta-orange?style=for-the-badge" alt="Status: Beta" />
   <a href="LICENSE">
     <img src="https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge" alt="License: MIT" />
   </a>
