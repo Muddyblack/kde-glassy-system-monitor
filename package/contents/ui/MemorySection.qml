@@ -4,6 +4,7 @@ import QtQuick.Layouts
 ColumnLayout {
     id: memSection
     spacing: 3
+    implicitWidth: 0
 
     BloomChart {
         id: memGraph
@@ -190,11 +191,13 @@ ColumnLayout {
     RowLayout {
         Layout.fillWidth: true
         Layout.minimumWidth: 0
+        implicitWidth: 0
         visible: plasmoid.configuration.showLegend
         spacing: 6
         clip: true
         Item {
             Layout.preferredWidth: plasmoid.configuration.showYLabels ? 38 : 0
+            Layout.minimumWidth: 0
         }
 
         Item {
@@ -253,8 +256,9 @@ ColumnLayout {
         Item {
             visible: root.hasSwap
             Layout.minimumWidth: 0
-            Layout.preferredWidth: swapRow.implicitWidth
+            Layout.preferredWidth: Math.min(swapRow.implicitWidth, 58)
             implicitHeight: swapRow.implicitHeight
+            clip: true
             Row {
                 id: swapRow
                 spacing: 5

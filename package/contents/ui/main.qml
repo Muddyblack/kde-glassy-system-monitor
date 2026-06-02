@@ -23,9 +23,11 @@ PlasmoidItem {
 
     // isInPanel: true when Plasma places us on a panel edge, or user forces it.
     readonly property bool isInPanel: plasmoid.configuration.panelMode || Plasmoid.location === PlasmaCore.Types.TopEdge || Plasmoid.location === PlasmaCore.Types.BottomEdge || Plasmoid.location === PlasmaCore.Types.LeftEdge || Plasmoid.location === PlasmaCore.Types.RightEdge
+    readonly property bool panelSessionTotalsVisible: plasmoid.configuration.panelShowSessionTotals && root.height >= 34
+    readonly property int desktopPreferredWidth: (root.showMemorySection || (root.showCpuSection && !plasmoid.configuration.showCpuCores)) ? 240 : 320
 
-    Layout.minimumWidth: root.isInPanel ? 60 : 120
-    Layout.preferredWidth: root.isInPanel ? (root.showNetworkSpeed || root.showDiskSection ? 82 : 68) : 320
+    Layout.minimumWidth: root.isInPanel ? (root.showNetworkSpeed && !root.panelSessionTotalsVisible ? 36 : 60) : 120
+    Layout.preferredWidth: root.isInPanel ? (root.showNetworkSpeed ? (root.panelSessionTotalsVisible ? 82 : 46) : (root.showDiskSection ? 82 : 68)) : root.desktopPreferredWidth
     Layout.preferredHeight: {
         if (root.isInPanel)
             return -1;

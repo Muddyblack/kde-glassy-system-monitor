@@ -276,15 +276,16 @@ Item {
             implicitWidth: contentW + hPad * 2
             implicitHeight: contentH + vPad * 2
 
-            // glassy pill background — fills allocated panel slot edge-to-edge
+            // Glass pill tracks the content width. Plasma can keep a wider panel
+            // slot around applets; do not paint that slack as empty pill space.
             Rectangle {
                 id: pill
                 visible: plasmoid.configuration.panelShowBg
                 anchors {
-                    left: parent.left
-                    right: parent.right
+                    horizontalCenter: parent.horizontalCenter
                     verticalCenter: parent.verticalCenter
                 }
+                width: Math.max(16, panelRoot.contentW + panelRoot.hPad * 2)
                 height: Math.min(parent.height - 2, Math.max(16, panelRoot.contentH + panelRoot.vPad * 2))
                 radius: height / 2
                 color: plasmoid.configuration.bgColor || "#800d0f1a"
@@ -318,8 +319,11 @@ Item {
                     // otherwise ↓ and ↑ together overflow the pill.
                     ColumnLayout {
                         spacing: 0
+                        implicitWidth: Math.max(downloadRow.implicitWidth, uploadRow.implicitWidth)
                         // Download row
                         RowLayout {
+                            id: downloadRow
+                            Layout.alignment: Qt.AlignHCenter
                             spacing: 3
                             Text {
                                 text: "↓"
@@ -337,7 +341,7 @@ Item {
                             }
                             // session total
                             Text {
-                                visible: plasmoid.configuration.panelShowSessionTotals && compact.height >= 34
+                                visible: compact._root.panelSessionTotalsVisible
                                 text: compact._fmtBytes(compact._root.sessionDlBytes)
                                 color: compact.panelAlphaColor(compact._root.dlColor, 0.5)
                                 font.pixelSize: Math.max(7, compact.height * 0.17)
@@ -346,6 +350,8 @@ Item {
                         }
                         // Upload row
                         RowLayout {
+                            id: uploadRow
+                            Layout.alignment: Qt.AlignHCenter
                             spacing: 3
                             Text {
                                 text: "↑"
@@ -362,7 +368,7 @@ Item {
                                 Layout.alignment: Qt.AlignVCenter
                             }
                             Text {
-                                visible: plasmoid.configuration.panelShowSessionTotals && compact.height >= 34
+                                visible: compact._root.panelSessionTotalsVisible
                                 text: compact._fmtBytes(compact._root.sessionUlBytes)
                                 color: compact.panelAlphaColor(compact._root.ulColor, 0.5)
                                 font.pixelSize: Math.max(7, compact.height * 0.17)
