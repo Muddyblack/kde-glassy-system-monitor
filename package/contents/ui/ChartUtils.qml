@@ -208,9 +208,13 @@ QtObject {
             const bh = Math.max(2, v * uH);
             const bx = x - barW / 2;
             const by = h - tPad - bh;
+            // Fade out the oldest bar as it slides off the left edge, mirroring
+            // how the newest bar smoothly appears on the right.
+            const edgeDist = (x + barW / 2) - gLeft;
+            const fadeAlpha = Math.max(0, Math.min(1, edgeDist / barW));
             const gr = ctx.createLinearGradient(0, by, 0, h - tPad);
-            gr.addColorStop(0, Qt.rgba(c.r, c.g, c.b, 0.88));
-            gr.addColorStop(1, Qt.rgba(c.r, c.g, c.b, 0.28));
+            gr.addColorStop(0, Qt.rgba(c.r, c.g, c.b, 0.88 * fadeAlpha));
+            gr.addColorStop(1, Qt.rgba(c.r, c.g, c.b, 0.28 * fadeAlpha));
             ctx.fillStyle = gr;
             ctx.beginPath();
             if (bh > r * 2) {

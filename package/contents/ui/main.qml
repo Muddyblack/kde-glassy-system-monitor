@@ -101,26 +101,54 @@ PlasmoidItem {
     property real _custPhaseStart: 0
     property real _gpuPhaseStart: 0
 
+    // Measured interval (ms) between the last two data updates per channel.
+    // Seeded from the nominal/configured cadence and then EMA-smoothed toward
+    // the real gap. Using the *actual* gap as the phase divisor makes the
+    // scroll finish exactly as the next sample lands — late data slows the
+    // scroll instead of freezing, early data speeds it instead of snapping.
+    // Computed once per update (in markPhase), so it adds nothing per frame.
+    property real _netInterval: 1000
+    property real _cpuInterval: 1000
+    property real _memInterval: 2000
+    property real _dskInterval: 1000
+    property real _custInterval: 2000
+    property real _pingInterval: 1000
+    property real _gpuInterval: 2000
+
+    // Record a new data update: smooth the measured gap toward the real cadence.
+    // prevStart is the previous start timestamp; minMs/maxMs clamp out absurd
+    // gaps (first sample, system sleep/resume, config change).
+    function _measureInterval(prevStart, prevInterval, minMs, maxMs) {
+        if (prevStart <= 0)
+            return prevInterval;
+        const gap = Date.now() - prevStart;
+        if (gap < minMs || gap > maxMs)
+            return prevInterval;
+        // EMA: 70% history + 30% new — absorbs single-sample jitter, still
+        // tracks a genuine cadence change within a few updates.
+        return prevInterval * 0.7 + gap * 0.3;
+    }
+
     function netScrollPhase() {
-        return _netPhaseStart > 0 ? (Date.now() - _netPhaseStart) / 1000 : 0;
+        return _netPhaseStart > 0 ? (Date.now() - _netPhaseStart) / _netInterval : 0;
     }
     function cpuScrollPhase() {
-        return _cpuPhaseStart > 0 ? (Date.now() - _cpuPhaseStart) / 1000 : 0;
+        return _cpuPhaseStart > 0 ? (Date.now() - _cpuPhaseStart) / _cpuInterval : 0;
     }
     function memScrollPhase() {
-        return _memPhaseStart > 0 ? (Date.now() - _memPhaseStart) / 2000 : 0;
+        return _memPhaseStart > 0 ? (Date.now() - _memPhaseStart) / _memInterval : 0;
     }
     function diskScrollPhase() {
-        return _dskPhaseStart > 0 ? (Date.now() - _dskPhaseStart) / 1000 : 0;
+        return _dskPhaseStart > 0 ? (Date.now() - _dskPhaseStart) / _dskInterval : 0;
     }
     function custScrollPhase() {
-        return _custPhaseStart > 0 ? (Date.now() - _custPhaseStart) / Math.max(500, plasmoid.configuration.customCmdInterval * 1000) : 0;
+        return _custPhaseStart > 0 ? (Date.now() - _custPhaseStart) / _custInterval : 0;
     }
     function pingScrollPhase() {
-        return _pingPhaseStart > 0 ? (Date.now() - _pingPhaseStart) / Math.max(500, plasmoid.configuration.pingInterval * 1000) : 0;
+        return _pingPhaseStart > 0 ? (Date.now() - _pingPhaseStart) / _pingInterval : 0;
     }
     function gpuScrollPhase() {
-        return _gpuPhaseStart > 0 ? (Date.now() - _gpuPhaseStart) / 2000 : 0;
+        return _gpuPhaseStart > 0 ? (Date.now() - _gpuPhaseStart) / _gpuInterval : 0;
     }
 
     // Scroll animation ticker. Interval is derived from configured targetFps;
@@ -147,25 +175,32 @@ PlasmoidItem {
     }
 
     onHistoriesChanged: {
+        _pingInterval = _measureInterval(_pingPhaseStart, _pingInterval, 200, 30000);
         _pingPhaseStart = Date.now();
     }
     onDlHistoryChanged: {
+        _netInterval = _measureInterval(_netPhaseStart, _netInterval, 200, 8000);
         _netPhaseStart = Date.now();
     }
     onCpuHistoryChanged: {
+        _cpuInterval = _measureInterval(_cpuPhaseStart, _cpuInterval, 200, 8000);
         _cpuPhaseStart = Date.now();
     }
     onMemHistoryChanged: {
+        _memInterval = _measureInterval(_memPhaseStart, _memInterval, 400, 16000);
         _memPhaseStart = Date.now();
     }
     onCustomHistoryChanged: {
+        _custInterval = _measureInterval(_custPhaseStart, _custInterval, 200, 120000);
         _custPhaseStart = Date.now();
     }
     onGpuHistoryChanged: {
+        _gpuInterval = _measureInterval(_gpuPhaseStart, _gpuInterval, 400, 16000);
         _gpuPhaseStart = Date.now();
     }
 
     function restartDiskScroll() {
+        _dskInterval = _measureInterval(_dskPhaseStart, _dskInterval, 200, 8000);
         _dskPhaseStart = Date.now();
     }
 
