@@ -522,33 +522,48 @@ ColumnLayout {
             id: ifaceBadge
             spacing: 8
 
-            Row {
-                id: ifaceRow
-                spacing: 4
+            Item {
+                id: ifaceWrapper
+                implicitWidth: ifaceRow.implicitWidth
+                implicitHeight: ifaceRow.implicitHeight
 
-                Text {
-                    id: ifaceText
-                    text: root.activeIface || ""
-                    color: ifaceMouseArea.containsMouse ? root.textColor : Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.38)
-                    font.pixelSize: 10
-                    font.bold: ifaceMouseArea.containsMouse
-                    Behavior on color {
-                        ColorAnimation {
-                            duration: 150
+                Row {
+                    id: ifaceRow
+                    spacing: 4
+                    anchors.fill: parent
+
+                    Text {
+                        id: ifaceText
+                        text: root.activeIface || ""
+                        color: ifaceMouseArea.containsMouse ? root.textColor : Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.38)
+                        font.pixelSize: 10
+                        font.bold: ifaceMouseArea.containsMouse
+                        Behavior on color {
+                            ColorAnimation {
+                                duration: 150
+                            }
+                        }
+                    }
+
+                    Text {
+                        text: "▾"
+                        color: ifaceMouseArea.containsMouse ? root.textColor : Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.38)
+                        font.pixelSize: 10
+                        anchors.verticalCenter: ifaceText.verticalCenter
+                        Behavior on color {
+                            ColorAnimation {
+                                duration: 150
+                            }
                         }
                     }
                 }
 
-                Text {
-                    text: "▾"
-                    color: ifaceMouseArea.containsMouse ? root.textColor : Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.38)
-                    font.pixelSize: 10
-                    anchors.verticalCenter: ifaceText.verticalCenter
-                    Behavior on color {
-                        ColorAnimation {
-                            duration: 150
-                        }
-                    }
+                MouseArea {
+                    id: ifaceMouseArea
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: ifaceMenu.popup()
                 }
             }
 
@@ -618,14 +633,6 @@ ColumnLayout {
                     anchors.verticalCenter: parent.verticalCenter
                 }
             }
-        }
-
-        MouseArea {
-            id: ifaceMouseArea
-            anchors.fill: ifaceRow
-            hoverEnabled: true
-            cursorShape: Qt.PointingHandCursor
-            onClicked: ifaceMenu.popup()
         }
 
         PlasmaComponents3.Menu {

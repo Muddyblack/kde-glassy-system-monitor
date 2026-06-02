@@ -200,17 +200,16 @@ ColumnLayout {
         Item {
             Layout.fillWidth: true
             Layout.minimumWidth: 0
-            Layout.preferredWidth: ramRow.implicitWidth
             implicitHeight: ramRow.implicitHeight
-            Row {
+            RowLayout {
                 id: ramRow
+                anchors.fill: parent
                 spacing: 5
-                width: parent.width
                 Rectangle {
                     width: 8
                     height: 8
                     radius: 2
-                    anchors.verticalCenter: parent.verticalCenter
+                    Layout.alignment: Qt.AlignVCenter
                     color: root.isLineDisabled("ram") ? "transparent" : root.memColor
                     border.color: root.memColor
                     border.width: 1
@@ -220,7 +219,7 @@ ColumnLayout {
                     color: root.isLineDisabled("ram") ? Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.3) : Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.7)
                     font.pixelSize: 10
                     font.strikeout: root.isLineDisabled("ram")
-                    anchors.verticalCenter: parent.verticalCenter
+                    Layout.alignment: Qt.AlignVCenter
                 }
                 Text {
                     text: root.memUsedGiB.toFixed(1) + " / " + root.memTotalGiB.toFixed(1) + " GiB"
@@ -228,15 +227,8 @@ ColumnLayout {
                     font.pixelSize: 11
                     font.bold: true
                     elide: Text.ElideRight
-                    width: Math.max(0, parent.width - 8 - 5 - ramLabel.implicitWidth - 5)
-                    anchors.verticalCenter: parent.verticalCenter
-                    property Text _l: ramLabel
-                }
-                Text {
-                    id: ramLabel
-                    visible: false
-                    text: "RAM"
-                    font.pixelSize: 10
+                    Layout.fillWidth: true
+                    Layout.alignment: Qt.AlignVCenter
                 }
             }
             MouseArea {
