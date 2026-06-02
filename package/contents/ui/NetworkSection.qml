@@ -182,12 +182,30 @@ ColumnLayout {
                                 }
                             }
 
-                            Text {
-                                text: modelData.remoteHost
-                                color: Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.6)
-                                font.pixelSize: 10
-                                elide: Text.ElideRight
+                            RowLayout {
                                 Layout.fillWidth: true
+                                spacing: 4
+                                Text {
+                                    visible: modelData.flag !== ""
+                                    text: modelData.flag
+                                    font.pixelSize: 11
+                                }
+                                Text {
+                                    text: modelData.hostname !== "" ? modelData.hostname : modelData.remoteHost
+                                    color: Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.6)
+                                    font.pixelSize: 10
+                                    elide: Text.ElideRight
+                                    Layout.fillWidth: true
+                                }
+                                Text {
+                                    visible: modelData.hostname !== "" && modelData.remoteHost !== modelData.hostname
+                                    text: modelData.remoteHost
+                                    color: Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.3)
+                                    font.pixelSize: 8
+                                    font.family: "monospace"
+                                    elide: Text.ElideLeft
+                                    Layout.maximumWidth: 90
+                                }
                             }
                         }
                     }
@@ -205,6 +223,146 @@ ColumnLayout {
             connDialog.loading = true;
             connDialog.connections = [];
             ssSource.connectSource("ss -tunp 2>/dev/null | awk 'NR>1{remote=$6;proc=\"\";for(i=7;i<=NF;i++)proc=proc\" \"$i;match(proc,/\"([^\"]+)\"/,m);if(m[1]!=\"\")print $1\"|\"remote\"|\"m[1]}'");
+        }
+
+        // Coarse, offline country guess derived from the reverse-DNS hostname.
+        // NOT a GeoIP database — just TLDs and common airport/city codes that
+        // many CDNs embed in PTR records. Returns {flag, code} or empty.
+        // Intentionally conservative: unknown → no flag rather than a wrong one.
+        function geoFromHost(host) {
+            if (!host)
+                return {
+                    flag: "",
+                    code: ""
+                };
+            const h = host.toLowerCase();
+            // 1) ccTLD on the end (.de, .co.uk → uk, etc.)
+            const tldMap = {
+                de: "DE",
+                fr: "FR",
+                uk: "GB",
+                nl: "NL",
+                us: "US",
+                ca: "CA",
+                jp: "JP",
+                cn: "CN",
+                au: "AU",
+                br: "BR",
+                in: "IN",
+                ru: "RU",
+                se: "SE",
+                no: "NO",
+                fi: "FI",
+                dk: "DK",
+                pl: "PL",
+                es: "ES",
+                it: "IT",
+                ch: "CH",
+                at: "AT",
+                be: "BE",
+                ie: "IE",
+                sg: "SG",
+                kr: "KR",
+                hk: "HK",
+                tw: "TW",
+                za: "ZA",
+                mx: "MX"
+            };
+            const tldM = h.match(/\.([a-z]{2})$/);
+            if (tldM && tldMap[tldM[1]])
+                return {
+                    flag: _flag(tldMap[tldM[1]]),
+                    code: tldMap[tldM[1]]
+                };
+            // 2) airport/city codes commonly embedded by CDNs
+            const cityMap = {
+                fra: "DE",
+                muc: "DE",
+                ber: "DE",
+                dus: "DE",
+                ham: "DE",
+                ams: "NL",
+                lhr: "GB",
+                lon: "GB",
+                man: "GB",
+                cdg: "FR",
+                par: "FR",
+                mrs: "FR",
+                iad: "US",
+                sjc: "US",
+                lax: "US",
+                ord: "US",
+                dfw: "US",
+                atl: "US",
+                sea: "US",
+                nyc: "US",
+                mia: "US",
+                den: "US",
+                yyz: "CA",
+                yvr: "CA",
+                nrt: "JP",
+                hnd: "JP",
+                kix: "JP",
+                sin: "SG",
+                hkg: "HK",
+                syd: "AU",
+                gru: "BR",
+                icn: "KR",
+                arn: "SE",
+                waw: "PL",
+                mad: "ES",
+                mxp: "IT",
+                zrh: "CH",
+                vie: "AT",
+                bru: "BE",
+                dub: "IE",
+                hel: "FI",
+                cph: "DK"
+            };
+            const m = h.match(/(^|[.\-])([a-z]{3})[0-9]*([.\-])/g);
+            if (m) {
+                for (let i = 0; i < m.length; i++) {
+                    const code = m[i].replace(/[^a-z]/g, "").slice(0, 3);
+                    if (cityMap[code])
+                        return {
+                            flag: _flag(cityMap[code]),
+                            code: cityMap[code]
+                        };
+                }
+            }
+            return {
+                flag: "",
+                code: ""
+            };
+        }
+
+        // Batched reverse-DNS for all unique IPs in one subprocess. Each IP is
+        // resolved with a short-timeout getent; output is "ip<TAB>hostname".
+        function resolveHosts(conns) {
+            const ips = {};
+            for (let i = 0; i < conns.length; i++) {
+                const ip = conns[i].remoteHost;
+                // Skip already-hostname entries and obvious non-resolvables.
+                if (ip && /[0-9a-fA-F:.]/.test(ip) && !ips[ip])
+                    ips[ip] = true;
+            }
+            const list = Object.keys(ips);
+            if (list.length === 0)
+                return;
+            // for ip in …; do h=$(getent hosts ip); print ip<TAB>name; done
+            // 'timeout' guards against a slow resolver hanging the lookup.
+            const body = list.map(function (ip) {
+                return "ip='" + ip.replace(/'/g, "") + "'; h=$(timeout 1 getent hosts \"$ip\" 2>/dev/null | awk '{print $2; exit}'); [ -n \"$h\" ] && printf '%s\\t%s\\n' \"$ip\" \"$h\"";
+            }).join("; ");
+            resolveSource.connectSource(body);
+        }
+
+        // ISO-3166 alpha-2 → emoji flag via regional indicator symbols.
+        function _flag(cc) {
+            if (!cc || cc.length !== 2)
+                return "";
+            const base = 0x1F1E6;
+            return String.fromCodePoint(base + cc.charCodeAt(0) - 65) + String.fromCodePoint(base + cc.charCodeAt(1) - 65);
         }
     }
 
@@ -264,7 +422,10 @@ ColumnLayout {
                     procName: procName,
                     remoteHost: remoteHost,
                     port: port,
-                    proto: proto
+                    proto: proto,
+                    hostname: "",
+                    flag: "",
+                    countryCode: ""
                 });
             }
 
@@ -272,7 +433,48 @@ ColumnLayout {
             result.sort(function (a, b) {
                 return a.procName < b.procName ? -1 : a.procName > b.procName ? 1 : 0;
             });
+            // Show rows now; hostname/flag fill in asynchronously after one
+            // batched reverse-DNS lookup (single subprocess for all unique IPs).
             connDialog.connections = result;
+            connDialog.resolveHosts(result);
+        }
+    }
+
+    // One batched reverse-DNS resolve for every unique remote IP. Emits
+    // "ip<TAB>hostname" lines. Runs only when the popup is refreshed, so it
+    // costs exactly one extra subprocess per open — no polling, no daemon.
+    P5Support.DataSource {
+        id: resolveSource
+        engine: "executable"
+        connectedSources: []
+        onNewData: function (sourceName, data) {
+            resolveSource.disconnectSource(sourceName);
+            const out = (data["stdout"] || "").trim();
+            if (out === "")
+                return;
+            // Build ip → hostname map.
+            const map = {};
+            const lines = out.split("\n");
+            for (let i = 0; i < lines.length; i++) {
+                const tab = lines[i].indexOf("\t");
+                if (tab < 0)
+                    continue;
+                map[lines[i].slice(0, tab)] = lines[i].slice(tab + 1).trim();
+            }
+            // Merge into the existing rows without rebuilding from scratch.
+            const conns = connDialog.connections.slice();
+            for (let j = 0; j < conns.length; j++) {
+                const hn = map[conns[j].remoteHost];
+                if (!hn || hn === conns[j].remoteHost)
+                    continue;
+                const geo = connDialog.geoFromHost(hn);
+                conns[j] = Object.assign({}, conns[j], {
+                    hostname: hn,
+                    flag: geo.flag,
+                    countryCode: geo.code
+                });
+            }
+            connDialog.connections = conns;
         }
     }
 
