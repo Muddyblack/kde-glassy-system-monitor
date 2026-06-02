@@ -210,7 +210,24 @@ ColumnLayout {
             // No area fill on the glow pass — only the strokes feed the bloom.
             const fillA = glowPass ? 0 : (ct === 2 ? 0.62 : 0.35);
 
-            if (plasmoid.configuration.showCpuCores) {
+            const coresVisible = plasmoid.configuration.showCpuCores;
+
+            // Draw CPU total first (behind cores) — dimmed when cores are shown
+            if (n >= 2 && !root.isLineDisabled("cpuTotal")) {
+                const isHov = root.hoveredLine === "cpuTotal";
+                const anyCorHov = root.hoveredCore !== -1;
+                const dimForCores = coresVisible && !isHov && !anyCorHov;
+                ctx.globalAlpha = (!isHov && anyCorHov) ? 0.15 : (dimForCores ? 0.45 : 1.0);
+                ctx.lineWidth = dimForCores ? Math.max(0.8, plasmoid.configuration.lineWidth * 0.6) : plasmoid.configuration.lineWidth;
+                // No area fill when cores overlay — they'd cover it and it muddies the chart.
+                const totalFill = (coresVisible && !isHov) ? 0 : fillA;
+                // Glow: on the GPU-bloom crisp pass this resolves to 0 (the bloom
+                // layer owns the halo); otherwise it's the CPU shadowBlur value.
+                cu.drawLine(ctx, h, root.cpuColor, iToX, pToY, height, smooth, totalFill, plasmoid.configuration.glowLine ? cu.glowFor(isHov ? 7 : 5) : 0);
+                ctx.globalAlpha = 1.0;
+            }
+
+            if (coresVisible) {
                 for (let ci = 0; ci < root.coreHistories.length; ci++) {
                     if (root.isCoreDisabled(ci))
                         continue;
@@ -220,22 +237,11 @@ ColumnLayout {
                     const isHov = root.hoveredCore === ci;
                     const anyHov = root.hoveredCore !== -1;
                     const totHov = root.hoveredLine === "cpuTotal";
-                    ctx.globalAlpha = isHov ? 1.0 : ((anyHov || totHov) ? 0.10 : 0.50);
-                    ctx.lineWidth = isHov ? plasmoid.configuration.lineWidth : Math.max(0.6, plasmoid.configuration.lineWidth * 0.45);
+                    ctx.globalAlpha = isHov ? 1.0 : ((anyHov || totHov) ? 0.10 : 0.70);
+                    ctx.lineWidth = isHov ? plasmoid.configuration.lineWidth : Math.max(0.6, plasmoid.configuration.lineWidth * 0.55);
                     cu.drawLine(ctx, ch, root.coreColors[ci % root.coreColors.length] || "#888888", iToX, pToY, height, smooth, 0, 0);
                     ctx.globalAlpha = 1.0;
                 }
-            }
-
-            if (n >= 2 && !root.isLineDisabled("cpuTotal")) {
-                const isHov = root.hoveredLine === "cpuTotal";
-                const anyCorHov = root.hoveredCore !== -1;
-                ctx.globalAlpha = (!isHov && anyCorHov) ? 0.15 : 1.0;
-                ctx.lineWidth = plasmoid.configuration.lineWidth;
-                // Glow: on the GPU-bloom crisp pass this resolves to 0 (the bloom
-                // layer owns the halo); otherwise it's the CPU shadowBlur value.
-                cu.drawLine(ctx, h, root.cpuColor, iToX, pToY, height, smooth, fillA, plasmoid.configuration.glowLine ? cu.glowFor(isHov ? 7 : 5) : 0);
-                ctx.globalAlpha = 1.0;
             }
             ctx.restore();
         }

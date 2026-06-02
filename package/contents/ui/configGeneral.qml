@@ -809,12 +809,17 @@ KCM.SimpleKCM {
 
                 // ── Right: detail panel ──────────────────────────────────────
                 Flickable {
+                    id: sensorDetailFlickable
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    Layout.minimumHeight: 300
                     contentWidth: width
                     contentHeight: sensorDetailForm.implicitHeight
                     clip: true
+                    boundsBehavior: Flickable.StopAtBounds
+
+                    QQC.ScrollBar.vertical: QQC.ScrollBar {
+                        policy: QQC.ScrollBar.AsNeeded
+                    }
 
                     Kirigami.FormLayout {
                         id: sensorDetailForm

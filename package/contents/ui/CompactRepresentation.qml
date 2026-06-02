@@ -315,11 +315,9 @@ Item {
                 sourceComponent: Component {
                     ColumnLayout {
                         spacing: 0
-                        implicitWidth: Math.max(40, compact.height * 1.9)
                         // Download row
                         RowLayout {
-                            Layout.fillWidth: true
-                            spacing: 4
+                            spacing: 3
                             Text {
                                 text: "↓"
                                 color: compact.panelAlphaColor(compact._root.dlColor, 0.65)
@@ -333,7 +331,6 @@ Item {
                                 font.pixelSize: Math.max(9, compact.height * 0.30)
                                 font.bold: true
                                 Layout.alignment: Qt.AlignVCenter
-                                Layout.fillWidth: true
                             }
                             // session total
                             Text {
@@ -346,8 +343,7 @@ Item {
                         }
                         // Upload row
                         RowLayout {
-                            Layout.fillWidth: true
-                            spacing: 4
+                            spacing: 3
                             Text {
                                 text: "↑"
                                 color: compact.panelAlphaColor(compact._root.ulColor, 0.65)
@@ -361,7 +357,6 @@ Item {
                                 font.pixelSize: Math.max(9, compact.height * 0.30)
                                 font.bold: true
                                 Layout.alignment: Qt.AlignVCenter
-                                Layout.fillWidth: true
                             }
                             Text {
                                 visible: plasmoid.configuration.panelShowSessionTotals && compact.height >= 30
