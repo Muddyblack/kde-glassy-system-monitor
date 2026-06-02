@@ -114,6 +114,12 @@
         <entry name="showGridLines" type="Bool">
             <default>false</default>
         </entry>
+        <!-- Use a MaxMind GeoIP database (auto-detected from Portmaster if
+             present) for accurate per-connection country flags. Falls back to
+             a hostname heuristic when no readable DB / mmdblookup is found. -->
+        <entry name="accurateGeo" type="Bool">
+            <default>true</default>
+        </entry>
         <entry name="autoYRange" type="Bool">
             <default>true</default>
         </entry>

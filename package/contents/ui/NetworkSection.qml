@@ -336,25 +336,39 @@ ColumnLayout {
             };
         }
 
-        // Batched reverse-DNS for all unique IPs in one subprocess. Each IP is
-        // resolved with a short-timeout getent; output is "ip<TAB>hostname".
+        // Batched per-IP resolve in ONE subprocess. For every unique remote IP
+        // it emits "ip<TAB>hostname<TAB>countrycode" (any field may be empty):
+        //   • hostname  — reverse DNS via getent (always)
+        //   • countrycode — MaxMind GeoIP via mmdblookup, only when accurateGeo
+        //     is on AND a readable .mmdb + mmdblookup are present. Otherwise the
+        //     field is blank and QML falls back to the hostname heuristic.
+        // The DB is auto-detected (newest Portmaster geoip file, IPv4/IPv6),
+        // never hardcoded — absent Portmaster just means no DB and graceful
+        // fallback. Runs once per popup refresh: one extra process, no daemon.
         function resolveHosts(conns) {
             const ips = {};
             for (let i = 0; i < conns.length; i++) {
                 const ip = conns[i].remoteHost;
-                // Skip already-hostname entries and obvious non-resolvables.
                 if (ip && /[0-9a-fA-F:.]/.test(ip) && !ips[ip])
                     ips[ip] = true;
             }
             const list = Object.keys(ips);
             if (list.length === 0)
                 return;
-            // for ip in …; do h=$(getent hosts ip); print ip<TAB>name; done
-            // 'timeout' guards against a slow resolver hanging the lookup.
-            const body = list.map(function (ip) {
-                return "ip='" + ip.replace(/'/g, "") + "'; h=$(timeout 1 getent hosts \"$ip\" 2>/dev/null | awk '{print $2; exit}'); [ -n \"$h\" ] && printf '%s\\t%s\\n' \"$ip\" \"$h\"";
+            const useGeo = plasmoid.configuration.accurateGeo;
+
+            // Shell preamble: locate newest readable Portmaster v4/v6 DBs and
+            // confirm mmdblookup exists. DB4/DB6/MM stay empty if unavailable.
+            const preamble = useGeo ? "GD=/var/lib/portmaster/updates/all/intel/geoip; " + "DB4=$(ls -1t \"$GD\"/geoipv4_*.mmdb 2>/dev/null | head -1); " + "DB6=$(ls -1t \"$GD\"/geoipv6_*.mmdb 2>/dev/null | head -1); " + "MM=$(command -v mmdblookup 2>/dev/null); " : "MM=''; DB4=''; DB6=''; ";
+
+            // Per-IP: reverse DNS, then (if MM+DB present and IP readable) a
+            // country lookup choosing v6 DB for colon-bearing addresses.
+            const perIp = list.map(function (ip) {
+                const safe = ip.replace(/'/g, "");
+                return "ip='" + safe + "'; " + "h=$(timeout 1 getent hosts \"$ip\" 2>/dev/null | awk '{print $2; exit}'); " + "cc=''; " + "if [ -n \"$MM\" ]; then " + "case \"$ip\" in *:*) DB=\"$DB6\";; *) DB=\"$DB4\";; esac; " + "if [ -n \"$DB\" ] && [ -r \"$DB\" ]; then " + "cc=$(timeout 1 \"$MM\" --file \"$DB\" --ip \"$ip\" country iso_code 2>/dev/null | grep -o '\"[A-Za-z][A-Za-z]\"' | head -1 | tr -d '\"');" + "fi; fi; " + "printf '%s\\t%s\\t%s\\n' \"$ip\" \"$h\" \"$cc\"";
             }).join("; ");
-            resolveSource.connectSource(body);
+
+            resolveSource.connectSource(preamble + perIp);
         }
 
         // ISO-3166 alpha-2 → emoji flag via regional indicator symbols.
@@ -440,9 +454,9 @@ ColumnLayout {
         }
     }
 
-    // One batched reverse-DNS resolve for every unique remote IP. Emits
-    // "ip<TAB>hostname" lines. Runs only when the popup is refreshed, so it
-    // costs exactly one extra subprocess per open — no polling, no daemon.
+    // One batched resolve for every unique remote IP. Each line is
+    // "ip<TAB>hostname<TAB>countrycode" (hostname/cc may be empty). Runs only
+    // on popup refresh → one extra subprocess per open, no polling, no daemon.
     P5Support.DataSource {
         id: resolveSource
         engine: "executable"
@@ -452,29 +466,48 @@ ColumnLayout {
             const out = (data["stdout"] || "").trim();
             if (out === "")
                 return;
-            // Build ip → hostname map.
+            // Build ip → {hostname, cc} map.
             const map = {};
             const lines = out.split("\n");
             for (let i = 0; i < lines.length; i++) {
-                const tab = lines[i].indexOf("\t");
-                if (tab < 0)
+                const f = lines[i].split("\t");
+                if (f.length < 1 || f[0] === "")
                     continue;
-                map[lines[i].slice(0, tab)] = lines[i].slice(tab + 1).trim();
+                map[f[0]] = {
+                    hostname: (f[1] || "").trim(),
+                    cc: (f[2] || "").trim().toUpperCase()
+                };
             }
             // Merge into the existing rows without rebuilding from scratch.
             const conns = connDialog.connections.slice();
+            let changed = false;
             for (let j = 0; j < conns.length; j++) {
-                const hn = map[conns[j].remoteHost];
-                if (!hn || hn === conns[j].remoteHost)
+                const e = map[conns[j].remoteHost];
+                if (!e)
                     continue;
-                const geo = connDialog.geoFromHost(hn);
+                const hn = (e.hostname && e.hostname !== conns[j].remoteHost) ? e.hostname : "";
+                // Prefer the GeoIP country code; fall back to the hostname
+                // heuristic only when the DB gave us nothing.
+                let flag = "", code = "";
+                if (e.cc && /^[A-Z]{2}$/.test(e.cc)) {
+                    code = e.cc;
+                    flag = connDialog._flag(e.cc);
+                } else if (hn) {
+                    const geo = connDialog.geoFromHost(hn);
+                    flag = geo.flag;
+                    code = geo.code;
+                }
+                if (!hn && !flag)
+                    continue;
                 conns[j] = Object.assign({}, conns[j], {
                     hostname: hn,
-                    flag: geo.flag,
-                    countryCode: geo.code
+                    flag: flag,
+                    countryCode: code
                 });
+                changed = true;
             }
-            connDialog.connections = conns;
+            if (changed)
+                connDialog.connections = conns;
         }
     }
 

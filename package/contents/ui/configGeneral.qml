@@ -57,6 +57,7 @@ KCM.SimpleKCM {
     property alias cfg_autoYRange: autoYRangeCB.checked
     property alias cfg_smoothLines: smoothLinesCB.checked
     property alias cfg_smoothScroll: smoothScrollCB.checked
+    property alias cfg_accurateGeo: accurateGeoCB.checked
     property alias cfg_targetFps: targetFpsSpin.value
     property string cfg_disabledCoresStr: ""
     property string cfg_diskDevice: "auto"
@@ -625,6 +626,18 @@ KCM.SimpleKCM {
                     id: showGridLinesCB
                     Kirigami.FormData.label: i18n("Grid lines:")
                     text: i18n("Horizontal grid lines")
+                }
+                QQC.CheckBox {
+                    id: accurateGeoCB
+                    Kirigami.FormData.label: i18n("Country flags:")
+                    text: i18n("Accurate GeoIP for connection flags")
+                }
+                QQC.Label {
+                    text: i18n("Uses a MaxMind database (auto-detected from Portmaster) when available; otherwise falls back to a hostname-based guess. Needs the 'mmdblookup' tool and a readable database.")
+                    opacity: 0.50
+                    font.pixelSize: 10
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
                 }
                 QQC.CheckBox {
                     id: showYLabelsCB
