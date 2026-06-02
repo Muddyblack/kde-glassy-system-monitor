@@ -372,7 +372,16 @@ KCM.SimpleKCM {
             // Height follows the CURRENT tab's content so SimpleKCM's scroll view
             // gets a real content height and can scroll when a tab is taller than
             // the window. A fixed height (was 520) clipped tall tabs with no scroll.
-            Layout.preferredHeight: itemAt(currentIndex) ? itemAt(currentIndex).implicitHeight : 0
+            // Tabs whose children all use fillHeight (the Sensor Details tab) have
+            // implicitHeight 0, so honor their Layout.preferredHeight hint instead —
+            // without it that tab collapses to zero height and renders blank.
+            Layout.preferredHeight: {
+                var it = itemAt(currentIndex);
+                if (!it)
+                    return 0;
+                var pref = it.Layout.preferredHeight;
+                return pref > 0 ? pref : it.implicitHeight;
+            }
             currentIndex: tabBar.currentIndex
 
             // ══════════════════════════════════════════════════════════════════

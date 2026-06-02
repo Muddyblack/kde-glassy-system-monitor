@@ -67,9 +67,14 @@ Item {
             blurEnabled: true
             blur: chart.bloomBlur
             blurMax: 32
-            brightness: 0.25
-            saturation: 0.20
-            autoPaddingEnabled: false
+            // Keep brightness low so the halo stays the LINE's color instead of
+            // washing toward white, and push saturation up so it reads as a vivid
+            // neon glow rather than a milky haze.
+            brightness: 0.10
+            saturation: 0.45
+            // autoPadding ON: lets the blur spread past the canvas edges and fade
+            // softly. With it off the glow was sliced flat at the chart border.
+            autoPaddingEnabled: true
         }
         onPaint: {
             const ctx = getContext("2d");

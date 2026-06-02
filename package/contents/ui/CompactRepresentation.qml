@@ -313,6 +313,9 @@ Item {
                 width: pill.width - panelRoot.hPad * 2
                 active: compact._valid && compact._root.showNetworkSpeed
                 sourceComponent: Component {
+                    // Two stacked rows must fit the panel height, so each row's
+                    // font is sized off ~half the height (not the full height) —
+                    // otherwise ↓ and ↑ together overflow the pill.
                     ColumnLayout {
                         spacing: 0
                         // Download row
@@ -321,23 +324,23 @@ Item {
                             Text {
                                 text: "↓"
                                 color: compact.panelAlphaColor(compact._root.dlColor, 0.65)
-                                font.pixelSize: Math.max(8, compact.height * 0.26)
+                                font.pixelSize: Math.max(7, compact.height * 0.20)
                                 font.bold: true
                                 Layout.alignment: Qt.AlignVCenter
                             }
                             Text {
                                 text: compact._fmtSpeed(compact._root.downloadSpeed)
                                 color: compact.panelColor(compact._root.dlColor)
-                                font.pixelSize: Math.max(9, compact.height * 0.30)
+                                font.pixelSize: Math.max(8, compact.height * 0.23)
                                 font.bold: true
                                 Layout.alignment: Qt.AlignVCenter
                             }
                             // session total
                             Text {
-                                visible: plasmoid.configuration.panelShowSessionTotals && compact.height >= 30
+                                visible: plasmoid.configuration.panelShowSessionTotals && compact.height >= 34
                                 text: compact._fmtBytes(compact._root.sessionDlBytes)
                                 color: compact.panelAlphaColor(compact._root.dlColor, 0.5)
-                                font.pixelSize: Math.max(7, compact.height * 0.22)
+                                font.pixelSize: Math.max(7, compact.height * 0.17)
                                 Layout.alignment: Qt.AlignVCenter
                             }
                         }
@@ -347,22 +350,22 @@ Item {
                             Text {
                                 text: "↑"
                                 color: compact.panelAlphaColor(compact._root.ulColor, 0.65)
-                                font.pixelSize: Math.max(8, compact.height * 0.26)
+                                font.pixelSize: Math.max(7, compact.height * 0.20)
                                 font.bold: true
                                 Layout.alignment: Qt.AlignVCenter
                             }
                             Text {
                                 text: compact._fmtSpeed(compact._root.uploadSpeed)
                                 color: compact.panelColor(compact._root.ulColor)
-                                font.pixelSize: Math.max(9, compact.height * 0.30)
+                                font.pixelSize: Math.max(8, compact.height * 0.23)
                                 font.bold: true
                                 Layout.alignment: Qt.AlignVCenter
                             }
                             Text {
-                                visible: plasmoid.configuration.panelShowSessionTotals && compact.height >= 30
+                                visible: plasmoid.configuration.panelShowSessionTotals && compact.height >= 34
                                 text: compact._fmtBytes(compact._root.sessionUlBytes)
                                 color: compact.panelAlphaColor(compact._root.ulColor, 0.5)
-                                font.pixelSize: Math.max(7, compact.height * 0.22)
+                                font.pixelSize: Math.max(7, compact.height * 0.17)
                                 Layout.alignment: Qt.AlignVCenter
                             }
                         }
@@ -548,6 +551,8 @@ Item {
                 width: pill.width - panelRoot.hPad * 2
                 active: compact._valid && compact._root.showDiskSection
                 sourceComponent: Component {
+                    // Two stacked rows (R / W) — size each off ~half the height
+                    // so they fit the pill instead of overflowing.
                     ColumnLayout {
                         spacing: 1
                         implicitWidth: Math.max(60, compact.height * 2.2)
@@ -557,14 +562,14 @@ Item {
                             Text {
                                 text: "R"
                                 color: compact.panelAlphaColor(compact._root.diskRdColor, 0.65)
-                                font.pixelSize: Math.max(8, compact.height * 0.28)
+                                font.pixelSize: Math.max(7, compact.height * 0.21)
                                 font.bold: true
                                 Layout.alignment: Qt.AlignVCenter
                             }
                             Text {
                                 text: compact._fmtSpeed(compact._root.diskReadSpeed)
                                 color: compact.panelColor(compact._root.diskRdColor)
-                                font.pixelSize: Math.max(9, compact.height * 0.32)
+                                font.pixelSize: Math.max(8, compact.height * 0.24)
                                 font.bold: true
                                 Layout.alignment: Qt.AlignVCenter
                                 Layout.fillWidth: true
@@ -576,14 +581,14 @@ Item {
                             Text {
                                 text: "W"
                                 color: compact.panelAlphaColor(compact._root.diskWrColor, 0.65)
-                                font.pixelSize: Math.max(8, compact.height * 0.28)
+                                font.pixelSize: Math.max(7, compact.height * 0.21)
                                 font.bold: true
                                 Layout.alignment: Qt.AlignVCenter
                             }
                             Text {
                                 text: compact._fmtSpeed(compact._root.diskWriteSpeed)
                                 color: compact.panelColor(compact._root.diskWrColor)
-                                font.pixelSize: Math.max(9, compact.height * 0.32)
+                                font.pixelSize: Math.max(8, compact.height * 0.24)
                                 font.bold: true
                                 Layout.alignment: Qt.AlignVCenter
                                 Layout.fillWidth: true
