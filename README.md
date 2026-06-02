@@ -6,13 +6,18 @@
 
 <p align="center">
   <a href="https://www.opendesktop.org/p/2360341">
-    <img src="https://img.shields.io/badge/KDE_Store-Available-1d99f3?style=for-the-badge&logo=kde&logoColor=white" alt="KDE Store" />
+    <img src="https://img.shields.io/badge/KDE_Store-Download-1d99f3?style=for-the-badge&logo=kde&logoColor=white" alt="KDE Store" />
   </a>
   <img src="https://img.shields.io/badge/KDE_Plasma-6.0%2B-1d99f3?style=for-the-badge&logo=kde&logoColor=white" alt="KDE Plasma 6.0+" />
   <a href="LICENSE">
     <img src="https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge" alt="License: MIT" />
   </a>
-  <img src="https://img.shields.io/github/downloads/Muddyblack/kde-glassy-system-monitor/total?style=for-the-badge&logo=kdeplasma&logoColor=white&label=Downloads&color=blue" alt="Downloads" />
+  <a href="https://www.opendesktop.org/p/2360341">
+    <img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fapi.pling.com%2Focs%2Fv1%2Fcontent%2Fdata%2F2360341%3Fformat%3Djson&query=%24.data%5B0%5D.downloads&label=Downloads&style=for-the-badge&color=1d99f3&logo=kde&logoColor=white" alt="KDE Store Downloads" />
+  </a>
+  <a href="https://github.com/Muddyblack/kde-glassy-system-monitor/releases">
+    <img src="https://img.shields.io/github/downloads/Muddyblack/kde-glassy-system-monitor/total?style=for-the-badge&logo=github&logoColor=white&label=GitHub%20Downloads&color=blue" alt="GitHub Downloads" />
+  </a>
 </p>
 
 <p align="center">
