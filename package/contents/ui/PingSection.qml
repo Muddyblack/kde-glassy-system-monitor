@@ -68,13 +68,11 @@ ColumnLayout {
     }
 
     // ── graph ────────────────────────────────────────────────────────────────
-    Canvas {
+    BloomChart {
         id: pingGraph
         Layout.fillWidth: true
         Layout.fillHeight: true
         visible: plasmoid.configuration.chartType !== 6
-        antialiasing: true
-        renderStrategy: Canvas.Cooperative
 
         Connections {
             target: root
@@ -125,11 +123,16 @@ ColumnLayout {
             function onSmoothLinesChanged() {
                 pingGraph.requestPaint();
             }
+            function onGpuBloomChanged() {
+                pingGraph.requestPaint();
+            }
+            function onBloomStrengthChanged() {
+                pingGraph.requestPaint();
+            }
         }
 
-        onPaint: {
-            const ctx = getContext("2d");
-            ctx.reset();
+        paint: function (ctx, glowPass) {
+            const width = pingGraph.width, height = pingGraph.height;
             const h = root.histories[root.activeTarget] || [];
             const n = h.length;
             const maxH = Math.max(10, plasmoid.configuration.historySize);
@@ -138,7 +141,8 @@ ColumnLayout {
             const smooth = plasmoid.configuration.smoothLines;
 
             if (n === 0) {
-                cu.drawIdleLine(ctx, yLW, gW, height);
+                if (!glowPass)
+                    cu.drawIdleLine(ctx, yLW, gW, height);
                 return;
             }
             ctx.setLineDash([]);
@@ -148,6 +152,11 @@ ColumnLayout {
             const vMax = valid.length > 0 ? Math.max.apply(null, valid) : 0;
             const maxMs = Math.max(vMax * 1.5 + 2, 15);
             const threshold = plasmoid.configuration.latencyThreshold;
+
+            // Donut/pie/bar keep their own in-helper glow; GPU bloom is for the
+            // line/area chart only.
+            if (glowPass && (ct === 3 || ct === 4 || ct === 5))
+                return;
 
             // Donut
             if (ct === 3) {
@@ -185,7 +194,7 @@ ColumnLayout {
                 return yLW + gW - (n - 2 - i + sf) * step;
             }
 
-            if (plasmoid.configuration.showYLabels) {
+            if (!glowPass && plasmoid.configuration.showYLabels) {
                 cu.drawYAxis(ctx, yLW, height, [
                     {
                         y: msToY(maxMs),
@@ -205,9 +214,9 @@ ColumnLayout {
                 ]);
             }
 
-            // threshold line
+            // threshold line (not glow content)
             const ty = msToY(threshold);
-            if (ty > 2 && ty < height - 2) {
+            if (!glowPass && ty > 2 && ty < height - 2) {
                 ctx.save();
                 ctx.lineWidth = 0.8;
                 ctx.strokeStyle = Qt.rgba(1, 0.45, 0.1, 0.30);
@@ -292,20 +301,21 @@ ColumnLayout {
             ctx.rect(yLW, 0, gW, height);
             ctx.clip();
 
-            // packet-loss columns
-            for (let i = 0; i < n; i++) {
-                if (h[i] < 0) {
-                    const x = iToX(i);
-                    if (x >= yLW - step / 2 && x <= width + step / 2) {
-                        ctx.fillStyle = Qt.rgba(1, 0.15, 0.15, 0.08);
-                        ctx.fillRect(x - step / 2, tPad, step, height - tPad * 2);
-                        ctx.beginPath();
-                        ctx.arc(x, height - tPad, 2, 0, Math.PI * 2);
-                        ctx.fillStyle = "#ff4444";
-                        ctx.fill();
+            // packet-loss columns (alert markers, not glow content)
+            if (!glowPass)
+                for (let i = 0; i < n; i++) {
+                    if (h[i] < 0) {
+                        const x = iToX(i);
+                        if (x >= yLW - step / 2 && x <= width + step / 2) {
+                            ctx.fillStyle = Qt.rgba(1, 0.15, 0.15, 0.08);
+                            ctx.fillRect(x - step / 2, tPad, step, height - tPad * 2);
+                            ctx.beginPath();
+                            ctx.arc(x, height - tPad, 2, 0, Math.PI * 2);
+                            ctx.fillStyle = "#ff4444";
+                            ctx.fill();
+                        }
                     }
                 }
-            }
 
             for (const pts of segments) {
                 if (pts.length < 2)
@@ -329,33 +339,38 @@ ColumnLayout {
                         ctx.lineTo(pts[i].x, pts[i].y);
                     }
                 }
-                if (plasmoid.configuration.glowLine) {
+                // Manual wide-stroke glow only when GPU bloom isn't owning the
+                // halo (it already double-strokes instead of using shadowBlur).
+                if (plasmoid.configuration.glowLine && !glowPass && !cu.gpuBloom) {
                     ctx.lineWidth = plw * 3.5;
                     ctx.strokeStyle = Qt.rgba(pc.r, pc.g, pc.b, 0.22);
                     ctx.stroke();
                 }
                 ctx.lineWidth = plw;
                 ctx.strokeStyle = sc;
-                // fill
-                ctx.beginPath();
-                ctx.moveTo(pts[0].x, pts[0].y);
-                for (let i = 1; i < pts.length; i++) {
-                    if (smooth) {
-                        const cx = (pts[i - 1].x + pts[i].x) / 2;
-                        ctx.bezierCurveTo(cx, pts[i - 1].y, cx, pts[i].y, pts[i].x, pts[i].y);
-                    } else {
-                        ctx.lineTo(pts[i].x, pts[i].y);
+                ctx.stroke();
+                // area fill — full pass only (the bloom source carries no fill)
+                if (!glowPass) {
+                    ctx.beginPath();
+                    ctx.moveTo(pts[0].x, pts[0].y);
+                    for (let i = 1; i < pts.length; i++) {
+                        if (smooth) {
+                            const cx = (pts[i - 1].x + pts[i].x) / 2;
+                            ctx.bezierCurveTo(cx, pts[i - 1].y, cx, pts[i].y, pts[i].x, pts[i].y);
+                        } else {
+                            ctx.lineTo(pts[i].x, pts[i].y);
+                        }
                     }
+                    ctx.lineTo(pts[pts.length - 1].x, height);
+                    ctx.lineTo(pts[0].x, height);
+                    ctx.closePath();
+                    const c = Qt.color(sc);
+                    const g = ctx.createLinearGradient(0, pts[0].y, 0, height);
+                    g.addColorStop(0, Qt.rgba(c.r, c.g, c.b, ct === 2 ? 0.65 : 0.38));
+                    g.addColorStop(1, Qt.rgba(c.r, c.g, c.b, 0));
+                    ctx.fillStyle = g;
+                    ctx.fill();
                 }
-                ctx.lineTo(pts[pts.length - 1].x, height);
-                ctx.lineTo(pts[0].x, height);
-                ctx.closePath();
-                const c = Qt.color(sc);
-                const g = ctx.createLinearGradient(0, pts[0].y, 0, height);
-                g.addColorStop(0, Qt.rgba(c.r, c.g, c.b, ct === 2 ? 0.65 : 0.38));
-                g.addColorStop(1, Qt.rgba(c.r, c.g, c.b, 0));
-                ctx.fillStyle = g;
-                ctx.fill();
                 ctx.restore();
             }
 
@@ -365,7 +380,7 @@ ColumnLayout {
                 const lp = last[last.length - 1];
                 if (lp) {
                     const dc = root.lineColor;
-                    if (plasmoid.configuration.glowLine) {
+                    if (plasmoid.configuration.glowLine && !glowPass && !cu.gpuBloom) {
                         ctx.beginPath();
                         ctx.arc(lp.x, lp.y, 8, 0, Math.PI * 2);
                         ctx.fillStyle = Qt.rgba(dc.r, dc.g, dc.b, 0.18);

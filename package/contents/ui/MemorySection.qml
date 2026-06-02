@@ -5,13 +5,11 @@ ColumnLayout {
     id: memSection
     spacing: 3
 
-    Canvas {
+    BloomChart {
         id: memGraph
         Layout.fillWidth: true
         Layout.fillHeight: true
         visible: plasmoid.configuration.chartType !== 6
-        antialiasing: true
-        renderStrategy: Canvas.Cooperative
 
         Connections {
             target: root
@@ -59,11 +57,16 @@ ColumnLayout {
             function onSmoothLinesChanged() {
                 memGraph.requestPaint();
             }
+            function onGpuBloomChanged() {
+                memGraph.requestPaint();
+            }
+            function onBloomStrengthChanged() {
+                memGraph.requestPaint();
+            }
         }
 
-        onPaint: {
-            const ctx = getContext("2d");
-            ctx.reset();
+        paint: function (ctx, glowPass) {
+            const width = memGraph.width, height = memGraph.height;
             const h = root.memHistory, n = h.length;
             const maxH = Math.max(10, plasmoid.configuration.historySize);
             const yLW = plasmoid.configuration.showYLabels ? 38 : 0;
@@ -72,10 +75,16 @@ ColumnLayout {
             const ct = plasmoid.configuration.chartType || 0;
 
             if (n < 1) {
-                cu.drawIdleLine(ctx, yLW, gW, height);
+                if (!glowPass)
+                    cu.drawIdleLine(ctx, yLW, gW, height);
                 return;
             }
             ctx.setLineDash([]);
+
+            // Donut/pie/bar keep their own in-helper glow; GPU bloom is for the
+            // line/area charts only.
+            if (glowPass && (ct === 3 || ct === 4 || ct === 5))
+                return;
 
             const tPad = height * 0.06, uH = height * 0.88;
             const step = gW / Math.max(1, maxH - 1);
@@ -129,7 +138,7 @@ ColumnLayout {
                 return;
             }
 
-            if (plasmoid.configuration.showYLabels) {
+            if (!glowPass && plasmoid.configuration.showYLabels) {
                 cu.drawYAxis(ctx, yLW, height, [
                     {
                         y: pToY(100),
@@ -153,7 +162,7 @@ ColumnLayout {
             ctx.beginPath();
             ctx.rect(yLW, 0, gW, height);
             ctx.clip();
-            const fillA = ct === 2 ? 0.62 : 0.35;
+            const fillA = glowPass ? 0 : (ct === 2 ? 0.62 : 0.35);
             const sw = root.swapHistory, swLen = sw.length;
 
             if (root.hasSwap && swLen >= 2 && !root.isLineDisabled("swap")) {
@@ -169,8 +178,8 @@ ColumnLayout {
                 const dimOth = (root.hoveredLine === "ram" || root.hoveredLine === "swap") && !isHov;
                 ctx.globalAlpha = dimOth ? 0.15 : 1.0;
                 ctx.lineWidth = plasmoid.configuration.lineWidth;
-                // OPTIMIZATION: Reduced glow blur from 12/8 to 7/5 for better performance
-                cu.drawLine(ctx, h, root.memColor, iToX, pToY, height, smooth, fillA, plasmoid.configuration.glowLine ? (isHov ? 7 : 5) : 0);
+                // Glow resolves to 0 on the GPU-bloom crisp pass (bloom owns it).
+                cu.drawLine(ctx, h, root.memColor, iToX, pToY, height, smooth, fillA, plasmoid.configuration.glowLine ? cu.glowFor(isHov ? 7 : 5) : 0);
                 ctx.globalAlpha = 1.0;
             }
             ctx.restore();

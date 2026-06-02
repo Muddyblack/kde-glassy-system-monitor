@@ -111,6 +111,28 @@
         <entry name="bgRadius" type="Double">
             <default>12.0</default>
         </entry>
+        <!-- Frosted-glass card: composite the card fill + tint through a GPU
+             MultiEffect blur instead of a flat translucent rect, for a soft
+             premium frost. Self-content blur (Plasma exposes no backdrop-blur
+             API to QML), so it frosts the card's own fill/highlight, not the
+             desktop behind it. Falls back to the flat card when disabled. -->
+        <entry name="frostedGlass" type="Bool">
+            <default>true</default>
+        </entry>
+        <!-- How strongly the frosted card is blurred (0 = crisp, 1 = heavy). -->
+        <entry name="frostStrength" type="Double">
+            <default>0.55</default>
+        </entry>
+        <!-- GPU bloom for chart glow: render the glow halo with a MultiEffect
+             blur pass on the GPU instead of per-stroke Context2D shadowBlur on
+             the CPU. Prettier halo, far cheaper on plasmashell. When on, the
+             canvas glow stroke is skipped (the bloom replaces it). -->
+        <entry name="gpuBloom" type="Bool">
+            <default>true</default>
+        </entry>
+        <entry name="bloomStrength" type="Double">
+            <default>0.6</default>
+        </entry>
         <entry name="showGridLines" type="Bool">
             <default>false</default>
         </entry>
@@ -178,6 +200,12 @@
         </entry>
         <entry name="gpuColor" type="String">
             <default>#ff6e40</default>
+        </entry>
+        <entry name="gpuShowEngines" type="Bool">
+            <default>true</default>
+        </entry>
+        <entry name="netShowInfo" type="Bool">
+            <default>false</default>
         </entry>
 
         <!-- Panel / compact mode -->

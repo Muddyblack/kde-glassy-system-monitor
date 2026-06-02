@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Effects
 import QtQuick.Layouts
 import org.kde.plasma.plasmoid
 import org.kde.plasma.core as PlasmaCore
@@ -85,6 +86,7 @@ PlasmoidItem {
         textColor: root.textColor
         glowEnabled: plasmoid.configuration.glowLine
         showGridLines: plasmoid.configuration.showGridLines
+        gpuBloom: plasmoid.configuration.gpuBloom && plasmoid.configuration.glowLine
     }
 
     // ── smooth scroll: timestamp-based, computed at paint time ───────────────
@@ -344,6 +346,47 @@ PlasmoidItem {
                 netSource.connectSource("cat /proc/net/dev");
             }
         }
+    }
+
+    // ── Network identity (SSID / IP) ──────────────────────────────────────────
+    // Optional, off by default. Polled infrequently (changes rarely). SSID is the
+    // Wi-Fi name when on wireless ("" on wired); ip is the iface's primary IPv4.
+    property string netSsid: ""
+    property string netIpAddr: ""
+    property bool isReadingNetInfo: false
+
+    P5Support.DataSource {
+        id: netInfoSource
+        engine: "executable"
+        connectedSources: []
+        onNewData: function (sourceName, data) {
+            root.isReadingNetInfo = false;
+            netInfoSource.disconnectSource(sourceName);
+            root.parseNetInfo(data["stdout"] || "");
+        }
+    }
+    Timer {
+        interval: 8000
+        running: root.showNetworkSpeed && plasmoid.configuration.netShowInfo
+        repeat: true
+        triggeredOnStart: true
+        onTriggered: {
+            if (root.isReadingNetInfo || !root.activeIface)
+                return;
+            root.isReadingNetInfo = true;
+            const ifc = root.activeIface;
+            // Two lines: line0 = SSID, line1 = primary IPv4.
+            // SSID: try each tool and emit the FIRST NON-EMPTY result. We can't use
+            // `a || b` because some tools (e.g. `iw link` without privileges) exit 0
+            // while printing nothing, which would wrongly short-circuit the chain.
+            netInfoSource.connectSource("s=$(iwgetid -r 2>/dev/null); [ -z \"$s\" ] && s=$(iw dev " + ifc + " link 2>/dev/null | sed -n 's/^[[:space:]]*SSID: //p'); [ -z \"$s\" ] && s=$(nmcli -t -f active,ssid dev wifi 2>/dev/null | sed -n 's/^yes://p' | head -1); echo \"$s\"; ip -o -4 addr show dev " + ifc + " scope global 2>/dev/null | awk '{print $4}' | head -1");
+        }
+    }
+    function parseNetInfo(text) {
+        const lines = text.split("\n");
+        root.netSsid = (lines[0] || "").trim();
+        const ip = (lines[1] || "").trim();
+        root.netIpAddr = ip.split("/")[0];   // strip CIDR suffix
     }
 
     function parseNetStats(text) {
@@ -614,6 +657,17 @@ PlasmoidItem {
     property bool isReadingGpu: false
     property bool gpuDetected: false
 
+    // Per-engine + VRAM breakdown (best-effort, vendor-gated). A value < 0 means
+    // "this backend can't report it" → the UI hides that row. Engine values are
+    // utilisation percentages (0..100); VRAM is in bytes.
+    property real gpuEncPercent: -1   // video ENCODE engine util %
+    property real gpuDecPercent: -1   // video DECODE (and enhance) engine util %
+    property real gpuComputePercent: -1   // render / 3D / compute engine util %
+    property real gpuVramUsed: -1     // bytes
+    property real gpuVramTotal: -1    // bytes
+    // fdinfo engines report cumulative nanoseconds; we diff against the last poll.
+    property var _gpuLastEngineNs: null   // { render, video, enhance, copy, t }
+
     readonly property color gpuColor: Qt.color(plasmoid.configuration.gpuColor || "#ff6e40")
 
     // Detect GPU backend once on startup
@@ -686,15 +740,19 @@ PlasmoidItem {
             if (!root.isReadingGpu && root.gpuMode !== "") {
                 root.isReadingGpu = true;
                 if (root.gpuMode === "nvidia") {
-                    gpuSource.connectSource("nvidia-smi --query-gpu=utilization.gpu,clocks.current.graphics --format=csv,noheader,nounits 2>/dev/null");
+                    // util, freq, encode%, decode%, vram used (MiB), vram total (MiB)
+                    gpuSource.connectSource("nvidia-smi --query-gpu=utilization.gpu,clocks.current.graphics,utilization.encoder,utilization.decoder,memory.used,memory.total --format=csv,noheader,nounits 2>/dev/null");
                 } else if (root.gpuMode === "amd") {
-                    gpuSource.connectSource("cat /sys/class/drm/card0/device/gpu_busy_percent 2>/dev/null || cat /sys/class/drm/card1/device/gpu_busy_percent 2>/dev/null");
+                    // overall busy% + VRAM used/total from sysfs (rocm path)
+                    gpuSource.connectSource("cat /sys/class/drm/card0/device/gpu_busy_percent 2>/dev/null || cat /sys/class/drm/card1/device/gpu_busy_percent 2>/dev/null; echo; cat /sys/class/drm/card0/device/mem_info_vram_used 2>/dev/null || cat /sys/class/drm/card1/device/mem_info_vram_used 2>/dev/null; echo; cat /sys/class/drm/card0/device/mem_info_vram_total 2>/dev/null || cat /sys/class/drm/card1/device/mem_info_vram_total 2>/dev/null");
                 } else if (root.gpuMode === "intel") {
-                    // Intel: rc6_residency_ms delta → busy %, plus current freq
-                    gpuSource.connectSource("cat /sys/class/drm/card1/gt/gt0/rc6_residency_ms 2>/dev/null || cat /sys/class/drm/card0/gt/gt0/rc6_residency_ms 2>/dev/null; echo; cat /sys/class/drm/card1/gt/gt0/rps_cur_freq_mhz 2>/dev/null || cat /sys/class/drm/card0/gt/gt0/rps_cur_freq_mhz 2>/dev/null; echo; cat /sys/class/drm/card1/gt/gt0/rps_act_freq_mhz 2>/dev/null || cat /sys/class/drm/card0/gt/gt0/rps_act_freq_mhz 2>/dev/null");
+                    // Intel: rc6_residency_ms delta → busy %, plus current freq, plus
+                    // per-engine ns sums + memory from fdinfo (one combined read).
+                    gpuSource.connectSource("cat /sys/class/drm/card1/gt/gt0/rc6_residency_ms 2>/dev/null || cat /sys/class/drm/card0/gt/gt0/rc6_residency_ms 2>/dev/null; echo; cat /sys/class/drm/card1/gt/gt0/rps_cur_freq_mhz 2>/dev/null || cat /sys/class/drm/card0/gt/gt0/rps_cur_freq_mhz 2>/dev/null; echo; cat /sys/class/drm/card1/gt/gt0/rps_act_freq_mhz 2>/dev/null || cat /sys/class/drm/card0/gt/gt0/rps_act_freq_mhz 2>/dev/null; echo '---ENG---'; grep -rhE 'drm-(engine|resident)' /proc/*/fdinfo/ 2>/dev/null");
                 } else {
-                    // fdinfo fallback: sum drm-engine-render across all processes
-                    gpuSource.connectSource("grep -r 'drm-engine-render' /proc/*/fdinfo/ 2>/dev/null | awk '{sum+=$2} END{print sum}'");
+                    // fdinfo: sum each engine's cumulative ns across all processes, plus
+                    // resident memory. Render≈compute/3D, video≈decode, video-enhance≈encode.
+                    gpuSource.connectSource("grep -rhE 'drm-(engine|resident)' /proc/*/fdinfo/ 2>/dev/null");
                 }
             } else if (!root.isReadingGpu && root.gpuMode === "" && root.gpuNoDataTicks < 2) {
                 root.isReadingGpu = true;
@@ -709,30 +767,104 @@ PlasmoidItem {
     property real _gpuLastRc6Ms: -1
     property real _gpuLastPollMs: 0
 
+    // Parse the fdinfo block (the lines after "---ENG---" for intel, or the whole
+    // body for the generic fdinfo path). Sums each engine's cumulative nanoseconds
+    // and resident memory across every process, then diffs the ns against the last
+    // poll to derive a per-engine utilisation %. Updates gpuComputePercent /
+    // gpuDecPercent / gpuEncPercent / gpuVramUsed. Returns the render busy% (or -1).
+    function _parseFdinfoEngines(lines) {
+        let render = 0, video = 0, enhance = 0, copy = 0, resident = 0;
+        let sawEngine = false;
+        for (const line of lines) {
+            const m = line.match(/^drm-(engine|resident)-?(\S*):\s+(\d+)/);
+            if (!m)
+                continue;
+            const val = parseInt(m[3]);
+            if (m[1] === "engine") {
+                sawEngine = true;
+                const name = m[2];
+                if (name === "render")
+                    render += val;
+                else if (name === "video")
+                    video += val;
+                else if (name === "video-enhance")
+                    enhance += val;
+                else if (name === "copy")
+                    copy += val;
+            } else {
+                resident += val;   // drm-resident-* bytes
+            }
+        }
+        if (resident > 0)
+            root.gpuVramUsed = resident;
+        if (!sawEngine)
+            return -1;
+
+        const now = Date.now();
+        const prev = root._gpuLastEngineNs;
+        let renderPct = -1;
+        if (prev && prev.t > 0) {
+            const dtNs = (now - prev.t) * 1e6;   // ms → ns
+            if (dtNs > 0) {
+                const pct = function (cur, old) {
+                    return Math.min(100, Math.max(0, ((cur - old) / dtNs) * 100));
+                };
+                renderPct = pct(render, prev.render);
+                root.gpuComputePercent = renderPct;
+                // "video" is decode-side; "video-enhance" is the encode/post pipe.
+                root.gpuDecPercent = pct(video, prev.video);
+                root.gpuEncPercent = pct(enhance, prev.enhance);
+            }
+        }
+        root._gpuLastEngineNs = {
+            render,
+            video,
+            enhance,
+            copy,
+            t: now
+        };
+        return renderPct;
+    }
+
     function parseGpuData(src, text) {
         const lines = text.trim().split("\n");
         const maxH = Math.max(10, plasmoid.configuration.historySize);
 
         if (root.gpuMode === "nvidia") {
-            // "util, freq" per line (one GPU)
-            const parts = lines[0] ? lines[0].split(",") : [];
-            const util = parseFloat(parts[0]);
-            const freq = parseInt(parts[1]);
+            // "util, freq, enc%, dec%, vramUsedMiB, vramTotalMiB" (one GPU)
+            const parts = (lines[0] || "").split(",").map(s => parseFloat(s));
+            const util = parts[0], freq = parts[1], enc = parts[2], dec = parts[3];
+            const vu = parts[4], vt = parts[5];
             if (!isNaN(util))
                 root.gpuPercent = Math.min(100, Math.max(0, util));
             if (!isNaN(freq))
                 root.gpuFreqMhz = freq;
+            if (!isNaN(enc))
+                root.gpuEncPercent = Math.min(100, Math.max(0, enc));
+            if (!isNaN(dec))
+                root.gpuDecPercent = Math.min(100, Math.max(0, dec));
+            if (!isNaN(vu))
+                root.gpuVramUsed = vu * 1048576;   // MiB → bytes
+            if (!isNaN(vt))
+                root.gpuVramTotal = vt * 1048576;
             root.gpuNoDataTicks = 0;
         } else if (root.gpuMode === "amd") {
-            // gpu_busy_percent sysfs → single int
+            // line0: busy%, line1: vram used (bytes), line2: vram total (bytes)
             const v = parseInt(lines[0]);
+            const vu = parseInt(lines[1]);
+            const vt = parseInt(lines[2]);
             if (!isNaN(v)) {
                 root.gpuPercent = Math.min(100, Math.max(0, v));
                 root.gpuNoDataTicks = 0;
             } else
                 root.gpuNoDataTicks++;
+            if (!isNaN(vu))
+                root.gpuVramUsed = vu;
+            if (!isNaN(vt))
+                root.gpuVramTotal = vt;
         } else if (root.gpuMode === "intel") {
-            // line0: rc6_residency_ms, line1: rps_cur_freq_mhz, line2: rps_act_freq_mhz
+            // line0: rc6_residency_ms, line1: rps_cur_freq_mhz, line2: rps_act_freq_mhz,
+            // then "---ENG---" followed by the fdinfo block.
             const rc6Now = parseFloat(lines[0]);
             const cur = parseInt(lines[1]);
             const act = parseInt(lines[2]);
@@ -749,11 +881,16 @@ PlasmoidItem {
             }
             root._gpuLastRc6Ms = rc6Now;
             root._gpuLastPollMs = now;
+            // per-engine breakdown from the fdinfo block after the marker
+            const engIdx = lines.indexOf("---ENG---");
+            if (engIdx !== -1)
+                root._parseFdinfoEngines(lines.slice(engIdx + 1));
         } else {
-            // fdinfo sum of nanoseconds — compare delta, approximate %
-            const ns = parseFloat(lines[0]);
-            if (!isNaN(ns) && ns > 0) {
-                root.gpuPercent = Math.min(100, ns / 20000000);
+            // Generic fdinfo path: derive overall busy% from the render engine delta,
+            // and fill the per-engine breakdown.
+            const renderPct = root._parseFdinfoEngines(lines);
+            if (renderPct >= 0) {
+                root.gpuPercent = renderPct;
                 root.gpuNoDataTicks = 0;
             } else
                 root.gpuNoDataTicks++;
@@ -1234,11 +1371,11 @@ PlasmoidItem {
     fullRepresentation: Item {
         id: container
 
-        // glassy background card
+        // glassy background card — flat path (frostedGlass off)
         Rectangle {
             anchors.fill: parent
             radius: plasmoid.configuration.bgRadius
-            visible: plasmoid.configuration.showBg
+            visible: plasmoid.configuration.showBg && !plasmoid.configuration.frostedGlass
             color: plasmoid.configuration.bgColor
             border.color: Qt.rgba(1, 1, 1, 0.12)
             border.width: 1
@@ -1254,6 +1391,94 @@ PlasmoidItem {
                 height: 1
                 radius: 0.5
                 color: Qt.rgba(1, 1, 1, 0.20)
+            }
+        }
+
+        // ── frosted-glass card (frostedGlass on) ─────────────────────────────
+        // Composite the fill + tint + top highlight into one hidden source, blur
+        // it on the GPU, then round the whole result with a mask pass. Plasma
+        // exposes no backdrop-blur API to QML, so this frosts the card's OWN
+        // fill — a soft premium glass look that is GPU-cheap and doesn't touch
+        // the CPU canvas path. Same structure as the Audio Visualizer card.
+        readonly property bool _frosted: plasmoid.configuration.showBg && plasmoid.configuration.frostedGlass
+
+        Rectangle {
+            id: frostSource
+            anchors.fill: parent
+            visible: false
+            radius: plasmoid.configuration.bgRadius
+            color: plasmoid.configuration.bgColor
+
+            // Diagonal sheen baked into the source so the blur smears it into a
+            // soft glass gradient rather than a flat tint.
+            Rectangle {
+                anchors.fill: parent
+                radius: parent.radius
+                gradient: Gradient {
+                    orientation: Gradient.Vertical
+                    GradientStop {
+                        position: 0.0
+                        color: Qt.rgba(1, 1, 1, 0.10)
+                    }
+                    GradientStop {
+                        position: 0.35
+                        color: Qt.rgba(1, 1, 1, 0.025)
+                    }
+                    GradientStop {
+                        position: 1.0
+                        color: Qt.rgba(0, 0, 0, 0.06)
+                    }
+                }
+            }
+        }
+
+        MultiEffect {
+            id: frostEffect
+            anchors.fill: parent
+            visible: container._frosted
+            source: frostSource
+            blurEnabled: true
+            blur: plasmoid.configuration.frostStrength
+            blurMax: 40
+            autoPaddingEnabled: false
+            maskEnabled: true
+            maskSource: frostMask
+        }
+
+        // Rounded alpha mask for the frosted composite — rendered to a texture,
+        // never shown. (A Rectangle radius+clip only clips to the square bbox,
+        // so the blur would otherwise leak past the rounded corners.)
+        Rectangle {
+            id: frostMask
+            anchors.fill: parent
+            radius: plasmoid.configuration.bgRadius
+            color: "black"
+            visible: false
+            layer.enabled: true
+        }
+
+        // Crisp border + 1px top highlight drawn LIVE on top of the blur so they
+        // stay sharp (blurring them would muddy the edge that sells the glass).
+        Rectangle {
+            anchors.fill: parent
+            visible: container._frosted
+            radius: plasmoid.configuration.bgRadius
+            color: "transparent"
+            antialiasing: true
+            border.color: Qt.rgba(1, 1, 1, 0.14)
+            border.width: 1
+            Rectangle {
+                anchors {
+                    left: parent.left
+                    right: parent.right
+                    top: parent.top
+                }
+                anchors.leftMargin: 12
+                anchors.rightMargin: 12
+                anchors.topMargin: 1
+                height: 1
+                radius: 0.5
+                color: Qt.rgba(1, 1, 1, 0.22)
             }
         }
 

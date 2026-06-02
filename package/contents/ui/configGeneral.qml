@@ -66,9 +66,15 @@ KCM.SimpleKCM {
     property alias cfg_diskWrColor: diskWrColorButton.color
     property string cfg_gpuTitle: "GPU"
     property alias cfg_gpuColor: gpuColorButton.color
+    property alias cfg_gpuShowEngines: gpuShowEnginesCB.checked
+    property alias cfg_netShowInfo: netShowInfoCB.checked
     property alias cfg_showBg: showBgCB.checked
     property alias cfg_bgColor: bgColorButton.color
     property alias cfg_bgRadius: bgRadiusSlider.value
+    property alias cfg_frostedGlass: frostedGlassCB.checked
+    property alias cfg_frostStrength: frostStrengthSlider.value
+    property alias cfg_gpuBloom: gpuBloomCB.checked
+    property alias cfg_bloomStrength: bloomStrengthSlider.value
     property alias cfg_panelMode: panelModeCB.checked
     property alias cfg_panelShowSessionTotals: panelShowSessionTotalsCB.checked
     property alias cfg_panelPlainText: panelPlainTextCB.checked
@@ -363,8 +369,10 @@ KCM.SimpleKCM {
         StackLayout {
             id: tabStack
             Layout.fillWidth: true
-            Layout.fillHeight: true
-            Layout.preferredHeight: 520
+            // Height follows the CURRENT tab's content so SimpleKCM's scroll view
+            // gets a real content height and can scroll when a tab is taller than
+            // the window. A fixed height (was 520) clipped tall tabs with no scroll.
+            Layout.preferredHeight: itemAt(currentIndex) ? itemAt(currentIndex).implicitHeight : 0
             currentIndex: tabBar.currentIndex
 
             // ══════════════════════════════════════════════════════════════════
@@ -470,6 +478,35 @@ KCM.SimpleKCM {
                         Layout.minimumWidth: 36
                     }
                 }
+                QQC.CheckBox {
+                    id: frostedGlassCB
+                    visible: showBgCB.checked
+                    Kirigami.FormData.label: i18n("Frosted glass:")
+                    text: i18n("Soft GPU-blurred glass card")
+                }
+                QQC.Label {
+                    text: i18n("Blurs the card's own fill for a premium frosted look (GPU-accelerated). Plasma can't blur the desktop behind the widget, so this frosts the card itself.")
+                    visible: showBgCB.checked && frostedGlassCB.checked
+                    opacity: 0.50
+                    font.pixelSize: 10
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                }
+                RowLayout {
+                    visible: showBgCB.checked && frostedGlassCB.checked
+                    Kirigami.FormData.label: i18n("Frost amount:")
+                    QQC.Slider {
+                        id: frostStrengthSlider
+                        from: 0
+                        to: 1
+                        stepSize: 0.05
+                        Layout.minimumWidth: 130
+                    }
+                    QQC.Label {
+                        text: Math.round(frostStrengthSlider.value * 100) + "%"
+                        Layout.minimumWidth: 36
+                    }
+                }
 
                 // Colors ──────────────────────────────────────────────────────
                 Kirigami.Separator {
@@ -563,6 +600,35 @@ KCM.SimpleKCM {
                     Kirigami.FormData.label: i18n("Glow effect:")
                     text: i18n("Neon glow on lines")
                 }
+                QQC.CheckBox {
+                    id: gpuBloomCB
+                    visible: glowLineCB.checked
+                    Kirigami.FormData.label: i18n("GPU bloom:")
+                    text: i18n("Render glow as a GPU bloom halo")
+                }
+                QQC.Label {
+                    text: i18n("Moves the line glow from the CPU to a GPU bloom pass — a softer halo that costs far less CPU. Recommended.")
+                    visible: glowLineCB.checked && gpuBloomCB.checked
+                    opacity: 0.50
+                    font.pixelSize: 10
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                }
+                RowLayout {
+                    visible: glowLineCB.checked && gpuBloomCB.checked
+                    Kirigami.FormData.label: i18n("Bloom amount:")
+                    QQC.Slider {
+                        id: bloomStrengthSlider
+                        from: 0
+                        to: 1
+                        stepSize: 0.05
+                        Layout.minimumWidth: 130
+                    }
+                    QQC.Label {
+                        text: Math.round(bloomStrengthSlider.value * 100) + "%"
+                        Layout.minimumWidth: 36
+                    }
+                }
                 RowLayout {
                     Kirigami.FormData.label: i18n("Line width:")
                     QQC.Slider {
@@ -623,6 +689,23 @@ KCM.SimpleKCM {
                     text: i18n("Color-coded legend below graph")
                 }
                 QQC.CheckBox {
+                    id: gpuShowEnginesCB
+                    Kirigami.FormData.label: i18n("GPU engines:")
+                    text: i18n("Per-engine breakdown (VRAM, compute, decode, encode)")
+                }
+                QQC.Label {
+                    text: i18n("Best-effort — only the metrics your GPU backend exposes are shown. NVIDIA reports encode/decode + VRAM; AMD/Intel report what's available via DRM fdinfo.")
+                    opacity: 0.50
+                    font.pixelSize: 10
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                }
+                QQC.CheckBox {
+                    id: netShowInfoCB
+                    Kirigami.FormData.label: i18n("Network info:")
+                    text: i18n("Show current SSID / IP address")
+                }
+                QQC.CheckBox {
                     id: showGridLinesCB
                     Kirigami.FormData.label: i18n("Grid lines:")
                     text: i18n("Horizontal grid lines")
@@ -656,6 +739,9 @@ KCM.SimpleKCM {
             // ══════════════════════════════════════════════════════════════════
             RowLayout {
                 Layout.fillWidth: true
+                // This tab uses an internal Flickable (no natural implicit height),
+                // so give the stack an explicit height for it instead of collapsing.
+                Layout.preferredHeight: 520
                 spacing: 0
 
                 // ── Left: category list ──────────────────────────────────────

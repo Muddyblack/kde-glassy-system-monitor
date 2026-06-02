@@ -580,6 +580,44 @@ ColumnLayout {
                     }
                 }
             }
+
+            // SSID / IP chip — inline on the iface badge row (optional, off by
+            // default). SSID shows only on Wi-Fi; IP is the primary IPv4.
+            Row {
+                id: netInfoChip
+                spacing: 6
+                anchors.verticalCenter: parent.verticalCenter
+                visible: plasmoid.configuration.netShowInfo && (root.netSsid !== "" || root.netIpAddr !== "")
+
+                Row {
+                    spacing: 3
+                    visible: root.netSsid !== ""
+                    anchors.verticalCenter: parent.verticalCenter
+                    Kirigami.Icon {
+                        source: "network-wireless"
+                        width: 11
+                        height: 11
+                        anchors.verticalCenter: parent.verticalCenter
+                        color: Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.5)
+                    }
+                    Text {
+                        text: root.netSsid
+                        color: Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.55)
+                        font.pixelSize: 10
+                        anchors.verticalCenter: parent.verticalCenter
+                        elide: Text.ElideRight
+                    }
+                }
+
+                Text {
+                    text: root.netIpAddr
+                    visible: root.netIpAddr !== ""
+                    color: Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.42)
+                    font.pixelSize: 10
+                    font.family: "monospace"
+                    anchors.verticalCenter: parent.verticalCenter
+                }
+            }
         }
 
         MouseArea {
@@ -608,13 +646,11 @@ ColumnLayout {
     }
 
     // ── network graph ────────────────────────────────────────────────────────
-    Canvas {
+    BloomChart {
         id: netGraph
         Layout.fillWidth: true
         Layout.fillHeight: true
         visible: plasmoid.configuration.chartType !== 6
-        antialiasing: true
-        renderStrategy: Canvas.Cooperative
 
         Connections {
             target: root
@@ -662,11 +698,16 @@ ColumnLayout {
             function onSmoothLinesChanged() {
                 netGraph.requestPaint();
             }
+            function onGpuBloomChanged() {
+                netGraph.requestPaint();
+            }
+            function onBloomStrengthChanged() {
+                netGraph.requestPaint();
+            }
         }
 
-        onPaint: {
-            const ctx = getContext("2d");
-            ctx.reset();
+        paint: function (ctx, glowPass) {
+            const width = netGraph.width, height = netGraph.height;
             const dl = root.dlHistory, ul = root.ulHistory;
             const maxH = Math.max(10, plasmoid.configuration.historySize);
             const yLW = plasmoid.configuration.showYLabels ? 38 : 0;
@@ -675,10 +716,14 @@ ColumnLayout {
             const ct = plasmoid.configuration.chartType || 0;
 
             if (dl.length < 1 && ul.length < 1) {
-                cu.drawIdleLine(ctx, yLW, gW, height);
+                if (!glowPass)
+                    cu.drawIdleLine(ctx, yLW, gW, height);
                 return;
             }
             ctx.setLineDash([]);
+
+            if (glowPass && (ct === 3 || ct === 4 || ct === 5))
+                return;
 
             const allVals = dl.concat(ul);
             const dataMax = allVals.length > 0 ? Math.max.apply(null, allVals) : 0;
@@ -738,7 +783,7 @@ ColumnLayout {
                 return;
             }
 
-            if (plasmoid.configuration.showYLabels) {
+            if (!glowPass && plasmoid.configuration.showYLabels) {
                 cu.drawYAxis(ctx, yLW, height, [
                     {
                         y: bToY(maxBps),
@@ -758,7 +803,7 @@ ColumnLayout {
                 ]);
             }
 
-            const fillA = ct === 2 ? 0.60 : 0.35;
+            const fillA = glowPass ? 0 : (ct === 2 ? 0.60 : 0.35);
             function drawLine(history, color, key) {
                 if (history.length < 2 || root.isLineDisabled(key))
                     return;
@@ -796,7 +841,8 @@ ColumnLayout {
                         ctx.lineTo(coords[i].x, coords[i].y);
                     }
                 }
-                if (plasmoid.configuration.glowLine) {
+                // Manual wide-stroke glow only when GPU bloom isn't owning the halo.
+                if (plasmoid.configuration.glowLine && !glowPass && !cu.gpuBloom) {
                     ctx.lineWidth = lw * (isHov ? 4.5 : 3.5);
                     ctx.strokeStyle = Qt.rgba(nc.r, nc.g, nc.b, 0.22);
                     ctx.stroke();

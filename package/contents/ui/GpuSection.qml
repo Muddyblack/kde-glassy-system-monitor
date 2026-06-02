@@ -54,7 +54,7 @@ ColumnLayout {
             text: root.gpuFreqMhz + " MHz"
             color: Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.55)
             font.pixelSize: 11
-            anchors.verticalCenter: parent.verticalCenter
+            Layout.alignment: Qt.AlignVCenter
         }
 
         // Util %
@@ -66,13 +66,11 @@ ColumnLayout {
         }
     }
 
-    Canvas {
+    BloomChart {
         id: gpuGraph
         Layout.fillWidth: true
         Layout.fillHeight: true
         visible: plasmoid.configuration.chartType !== 6
-        antialiasing: true
-        renderStrategy: Canvas.Cooperative
 
         Connections {
             target: root
@@ -114,11 +112,16 @@ ColumnLayout {
             function onSmoothLinesChanged() {
                 gpuGraph.requestPaint();
             }
+            function onGpuBloomChanged() {
+                gpuGraph.requestPaint();
+            }
+            function onBloomStrengthChanged() {
+                gpuGraph.requestPaint();
+            }
         }
 
-        onPaint: {
-            const ctx = getContext("2d");
-            ctx.reset();
+        paint: function (ctx, glowPass) {
+            const width = gpuGraph.width, height = gpuGraph.height;
             const h = root.gpuHistory, n = h.length;
             const maxH = Math.max(10, plasmoid.configuration.historySize);
             const yLW = plasmoid.configuration.showYLabels ? 38 : 0;
@@ -128,10 +131,14 @@ ColumnLayout {
             const col = root.gpuColor;
 
             if (n < 1) {
-                cu.drawIdleLine(ctx, yLW, gW, height);
+                if (!glowPass)
+                    cu.drawIdleLine(ctx, yLW, gW, height);
                 return;
             }
             ctx.setLineDash([]);
+
+            if (glowPass && (ct === 3 || ct === 4 || ct === 5))
+                return;
 
             const tPad = height * 0.06, uH = height * 0.88;
             const step = gW / Math.max(1, maxH - 1);
@@ -164,7 +171,7 @@ ColumnLayout {
                 return;
             }
 
-            if (plasmoid.configuration.showYLabels) {
+            if (!glowPass && plasmoid.configuration.showYLabels) {
                 cu.drawYAxis(ctx, yLW, height, [
                     {
                         y: pToY(100),
@@ -198,13 +205,122 @@ ColumnLayout {
             ctx.beginPath();
             ctx.rect(yLW, 0, gW, height);
             ctx.clip();
-            const fillA = ct === 2 ? 0.62 : 0.35;
+            const fillA = glowPass ? 0 : (ct === 2 ? 0.62 : 0.35);
             if (n >= 2) {
                 ctx.lineWidth = plasmoid.configuration.lineWidth;
-                // OPTIMIZATION: Reduced glow blur from 8 to 5 for better performance
-                cu.drawLine(ctx, h, col, iToX, pToY, height, smooth, fillA, plasmoid.configuration.glowLine ? 5 : 0);
+                cu.drawLine(ctx, h, col, iToX, pToY, height, smooth, fillA, plasmoid.configuration.glowLine ? cu.glowFor(5) : 0);
             }
             ctx.restore();
+        }
+    }
+
+    // ── Per-engine breakdown + VRAM ───────────────────────────────────────────
+    // Best-effort: each piece appears only when the backend reported it (value >= 0).
+    // Engines: Compute/3D (render), Decode (video), Encode (video-enhance).
+    ColumnLayout {
+        id: engineBox
+        Layout.fillWidth: true
+        spacing: 3
+        visible: plasmoid.configuration.gpuShowEngines && (root.gpuComputePercent >= 0 || root.gpuDecPercent >= 0 || root.gpuEncPercent >= 0 || root.gpuVramTotal > 0 || root.gpuVramUsed >= 0)
+
+        // helper colors derived from the GPU accent
+        readonly property color encCol: Qt.tint(root.gpuColor, Qt.rgba(1, 1, 1, 0.0))
+        readonly property color dimText: Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.55)
+
+        // VRAM usage bar (used / total when both known; otherwise just used label)
+        RowLayout {
+            Layout.fillWidth: true
+            visible: root.gpuVramUsed >= 0
+            spacing: 6
+            Item {
+                width: plasmoid.configuration.showYLabels ? 38 : 0
+            }
+            Text {
+                text: "VRAM"
+                color: engineBox.dimText
+                font.pixelSize: 10
+                font.bold: true
+            }
+            // bar (only when total is known)
+            Rectangle {
+                visible: root.gpuVramTotal > 0
+                Layout.fillWidth: true
+                Layout.alignment: Qt.AlignVCenter
+                implicitHeight: 6
+                radius: 3
+                color: Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.12)
+                Rectangle {
+                    height: parent.height
+                    radius: parent.radius
+                    width: parent.width * Math.max(0, Math.min(1, root.gpuVramTotal > 0 ? root.gpuVramUsed / root.gpuVramTotal : 0))
+                    color: root.gpuColor
+                    Behavior on width {
+                        NumberAnimation {
+                            duration: 280
+                            easing.type: Easing.OutCubic
+                        }
+                    }
+                }
+            }
+            Item {
+                Layout.fillWidth: root.gpuVramTotal <= 0
+            }
+            Text {
+                text: root.gpuVramTotal > 0 ? (cu.formatBytes(root.gpuVramUsed) + " / " + cu.formatBytes(root.gpuVramTotal)) : cu.formatBytes(root.gpuVramUsed)
+                color: engineBox.dimText
+                font.pixelSize: 10
+            }
+        }
+
+        // Engine util chips: Compute / Decode / Encode
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 8
+            visible: root.gpuComputePercent >= 0 || root.gpuDecPercent >= 0 || root.gpuEncPercent >= 0
+            Item {
+                width: plasmoid.configuration.showYLabels ? 38 : 0
+            }
+            Repeater {
+                model: [
+                    {
+                        label: "Compute",
+                        val: root.gpuComputePercent
+                    },
+                    {
+                        label: "Decode",
+                        val: root.gpuDecPercent
+                    },
+                    {
+                        label: "Encode",
+                        val: root.gpuEncPercent
+                    }
+                ]
+                delegate: RowLayout {
+                    visible: modelData.val >= 0
+                    spacing: 4
+                    Rectangle {
+                        width: 6
+                        height: 6
+                        radius: 3
+                        // brighten when the engine is actually active
+                        color: Qt.rgba(root.gpuColor.r, root.gpuColor.g, root.gpuColor.b, modelData.val > 1 ? 0.95 : 0.35)
+                    }
+                    Text {
+                        text: modelData.label
+                        color: engineBox.dimText
+                        font.pixelSize: 10
+                    }
+                    Text {
+                        text: (modelData.val >= 0 ? modelData.val.toFixed(0) : "0") + "%"
+                        color: modelData.val > 1 ? root.gpuColor : engineBox.dimText
+                        font.pixelSize: 10
+                        font.bold: modelData.val > 1
+                    }
+                }
+            }
+            Item {
+                Layout.fillWidth: true
+            }
         }
     }
 

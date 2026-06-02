@@ -7,13 +7,11 @@ ColumnLayout {
 
     // No separate header row — total% lives in the legend below the graph
 
-    Canvas {
+    BloomChart {
         id: cpuGraph
         Layout.fillWidth: true
         Layout.fillHeight: true
         visible: plasmoid.configuration.chartType !== 6
-        antialiasing: true
-        renderStrategy: Canvas.Cooperative
 
         Connections {
             target: root
@@ -64,11 +62,19 @@ ColumnLayout {
             function onSmoothLinesChanged() {
                 cpuGraph.requestPaint();
             }
+            function onGpuBloomChanged() {
+                cpuGraph.requestPaint();
+            }
+            function onBloomStrengthChanged() {
+                cpuGraph.requestPaint();
+            }
         }
 
-        onPaint: {
-            const ctx = getContext("2d");
-            ctx.reset();
+        // glowPass===true → draw ONLY glowable colored primitives (for the GPU
+        // bloom source canvas); false → draw the full chart (axis/grid/fill +
+        // crisp lines) with CPU glow suppressed when bloom owns it.
+        paint: function (ctx, glowPass) {
+            const width = cpuGraph.width, height = cpuGraph.height;
             const h = root.cpuHistory, n = h.length;
             const maxH = Math.max(10, plasmoid.configuration.historySize);
             const yLW = plasmoid.configuration.showYLabels ? 38 : 0;
@@ -77,10 +83,17 @@ ColumnLayout {
             const ct = plasmoid.configuration.chartType || 0;
 
             if (n < 1) {
-                cu.drawIdleLine(ctx, yLW, gW, height);
+                if (!glowPass)
+                    cu.drawIdleLine(ctx, yLW, gW, height);
                 return;
             }
             ctx.setLineDash([]);
+
+            // Donut/pie/bar keep their own (cheap, small-shape) in-helper glow;
+            // the GPU bloom layer is for the line/area charts only, so the glow
+            // pass has nothing to contribute for those types.
+            if (glowPass && (ct === 3 || ct === 4 || ct === 5))
+                return;
 
             const tPad = height * 0.06, uH = height * 0.88;
             const step = gW / Math.max(1, maxH - 1);
@@ -160,7 +173,7 @@ ColumnLayout {
                 return;
             }
 
-            if (plasmoid.configuration.showYLabels) {
+            if (!glowPass && plasmoid.configuration.showYLabels) {
                 cu.drawYAxis(ctx, yLW, height, [
                     {
                         y: pToY(100),
@@ -194,7 +207,8 @@ ColumnLayout {
             ctx.beginPath();
             ctx.rect(yLW, 0, gW, height);
             ctx.clip();
-            const fillA = ct === 2 ? 0.62 : 0.35;
+            // No area fill on the glow pass — only the strokes feed the bloom.
+            const fillA = glowPass ? 0 : (ct === 2 ? 0.62 : 0.35);
 
             if (plasmoid.configuration.showCpuCores) {
                 for (let ci = 0; ci < root.coreHistories.length; ci++) {
@@ -218,8 +232,9 @@ ColumnLayout {
                 const anyCorHov = root.hoveredCore !== -1;
                 ctx.globalAlpha = (!isHov && anyCorHov) ? 0.15 : 1.0;
                 ctx.lineWidth = plasmoid.configuration.lineWidth;
-                // OPTIMIZATION: Reduced glow blur from 12/8 to 7/5 for better performance
-                cu.drawLine(ctx, h, root.cpuColor, iToX, pToY, height, smooth, fillA, plasmoid.configuration.glowLine ? (isHov ? 7 : 5) : 0);
+                // Glow: on the GPU-bloom crisp pass this resolves to 0 (the bloom
+                // layer owns the halo); otherwise it's the CPU shadowBlur value.
+                cu.drawLine(ctx, h, root.cpuColor, iToX, pToY, height, smooth, fillA, plasmoid.configuration.glowLine ? cu.glowFor(isHov ? 7 : 5) : 0);
                 ctx.globalAlpha = 1.0;
             }
             ctx.restore();

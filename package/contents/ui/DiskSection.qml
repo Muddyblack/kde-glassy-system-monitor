@@ -133,13 +133,11 @@ ColumnLayout {
     }
 
     // ── graph ─────────────────────────────────────────────────────────────────
-    Canvas {
+    BloomChart {
         id: diskGraph
         Layout.fillWidth: true
         Layout.fillHeight: true
         visible: plasmoid.configuration.chartType !== 6
-        antialiasing: true
-        renderStrategy: Canvas.Cooperative
 
         Connections {
             target: diskSection
@@ -193,11 +191,16 @@ ColumnLayout {
             function onSmoothLinesChanged() {
                 diskGraph.requestPaint();
             }
+            function onGpuBloomChanged() {
+                diskGraph.requestPaint();
+            }
+            function onBloomStrengthChanged() {
+                diskGraph.requestPaint();
+            }
         }
 
-        onPaint: {
-            const ctx = getContext("2d");
-            ctx.reset();
+        paint: function (ctx, glowPass) {
+            const width = diskGraph.width, height = diskGraph.height;
             const rd = diskSection.rdHistory, wr = diskSection.wrHistory;
             const maxH = Math.max(10, plasmoid.configuration.historySize);
             const yLW = plasmoid.configuration.showYLabels ? 38 : 0;
@@ -206,10 +209,14 @@ ColumnLayout {
             const ct = plasmoid.configuration.chartType || 0;
 
             if (rd.length < 1 && wr.length < 1) {
-                cu.drawIdleLine(ctx, yLW, gW, height);
+                if (!glowPass)
+                    cu.drawIdleLine(ctx, yLW, gW, height);
                 return;
             }
             ctx.setLineDash([]);
+
+            if (glowPass && (ct === 3 || ct === 4 || ct === 5))
+                return;
 
             const allVals = rd.concat(wr);
             const dataMax = allVals.length > 0 ? Math.max.apply(null, allVals) : 0;
@@ -265,7 +272,7 @@ ColumnLayout {
                 return;
             }
 
-            if (plasmoid.configuration.showYLabels) {
+            if (!glowPass && plasmoid.configuration.showYLabels) {
                 cu.drawYAxis(ctx, yLW, height, [
                     {
                         y: bToY(maxBps),
@@ -285,7 +292,7 @@ ColumnLayout {
                 ]);
             }
 
-            const fillA = ct === 2 ? 0.60 : 0.35;
+            const fillA = glowPass ? 0 : (ct === 2 ? 0.60 : 0.35);
             function drawLine(history, color, key) {
                 if (history.length < 2 || root.isLineDisabled(key))
                     return;
@@ -297,8 +304,8 @@ ColumnLayout {
                 ctx.clip();
                 ctx.globalAlpha = dimOth ? 0.15 : 1.0;
                 ctx.lineWidth = plasmoid.configuration.lineWidth;
-                // OPTIMIZATION: Reduced glow blur from 12/6 to 7/4 for better performance
-                cu.drawLine(ctx, history, color, iToX, bToY, height, smooth, fillA, plasmoid.configuration.glowLine ? (isHov ? 7 : 4) : 0);
+                // Glow resolves to 0 on the GPU-bloom crisp pass (bloom owns it).
+                cu.drawLine(ctx, history, color, iToX, bToY, height, smooth, fillA, plasmoid.configuration.glowLine ? cu.glowFor(isHov ? 7 : 4) : 0);
                 ctx.restore();
             }
             drawLine(wr, diskSection.wrColor, "diskWr");

@@ -9,6 +9,19 @@ QtObject {
     required property bool glowEnabled
     required property bool showGridLines
 
+    // When true, chart glow is rendered by a GPU MultiEffect bloom pass on a
+    // separate lines-only canvas (see BloomChart.qml), so the in-canvas
+    // Context2D shadowBlur is suppressed — the bloom replaces it. When false,
+    // glow falls back to the per-stroke shadowBlur drawn here on the CPU.
+    property bool gpuBloom: false
+
+    // Effective shadowBlur for a stroke: 0 when GPU bloom owns the glow (it is
+    // drawn separately), otherwise the caller's requested value. Sections pass
+    // their desired glow through this so the two paths stay in one place.
+    function glowFor(requested) {
+        return gpuBloom ? 0 : requested;
+    }
+
     function drawIdleLine(ctx, gLeft, gW, h) {
         ctx.lineWidth = 1;
         ctx.strokeStyle = Qt.rgba(textColor.r, textColor.g, textColor.b, 0.18);

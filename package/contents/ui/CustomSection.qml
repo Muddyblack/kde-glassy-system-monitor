@@ -23,13 +23,11 @@ ColumnLayout {
         }
     }
 
-    Canvas {
+    BloomChart {
         id: customGraph
         Layout.fillWidth: true
         Layout.fillHeight: true
         visible: plasmoid.configuration.chartType !== 6
-        antialiasing: true
-        renderStrategy: Canvas.Cooperative
 
         Connections {
             target: root
@@ -71,11 +69,16 @@ ColumnLayout {
             function onSmoothLinesChanged() {
                 customGraph.requestPaint();
             }
+            function onGpuBloomChanged() {
+                customGraph.requestPaint();
+            }
+            function onBloomStrengthChanged() {
+                customGraph.requestPaint();
+            }
         }
 
-        onPaint: {
-            const ctx = getContext("2d");
-            ctx.reset();
+        paint: function (ctx, glowPass) {
+            const width = customGraph.width, height = customGraph.height;
             const h = root.customHistory, n = h.length;
             const maxH = Math.max(10, plasmoid.configuration.historySize);
             const yLW = plasmoid.configuration.showYLabels ? 38 : 0;
@@ -86,10 +89,14 @@ ColumnLayout {
             const maxVal = Math.max(0.1, plasmoid.configuration.customCmdMax);
 
             if (n < 1) {
-                cu.drawIdleLine(ctx, yLW, gW, height);
+                if (!glowPass)
+                    cu.drawIdleLine(ctx, yLW, gW, height);
                 return;
             }
             ctx.setLineDash([]);
+
+            if (glowPass && (ct === 3 || ct === 4 || ct === 5))
+                return;
 
             const tPad = height * 0.06, uH = height * 0.88;
             const step = gW / Math.max(1, maxH - 1);
@@ -121,7 +128,7 @@ ColumnLayout {
                 return;
             }
 
-            if (plasmoid.configuration.showYLabels) {
+            if (!glowPass && plasmoid.configuration.showYLabels) {
                 cu.drawYAxis(ctx, yLW, height, [
                     {
                         y: valToY(maxVal),
@@ -146,8 +153,8 @@ ColumnLayout {
             ctx.rect(yLW, 0, gW, height);
             ctx.clip();
             ctx.lineWidth = plasmoid.configuration.lineWidth;
-            // OPTIMIZATION: Reduced glow blur from 8 to 5 for better performance
-            cu.drawLine(ctx, h, color, iToX, valToY, height, smooth, ct === 2 ? 0.65 : 0.38, plasmoid.configuration.glowLine ? 5 : 0);
+            const fillA = glowPass ? 0 : (ct === 2 ? 0.65 : 0.38);
+            cu.drawLine(ctx, h, color, iToX, valToY, height, smooth, fillA, plasmoid.configuration.glowLine ? cu.glowFor(5) : 0);
 
             // endpoint dot
             if (n > 0) {
@@ -156,7 +163,8 @@ ColumnLayout {
                     y: valToY(h[n - 1])
                 };
                 const ec = Qt.color(color);
-                if (plasmoid.configuration.glowLine) {
+                // Manual soft halo only when GPU bloom isn't already adding one.
+                if (plasmoid.configuration.glowLine && !glowPass && !cu.gpuBloom) {
                     ctx.beginPath();
                     ctx.arc(lp.x, lp.y, 14, 0, Math.PI * 2);
                     ctx.fillStyle = Qt.rgba(ec.r, ec.g, ec.b, 0.18);
