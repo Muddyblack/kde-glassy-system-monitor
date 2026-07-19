@@ -638,7 +638,7 @@ PlasmoidItem {
     }
     Timer {
         interval: Math.max(1, plasmoid.configuration.customCmdInterval) * 1000
-        running: root.showCustomSection && plasmoid.visible
+        running: root.showCustomSection && root.visible
         repeat: true
         onTriggered: {
             if (!root.isReadingCustom && plasmoid.configuration.customCmd) {
@@ -932,7 +932,7 @@ PlasmoidItem {
 
     Timer {
         interval: 3000
-        running: root.showHwSensors && plasmoid.visible
+        running: root.showHwSensors && root.visible
         repeat: true
         triggeredOnStart: true
         onTriggered: {
@@ -1196,7 +1196,7 @@ PlasmoidItem {
 
     Timer {
         interval: 30000
-        running: root.showOsInfo && plasmoid.visible
+        running: root.showOsInfo && root.visible
         repeat: true
         triggeredOnStart: true
         onTriggered: {
@@ -1233,7 +1233,7 @@ PlasmoidItem {
 
     Timer {
         interval: 5000
-        running: root.showPowerSection && plasmoid.visible
+        running: root.showPowerSection && root.visible
         repeat: true
         triggeredOnStart: true
         onTriggered: {
