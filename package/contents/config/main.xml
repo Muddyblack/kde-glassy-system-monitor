@@ -49,6 +49,20 @@
         <entry name="lossThreshold" type="Int">
             <default>5</default>
         </entry>
+        <entry name="jitterThreshold" type="Int">
+            <default>20</default>
+        </entry>
+        <!-- Pulsing border while the ping section is in alert. Worth turning
+             off when latency sits near the threshold, since the alert state
+             then flips almost every tick and the border strobes. -->
+        <entry name="pingAlertPulse" type="Bool">
+            <default>true</default>
+        </entry>
+        <!-- When false the ping graph always uses pingColor and never
+             recolours itself from the latency thresholds. -->
+        <entry name="pingThresholdColors" type="Bool">
+            <default>true</default>
+        </entry>
 
         <!-- Network interface -->
         <entry name="networkInterface" type="String">
@@ -64,6 +78,15 @@
         </entry>
 
         <!-- Per-section colors -->
+        <entry name="pingColor" type="String">
+            <default>#39ff14</default>
+        </entry>
+        <entry name="pingWarnColor" type="String">
+            <default>#ffaa22</default>
+        </entry>
+        <entry name="pingCritColor" type="String">
+            <default>#ff4444</default>
+        </entry>
         <entry name="dlColor" type="String">
             <default>#22aaff</default>
         </entry>
