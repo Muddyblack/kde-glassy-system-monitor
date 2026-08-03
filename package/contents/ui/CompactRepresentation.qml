@@ -125,7 +125,7 @@ Item {
                     if (!compact._valid)
                         return Kirigami.Theme.highlightColor;
                     if (compact._root.showPingSection)
-                        return compact._root.isAlerting ? "#ff6666" : compact._root.lineColor;
+                        return compact._root.pingAlertColor();
                     if (compact._root.showNetworkSpeed)
                         return compact._root.dlColor;
                     if (compact._root.showCpuSection)
@@ -219,7 +219,7 @@ Item {
                     if (!compact._valid)
                         return Kirigami.Theme.highlightColor;
                     if (compact._root.showPingSection)
-                        return compact._root.isAlerting ? "#ff6666" : compact._root.lineColor;
+                        return compact._root.pingAlertColor();
                     if (compact._root.showNetworkSpeed)
                         return compact._root.dlColor;
                     if (compact._root.showCpuSection)
@@ -486,14 +486,14 @@ Item {
                         implicitWidth: Math.max(44, compact.height * 1.6)
                         Text {
                             text: plasmoid.configuration.pingTitle || "Ping"
-                            color: compact._root.isAlerting ? "#ff6666" : Qt.rgba(compact._root.textColor.r, compact._root.textColor.g, compact._root.textColor.b, 0.50)
+                            color: compact._root.pingAlertActive ? compact.panelColor(compact._root.pingCritColor) : Qt.rgba(compact._root.textColor.r, compact._root.textColor.g, compact._root.textColor.b, 0.50)
                             font.pixelSize: Math.max(7, compact.height * 0.22)
                             Layout.fillWidth: true
                             horizontalAlignment: Text.AlignHCenter
                         }
                         Text {
                             text: compact._root.lastPing >= 0 ? compact._root.lastPing.toFixed(0) + "ms" : "—"
-                            color: compact._root.isAlerting ? "#ff6666" : compact.panelColor(compact._root.lineColor)
+                            color: compact.panelColor(compact._root.pingAlertColor())
                             font.pixelSize: Math.max(10, compact.height * 0.38)
                             font.bold: true
                             Layout.fillWidth: true
