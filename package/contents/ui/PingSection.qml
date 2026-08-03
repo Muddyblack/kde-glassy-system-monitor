@@ -330,59 +330,93 @@ ColumnLayout {
                     }
                 }
 
+            // Runs of consecutive edges that share a latency band. An edge takes
+            // the HIGHER band of its two samples, so a spike is drawn fully in
+            // the alert colour rather than half of it. Runs are cut at data
+            // points and share endpoints, so the line stays continuous and each
+            // colour is anchored to its samples — nothing drifts while it
+            // scrolls, and no two colours blend into each other.
+            function edgeRuns(pts) {
+                const bandAt = k => Math.max(root.pingBandFor(pts[k].ms), root.pingBandFor(pts[k + 1].ms));
+                const runs = [];
+                let i = 0;
+                while (i < pts.length - 1) {
+                    const band = bandAt(i);
+                    let j = i + 1;
+                    while (j < pts.length - 1 && bandAt(j) === band)
+                        j++;
+                    runs.push({
+                        band,
+                        i,
+                        j
+                    });
+                    i = j;
+                }
+                return runs;
+            }
+            // Trace pts[i..j] into the current path. Control points depend only
+            // on each edge's own endpoints, so tracing a run in isolation gives
+            // exactly the curve the full-segment path would have produced.
+            function tracePath(pts, i, j) {
+                ctx.moveTo(pts[i].x, pts[i].y);
+                for (let k = i + 1; k <= j; k++) {
+                    if (smooth) {
+                        const cx = (pts[k - 1].x + pts[k].x) / 2;
+                        ctx.bezierCurveTo(cx, pts[k - 1].y, cx, pts[k].y, pts[k].x, pts[k].y);
+                    } else {
+                        ctx.lineTo(pts[k].x, pts[k].y);
+                    }
+                }
+            }
+
             for (const pts of segments) {
                 if (pts.length < 2)
                     continue;
-                const sMax = Math.max.apply(null, pts.map(p => p.ms));
-                const sc = root.pingColorFor(sMax);
                 const plw = plasmoid.configuration.lineWidth;
-                const pc = Qt.color(sc);
+                const runs = edgeRuns(pts);
                 ctx.save();
                 ctx.lineCap = "round";
                 ctx.lineJoin = "round";
 
-                // Build path once, stroke twice for glow (no shadowBlur)
-                ctx.beginPath();
-                ctx.moveTo(pts[0].x, pts[0].y);
-                for (let i = 1; i < pts.length; i++) {
-                    if (smooth) {
-                        const cx = (pts[i - 1].x + pts[i].x) / 2;
-                        ctx.bezierCurveTo(cx, pts[i - 1].y, cx, pts[i].y, pts[i].x, pts[i].y);
-                    } else {
-                        ctx.lineTo(pts[i].x, pts[i].y);
-                    }
-                }
                 // Manual wide-stroke glow only when GPU bloom isn't owning the
                 // halo (it already double-strokes instead of using shadowBlur).
                 if (plasmoid.configuration.glowLine && !glowPass && !cu.gpuBloom) {
                     ctx.lineWidth = plw * 3.5;
-                    ctx.strokeStyle = Qt.rgba(pc.r, pc.g, pc.b, 0.22);
-                    ctx.stroke();
+                    for (const r of runs) {
+                        const c = root.pingBandColor(r.band);
+                        ctx.strokeStyle = Qt.rgba(c.r, c.g, c.b, 0.22);
+                        ctx.beginPath();
+                        tracePath(pts, r.i, r.j);
+                        ctx.stroke();
+                    }
                 }
                 ctx.lineWidth = plw;
-                ctx.strokeStyle = sc;
-                ctx.stroke();
-                // area fill — full pass only (the bloom source carries no fill)
-                if (!glowPass) {
+                for (const r of runs) {
+                    ctx.strokeStyle = root.pingBandColor(r.band);
                     ctx.beginPath();
-                    ctx.moveTo(pts[0].x, pts[0].y);
-                    for (let i = 1; i < pts.length; i++) {
-                        if (smooth) {
-                            const cx = (pts[i - 1].x + pts[i].x) / 2;
-                            ctx.bezierCurveTo(cx, pts[i - 1].y, cx, pts[i].y, pts[i].x, pts[i].y);
-                        } else {
-                            ctx.lineTo(pts[i].x, pts[i].y);
-                        }
+                    tracePath(pts, r.i, r.j);
+                    ctx.stroke();
+                }
+                // area fill — full pass only (the bloom source carries no fill).
+                // One closed area per run; neighbours share a boundary x so the
+                // fills tile exactly, with no seam and no overlap.
+                if (!glowPass) {
+                    // Shared gradient origin so every run fades identically.
+                    const topY = Math.min.apply(null, pts.map(p => p.y));
+                    const a0 = ct === 2 ? 0.65 : 0.38;
+                    for (const r of runs) {
+                        const c = root.pingBandColor(r.band);
+                        ctx.beginPath();
+                        tracePath(pts, r.i, r.j);
+                        ctx.lineTo(pts[r.j].x, height);
+                        ctx.lineTo(pts[r.i].x, height);
+                        ctx.closePath();
+                        const g = ctx.createLinearGradient(0, topY, 0, height);
+                        g.addColorStop(0, Qt.rgba(c.r, c.g, c.b, a0));
+                        g.addColorStop(1, Qt.rgba(c.r, c.g, c.b, 0));
+                        ctx.fillStyle = g;
+                        ctx.fill();
                     }
-                    ctx.lineTo(pts[pts.length - 1].x, height);
-                    ctx.lineTo(pts[0].x, height);
-                    ctx.closePath();
-                    const c = Qt.color(sc);
-                    const g = ctx.createLinearGradient(0, pts[0].y, 0, height);
-                    g.addColorStop(0, Qt.rgba(c.r, c.g, c.b, ct === 2 ? 0.65 : 0.38));
-                    g.addColorStop(1, Qt.rgba(c.r, c.g, c.b, 0));
-                    ctx.fillStyle = g;
-                    ctx.fill();
                 }
                 ctx.restore();
             }
@@ -448,7 +482,7 @@ ColumnLayout {
             Text {
                 readonly property var vh: (root.histories[root.activeTarget] || []).filter(v => v >= 0)
                 text: vh.length >= 2 ? root.jitter.toFixed(1) + " ms" : "— ms"
-                color: root.jitter > 20 ? root.pingWarnColor : root.textColor
+                color: root.jitter > plasmoid.configuration.jitterThreshold ? root.pingWarnColor : root.textColor
                 opacity: 0.85
                 font.pixelSize: 10
                 font.bold: true

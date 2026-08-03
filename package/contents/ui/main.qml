@@ -161,17 +161,25 @@ PlasmoidItem {
         return _gpuPhaseStart > 0 ? (Date.now() - _gpuPhaseStart) / _gpuInterval : 0;
     }
 
-    // Single source of truth for "what colour is this latency?". With threshold
-    // colouring off the graph always stays on the user's own pingColor.
-    function pingColorFor(ms) {
+    // Latency band of a single sample: 0 = normal, 1 = warning, 2 = critical.
+    // The graph is split into runs of equal band so one spike only recolours
+    // itself instead of the whole line. With threshold colouring off every
+    // sample reports band 0 and the graph stays on the user's own colour.
+    function pingBandFor(ms) {
         if (!plasmoid.configuration.pingThresholdColors)
-            return pingColor;
+            return 0;
         const threshold = plasmoid.configuration.latencyThreshold;
         if (ms > threshold * 1.5)
-            return pingCritColor;
+            return 2;
         if (ms > threshold)
-            return pingWarnColor;
-        return pingColor;
+            return 1;
+        return 0;
+    }
+    function pingBandColor(band) {
+        return band === 2 ? pingCritColor : band === 1 ? pingWarnColor : pingColor;
+    }
+    function pingColorFor(ms) {
+        return pingBandColor(pingBandFor(ms));
     }
     // Colour for the live readout / single-value charts, which react to the
     // alert state (latency *or* packet loss) rather than a raw sample.
@@ -1516,10 +1524,10 @@ PlasmoidItem {
             color: "transparent"
             border.color: root.pingCritColor
             border.width: 2
-            visible: root.showPingSection && root.pingAlertActive
+            visible: root.showPingSection && root.pingAlertActive && plasmoid.configuration.pingAlertPulse
             opacity: 0
             SequentialAnimation {
-                running: root.pingAlertActive && root.showPingSection
+                running: alertRing.visible
                 loops: Animation.Infinite
                 NumberAnimation {
                     target: alertRing

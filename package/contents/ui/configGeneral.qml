@@ -31,6 +31,8 @@ KCM.SimpleKCM {
     property alias cfg_historySize: historySizeSpin.value
     property alias cfg_latencyThreshold: latencyThresholdSpin.value
     property alias cfg_lossThreshold: lossThresholdSpin.value
+    property alias cfg_jitterThreshold: jitterThresholdSpin.value
+    property alias cfg_pingAlertPulse: pingAlertPulseCB.checked
     property alias cfg_pingThresholdColors: pingThresholdColorsCB.checked
 
     property string cfg_networkInterface: "auto"
@@ -1276,12 +1278,40 @@ KCM.SimpleKCM {
                                 opacity: 0.55
                             }
                         }
+                        RowLayout {
+                            visible: cfg_activeSection === 0
+                            Kirigami.FormData.label: i18n("Jitter warning:")
+                            QQC.SpinBox {
+                                id: jitterThresholdSpin
+                                from: 1
+                                to: 1000
+                                stepSize: 1
+                            }
+                            QQC.Label {
+                                text: i18n("ms")
+                                opacity: 0.55
+                            }
+                        }
                         ColorHexRow {
                             id: pingColorDetail
                             visible: cfg_activeSection === 0
                             label: i18n("Ping line color:")
                             color: pingColorButton.color
                             onColorChanged: pingColorButton.color = color
+                        }
+                        QQC.CheckBox {
+                            id: pingAlertPulseCB
+                            visible: cfg_activeSection === 0
+                            Kirigami.FormData.label: i18n("Alert pulse:")
+                            text: i18n("Pulse a border while over the thresholds")
+                        }
+                        QQC.Label {
+                            visible: cfg_activeSection === 0
+                            text: i18n("Turn off if latency sits near the threshold — the border strobes as the alert flips on and off.")
+                            opacity: 0.55
+                            font.pixelSize: 10
+                            wrapMode: Text.WordWrap
+                            Layout.fillWidth: true
                         }
                         QQC.CheckBox {
                             id: pingThresholdColorsCB
