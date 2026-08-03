@@ -713,10 +713,102 @@ PlasmoidItem {
     // a *blank* line after each value (sysfs files already end in a newline) and
     // shift every field the parser reads by one.
     readonly property string _gpuReadFn: "r() { v=$(cat \"$1\" 2>/dev/null); echo \"$v\"; }; "
+    // PCI address of the card being polled, e.g. "0000:03:00.0". Validated before
+    // use, since it is interpolated into the nvidia-smi query.
+    property string gpuPciId: ""
+    // Every GPU the sysfs walk found: [{ card, vendorId, pci, hasTelemetry }].
+    property var gpuDevices: []
 
     readonly property color gpuColor: Qt.color(plasmoid.configuration.gpuColor || "#ff6e40")
 
-    // Detect GPU backend once on startup
+    // Enumerates every DRM card: "cardN|vendorId|pciAddress|hasTelemetry".
+    // hasTelemetry marks cards exposing a real counter (AMD gpu_busy_percent or
+    // Intel gt/gt0), which is what "auto" prefers — a powered-down iGPU has none,
+    // so it no longer wins just by sorting first.
+    readonly property string _gpuEnumCmd: "sh -c 'for d in /sys/class/drm/card[0-9]*; do v=$(cat \"$d/device/vendor\" 2>/dev/null); [ -n \"$v\" ] || continue; p=$(readlink -f \"$d/device\" 2>/dev/null); p=${p##*/}; b=0; [ -r \"$d/device/gpu_busy_percent\" ] && b=1; [ -d \"$d/gt/gt0\" ] && b=1; echo \"${d##*/}|$v|$p|$b\"; done'"
+
+    // Picks the card to monitor out of the enumeration output, honouring the
+    // gpuDevice setting, then selects the backend for its vendor.
+    function _chooseGpu(out) {
+        const devs = [];
+        for (const line of out.split("\n")) {
+            const p = line.trim().split("|");
+            if (p.length < 4 || !/^card\d+$/.test(p[0]))
+                continue;
+            devs.push({
+                card: p[0],
+                vendorId: p[1],
+                pci: p[2],
+                hasTelemetry: p[3] === "1"
+            });
+        }
+        root.gpuDevices = devs;
+        if (devs.length === 0)
+            return;
+
+        // The setting stores a PCI address, but accept a plain "cardN" too —
+        // the config field is free-text, so people can type either.
+        const want = root.gpuDeviceCfg.trim();
+        let pick = null;
+        if (want !== "" && want.toLowerCase() !== "auto") {
+            const w = want.toLowerCase();
+            pick = devs.find(d => d.pci.toLowerCase() === w || d.card.toLowerCase() === w) || null;
+        }
+        // Auto, or the chosen card is gone (eGPU unplugged, renamed, typo).
+        if (!pick)
+            pick = devs.find(d => d.hasTelemetry) || devs[0];
+
+        root.gpuCardPath = "/sys/class/drm/" + pick.card;
+        root.gpuPciId = /^[0-9a-fA-F]{4}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}\.\d$/.test(pick.pci) ? pick.pci : "";
+        root.gpuDetected = true;
+
+        // vendor id: 0x8086=Intel, 0x1002=AMD, 0x10de=NVIDIA
+        if (pick.vendorId === "0x8086") {
+            root.gpuVendor = "intel";
+            root.gpuMode = "intel";
+        } else if (pick.vendorId === "0x1002") {
+            root.gpuVendor = "amd";
+            root.gpuMode = "amd";
+        } else if (pick.vendorId === "0x10de") {
+            root.gpuVendor = "nvidia";
+            // fdinfo works without the proprietary driver; upgrade to nvidia-smi
+            // only if it answers for this specific card.
+            root.gpuMode = "fdinfo";
+            gpuDetectSource.connectSource("sh -c 'nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits" + root._nvidiaTarget() + " 2>/dev/null | head -1'");
+        } else {
+            root.gpuVendor = "";
+            root.gpuMode = "fdinfo";
+        }
+    }
+
+    // "-i <pci>" so multi-GPU NVIDIA boxes query the selected card, not GPU 0.
+    function _nvidiaTarget() {
+        return root.gpuPciId ? " -i " + root.gpuPciId : "";
+    }
+
+    function detectGpu() {
+        root.gpuDetected = false;
+        root.gpuMode = "";
+        root.gpuVendor = "";
+        root.gpuCardPath = "";
+        root.gpuPciId = "";
+        root.gpuNoDataTicks = 0;
+        // Drop the previous card's readings, so switching devices does not leave
+        // a graph mixing two GPUs' history.
+        root.gpuPercent = 0;
+        root.gpuHistory = [];
+        root.gpuFreqMhz = 0;
+        root.gpuComputePercent = -1;
+        root.gpuDecPercent = -1;
+        root.gpuEncPercent = -1;
+        root.gpuVramUsed = -1;
+        root.gpuVramTotal = -1;
+        root._gpuLastEngineNs = null;
+        root._gpuLastRc6Ms = -1;
+        gpuDetectSource.connectSource(root._gpuEnumCmd);
+    }
+
+    // Detect GPU backend on startup, and again whenever the device setting changes
     P5Support.DataSource {
         id: gpuDetectSource
         engine: "executable"
@@ -724,38 +816,22 @@ PlasmoidItem {
         onNewData: function (sourceName, data) {
             gpuDetectSource.disconnectSource(sourceName);
             const out = (data["stdout"] || "").trim();
-            if (sourceName.indexOf("nvidia-smi") !== -1 && out.length > 0) {
-                root.gpuMode = "nvidia";
-                root.gpuVendor = "nvidia";
-                root.gpuDetected = true;
-            } else if (sourceName.indexOf("vendor") !== -1 && !root.gpuDetected) {
-                // Two lines: the sysfs vendor id, then the card's device dir.
-                const vlines = out.split("\n");
-                const vid = (vlines[0] || "").trim();
-                const card = (vlines[1] || "").trim();
-                // Only accept the exact shape we asked for — the value is later
-                // interpolated into a shell command.
-                root.gpuCardPath = /^\/sys\/class\/drm\/card\d+$/.test(card) ? card : "";
-                // vendor id: 0x8086=Intel, 0x1002=AMD, 0x10de=NVIDIA
-                if (vid === "0x8086") {
-                    root.gpuVendor = "intel";
-                    root.gpuMode = "intel";
-                    root.gpuDetected = true;
-                } else if (vid === "0x1002") {
-                    root.gpuVendor = "amd";
-                    root.gpuMode = "amd";
-                    root.gpuDetected = true;
-                } else if (vid === "0x10de") {
-                    root.gpuVendor = "nvidia";
-                    root.gpuMode = "fdinfo";
-                    root.gpuDetected = true;
-                } else if (vid.length > 0) {
-                    root.gpuVendor = "";
-                    root.gpuMode = "fdinfo";
-                    root.gpuDetected = true;
-                }
+            if (sourceName.indexOf("nvidia-smi") !== -1) {
+                // Probe answer for a card already known to be NVIDIA.
+                if (out.length > 0 && !isNaN(parseFloat(out)))
+                    root.gpuMode = "nvidia";
+            } else if (sourceName.indexOf("drm/card") !== -1) {
+                root._chooseGpu(out);
             }
         }
+    }
+
+    // plasmoid.configuration is a property map: it drives bindings but emits no
+    // per-key change signal, so mirror the setting and re-detect when it moves.
+    readonly property string gpuDeviceCfg: plasmoid.configuration.gpuDevice || "auto"
+    onGpuDeviceCfgChanged: {
+        if (root.showGpuSection)
+            root.detectGpu();
     }
 
     P5Support.DataSource {
@@ -774,15 +850,7 @@ PlasmoidItem {
         interval: 200
         repeat: false
         running: root.showGpuSection
-        onTriggered: {
-            // Try nvidia-smi first, then walk sysfs for the first known vendor id.
-            // Card indices are not stable (they can start at card1, and hybrid
-            // laptops have several), so scan instead of hardcoding card0/card1.
-            // Everything runs through an explicit `sh -c` so the multi-command
-            // strings never depend on how the executable engine splits args.
-            gpuDetectSource.connectSource("sh -c 'nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits 2>/dev/null | head -1'");
-            gpuDetectSource.connectSource("sh -c 'for d in /sys/class/drm/card*; do v=$(cat \"$d/device/vendor\" 2>/dev/null); case \"$v\" in 0x1002|0x10de|0x8086) echo \"$v\"; echo \"$d\"; break ;; esac; done'");
-        }
+        onTriggered: root.detectGpu()
     }
 
     Timer {
@@ -794,21 +862,21 @@ PlasmoidItem {
                 root.isReadingGpu = true;
                 if (root.gpuMode === "nvidia") {
                     // util, freq, encode%, decode%, vram used (MiB), vram total (MiB)
-                    gpuSource.connectSource("sh -c 'nvidia-smi --query-gpu=utilization.gpu,clocks.current.graphics,utilization.encoder,utilization.decoder,memory.used,memory.total --format=csv,noheader,nounits 2>/dev/null'");
+                    gpuSource.connectSource("sh -c 'nvidia-smi --query-gpu=utilization.gpu,clocks.current.graphics,utilization.encoder,utilization.decoder,memory.used,memory.total --format=csv,noheader,nounits" + root._nvidiaTarget() + " 2>/dev/null'");
                 } else if (root.gpuMode === "amd") {
                     // busy% + VRAM used/total from sysfs, then the fdinfo block.
                     // gpu_busy_percent is absent on RDNA4 (RX 9000), so that line can
                     // come back empty and the fdinfo engines are the fallback — but we
                     // always read both, since sysfs has no per-engine breakdown.
-                    gpuSource.connectSource("sh -c '" + root._gpuReadFn + "c=" + root.gpuCardPath + "/device; r \"$c/gpu_busy_percent\"; r \"$c/mem_info_vram_used\"; r \"$c/mem_info_vram_total\"; echo \"---ENG---\"; grep -rhE \"drm-(engine|resident)\" /proc/*/fdinfo/ 2>/dev/null'");
+                    gpuSource.connectSource("sh -c '" + root._gpuReadFn + "c=" + root.gpuCardPath + "/device; r \"$c/gpu_busy_percent\"; r \"$c/mem_info_vram_used\"; r \"$c/mem_info_vram_total\"; echo \"---ENG---\"; grep -rhE \"drm-(pdev|engine|resident)\" /proc/*/fdinfo/ 2>/dev/null'");
                 } else if (root.gpuMode === "intel") {
                     // Intel: rc6_residency_ms delta → busy %, plus current freq, plus
                     // per-engine ns sums + memory from fdinfo (one combined read).
-                    gpuSource.connectSource("sh -c '" + root._gpuReadFn + "g=" + root.gpuCardPath + "/gt/gt0; r \"$g/rc6_residency_ms\"; r \"$g/rps_cur_freq_mhz\"; r \"$g/rps_act_freq_mhz\"; echo \"---ENG---\"; grep -rhE \"drm-(engine|resident)\" /proc/*/fdinfo/ 2>/dev/null'");
+                    gpuSource.connectSource("sh -c '" + root._gpuReadFn + "g=" + root.gpuCardPath + "/gt/gt0; r \"$g/rc6_residency_ms\"; r \"$g/rps_cur_freq_mhz\"; r \"$g/rps_act_freq_mhz\"; echo \"---ENG---\"; grep -rhE \"drm-(pdev|engine|resident)\" /proc/*/fdinfo/ 2>/dev/null'");
                 } else {
                     // fdinfo: sum each engine's cumulative ns across all processes, plus
                     // resident memory. Render≈compute/3D, video≈decode, video-enhance≈encode.
-                    gpuSource.connectSource("sh -c 'grep -rhE \"drm-(engine|resident)\" /proc/*/fdinfo/ 2>/dev/null'");
+                    gpuSource.connectSource("sh -c 'grep -rhE \"drm-(pdev|engine|resident)\" /proc/*/fdinfo/ 2>/dev/null'");
                 }
             } else if (!root.isReadingGpu && root.gpuMode === "" && root.gpuNoDataTicks < 2) {
                 // Vendor detection came back empty (unknown vendor id, or sysfs not
@@ -834,7 +902,20 @@ PlasmoidItem {
     function _parseFdinfoEngines(lines) {
         let render = 0, compute = 0, video = 0, enhance = 0, copy = 0, resident = 0;
         let sawEngine = false;
+        // grep concatenates the per-process records in order, and drm-pdev always
+        // precedes that record's counters — so tracking the most recent one lets
+        // us bill each block to its card and ignore the other GPUs. A record with
+        // no drm-pdev at all is counted, rather than silently dropped.
+        const wantPci = root.gpuPciId;
+        let curPdev = "";
         for (const line of lines) {
+            const pd = line.match(/^drm-pdev:\s*(\S+)/);
+            if (pd) {
+                curPdev = pd[1];
+                continue;
+            }
+            if (wantPci !== "" && curPdev !== "" && curPdev !== wantPci)
+                continue;
             const m = line.match(/^drm-(engine|resident)-([^:\s]+):\s*(\d+)\s*(\S*)/);
             if (!m)
                 continue;
