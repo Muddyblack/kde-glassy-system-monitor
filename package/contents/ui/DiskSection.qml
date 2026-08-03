@@ -32,7 +32,7 @@ ColumnLayout {
     }
 
     Timer {
-        interval: 1000
+        interval: root._pollBase
         running: root.showDiskSection
         repeat: true
         onTriggered: {
