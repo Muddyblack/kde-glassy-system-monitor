@@ -675,7 +675,10 @@ PlasmoidItem {
         onTriggered: {
             if (!root.isReadingCustom && plasmoid.configuration.customCmd) {
                 root.isReadingCustom = true;
-                customSource.connectSource(plasmoid.configuration.customCmd);
+                // Run through an explicit shell so pipes, redirections and
+                // shell builtins behave the same regardless of how the
+                // executable engine decides to split the string.
+                customSource.connectSource("sh -c '" + plasmoid.configuration.customCmd.replace(/'/g, "'\\''") + "'");
             }
         }
     }
@@ -700,7 +703,16 @@ PlasmoidItem {
     property real gpuVramUsed: -1     // bytes
     property real gpuVramTotal: -1    // bytes
     // fdinfo engines report cumulative nanoseconds; we diff against the last poll.
-    property var _gpuLastEngineNs: null   // { render, video, enhance, copy, t }
+    property var _gpuLastEngineNs: null   // { render, compute, video, enhance, copy, t }
+    // sysfs dir of the detected card, e.g. "/sys/class/drm/card1". Discovered at
+    // detection time so we never hardcode a card index. Only ever assigned a value
+    // matching /sys/class/drm/cardN, so it is safe to interpolate into a command.
+    property string gpuCardPath: ""
+    // Shell helper prepended to the sysfs poll commands: prints exactly one line
+    // per file, empty when the file is missing. Plain `cat file; echo` would emit
+    // a *blank* line after each value (sysfs files already end in a newline) and
+    // shift every field the parser reads by one.
+    readonly property string _gpuReadFn: "r() { v=$(cat \"$1\" 2>/dev/null); echo \"$v\"; }; "
 
     readonly property color gpuColor: Qt.color(plasmoid.configuration.gpuColor || "#ff6e40")
 
@@ -716,25 +728,28 @@ PlasmoidItem {
                 root.gpuMode = "nvidia";
                 root.gpuVendor = "nvidia";
                 root.gpuDetected = true;
-            } else if (sourceName.indexOf("rocm-smi") !== -1 && out.length > 0 && !root.gpuDetected) {
-                root.gpuMode = "amd";
-                root.gpuVendor = "amd";
-                root.gpuDetected = true;
             } else if (sourceName.indexOf("vendor") !== -1 && !root.gpuDetected) {
-                // sysfs vendor id: 0x8086=Intel, 0x1002=AMD, 0x10de=NVIDIA
-                if (out === "0x8086") {
+                // Two lines: the sysfs vendor id, then the card's device dir.
+                const vlines = out.split("\n");
+                const vid = (vlines[0] || "").trim();
+                const card = (vlines[1] || "").trim();
+                // Only accept the exact shape we asked for — the value is later
+                // interpolated into a shell command.
+                root.gpuCardPath = /^\/sys\/class\/drm\/card\d+$/.test(card) ? card : "";
+                // vendor id: 0x8086=Intel, 0x1002=AMD, 0x10de=NVIDIA
+                if (vid === "0x8086") {
                     root.gpuVendor = "intel";
                     root.gpuMode = "intel";
                     root.gpuDetected = true;
-                } else if (out === "0x1002") {
+                } else if (vid === "0x1002") {
                     root.gpuVendor = "amd";
-                    root.gpuMode = "fdinfo";
+                    root.gpuMode = "amd";
                     root.gpuDetected = true;
-                } else if (out === "0x10de") {
+                } else if (vid === "0x10de") {
                     root.gpuVendor = "nvidia";
                     root.gpuMode = "fdinfo";
                     root.gpuDetected = true;
-                } else if (out.length > 0) {
+                } else if (vid.length > 0) {
                     root.gpuVendor = "";
                     root.gpuMode = "fdinfo";
                     root.gpuDetected = true;
@@ -760,9 +775,13 @@ PlasmoidItem {
         repeat: false
         running: root.showGpuSection
         onTriggered: {
-            // Try nvidia-smi first, then rocm-smi, then sysfs vendor
-            gpuDetectSource.connectSource("nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits 2>/dev/null | head -1");
-            gpuDetectSource.connectSource("cat /sys/class/drm/card0/device/vendor 2>/dev/null || cat /sys/class/drm/card1/device/vendor 2>/dev/null");
+            // Try nvidia-smi first, then walk sysfs for the first known vendor id.
+            // Card indices are not stable (they can start at card1, and hybrid
+            // laptops have several), so scan instead of hardcoding card0/card1.
+            // Everything runs through an explicit `sh -c` so the multi-command
+            // strings never depend on how the executable engine splits args.
+            gpuDetectSource.connectSource("sh -c 'nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits 2>/dev/null | head -1'");
+            gpuDetectSource.connectSource("sh -c 'for d in /sys/class/drm/card*; do v=$(cat \"$d/device/vendor\" 2>/dev/null); case \"$v\" in 0x1002|0x10de|0x8086) echo \"$v\"; echo \"$d\"; break ;; esac; done'");
         }
     }
 
@@ -775,23 +794,28 @@ PlasmoidItem {
                 root.isReadingGpu = true;
                 if (root.gpuMode === "nvidia") {
                     // util, freq, encode%, decode%, vram used (MiB), vram total (MiB)
-                    gpuSource.connectSource("nvidia-smi --query-gpu=utilization.gpu,clocks.current.graphics,utilization.encoder,utilization.decoder,memory.used,memory.total --format=csv,noheader,nounits 2>/dev/null");
+                    gpuSource.connectSource("sh -c 'nvidia-smi --query-gpu=utilization.gpu,clocks.current.graphics,utilization.encoder,utilization.decoder,memory.used,memory.total --format=csv,noheader,nounits 2>/dev/null'");
                 } else if (root.gpuMode === "amd") {
-                    // overall busy% + VRAM used/total from sysfs (rocm path)
-                    gpuSource.connectSource("cat /sys/class/drm/card0/device/gpu_busy_percent 2>/dev/null || cat /sys/class/drm/card1/device/gpu_busy_percent 2>/dev/null; echo; cat /sys/class/drm/card0/device/mem_info_vram_used 2>/dev/null || cat /sys/class/drm/card1/device/mem_info_vram_used 2>/dev/null; echo; cat /sys/class/drm/card0/device/mem_info_vram_total 2>/dev/null || cat /sys/class/drm/card1/device/mem_info_vram_total 2>/dev/null");
+                    // busy% + VRAM used/total from sysfs, then the fdinfo block.
+                    // gpu_busy_percent is absent on RDNA4 (RX 9000), so that line can
+                    // come back empty and the fdinfo engines are the fallback — but we
+                    // always read both, since sysfs has no per-engine breakdown.
+                    gpuSource.connectSource("sh -c '" + root._gpuReadFn + "c=" + root.gpuCardPath + "/device; r \"$c/gpu_busy_percent\"; r \"$c/mem_info_vram_used\"; r \"$c/mem_info_vram_total\"; echo \"---ENG---\"; grep -rhE \"drm-(engine|resident)\" /proc/*/fdinfo/ 2>/dev/null'");
                 } else if (root.gpuMode === "intel") {
                     // Intel: rc6_residency_ms delta → busy %, plus current freq, plus
                     // per-engine ns sums + memory from fdinfo (one combined read).
-                    gpuSource.connectSource("cat /sys/class/drm/card1/gt/gt0/rc6_residency_ms 2>/dev/null || cat /sys/class/drm/card0/gt/gt0/rc6_residency_ms 2>/dev/null; echo; cat /sys/class/drm/card1/gt/gt0/rps_cur_freq_mhz 2>/dev/null || cat /sys/class/drm/card0/gt/gt0/rps_cur_freq_mhz 2>/dev/null; echo; cat /sys/class/drm/card1/gt/gt0/rps_act_freq_mhz 2>/dev/null || cat /sys/class/drm/card0/gt/gt0/rps_act_freq_mhz 2>/dev/null; echo '---ENG---'; grep -rhE 'drm-(engine|resident)' /proc/*/fdinfo/ 2>/dev/null");
+                    gpuSource.connectSource("sh -c '" + root._gpuReadFn + "g=" + root.gpuCardPath + "/gt/gt0; r \"$g/rc6_residency_ms\"; r \"$g/rps_cur_freq_mhz\"; r \"$g/rps_act_freq_mhz\"; echo \"---ENG---\"; grep -rhE \"drm-(engine|resident)\" /proc/*/fdinfo/ 2>/dev/null'");
                 } else {
                     // fdinfo: sum each engine's cumulative ns across all processes, plus
                     // resident memory. Render≈compute/3D, video≈decode, video-enhance≈encode.
-                    gpuSource.connectSource("grep -rhE 'drm-(engine|resident)' /proc/*/fdinfo/ 2>/dev/null");
+                    gpuSource.connectSource("sh -c 'grep -rhE \"drm-(engine|resident)\" /proc/*/fdinfo/ 2>/dev/null'");
                 }
             } else if (!root.isReadingGpu && root.gpuMode === "" && root.gpuNoDataTicks < 2) {
-                root.isReadingGpu = true;
-                gpuSource.connectSource("cat /sys/class/drm/card1/gt/gt0/rps_act_freq_mhz 2>/dev/null || cat /sys/class/drm/card0/device/gpu_busy_percent 2>/dev/null || echo ''");
+                // Vendor detection came back empty (unknown vendor id, or sysfs not
+                // readable). Give fdinfo a shot anyway rather than staying silent.
                 root.gpuNoDataTicks++;
+                if (root.gpuNoDataTicks >= 2)
+                    root.gpuMode = "fdinfo";
             } else {
                 root.isReadingGpu = false;
             }
@@ -805,28 +829,37 @@ PlasmoidItem {
     // body for the generic fdinfo path). Sums each engine's cumulative nanoseconds
     // and resident memory across every process, then diffs the ns against the last
     // poll to derive a per-engine utilisation %. Updates gpuComputePercent /
-    // gpuDecPercent / gpuEncPercent / gpuVramUsed. Returns the render busy% (or -1).
+    // gpuDecPercent / gpuEncPercent / gpuVramUsed. Returns the busy% of the
+    // graphics/compute rings, whichever is higher (or -1 when unavailable).
     function _parseFdinfoEngines(lines) {
-        let render = 0, video = 0, enhance = 0, copy = 0, resident = 0;
+        let render = 0, compute = 0, video = 0, enhance = 0, copy = 0, resident = 0;
         let sawEngine = false;
         for (const line of lines) {
-            const m = line.match(/^drm-(engine|resident)-?(\S*):\s+(\d+)/);
+            const m = line.match(/^drm-(engine|resident)-([^:\s]+):\s*(\d+)\s*(\S*)/);
             if (!m)
                 continue;
             const val = parseInt(m[3]);
             if (m[1] === "engine") {
                 sawEngine = true;
+                // Engine names differ per driver: i915 uses render/video/…, amdgpu
+                // uses gfx/compute/dec/enc/… and xe uses rcs/ccs/vcs/…. Note that
+                // "drm-engine-capacity-*" lands in none of these buckets, as it
+                // is a count rather than a nanosecond counter.
                 const name = m[2];
-                if (name === "render")
+                if (name === "render" || name === "gfx" || name === "rcs")
                     render += val;
-                else if (name === "video")
+                else if (name === "compute" || name === "ccs")
+                    compute += val;
+                else if (name === "video" || name === "dec" || name === "vcs")
                     video += val;
-                else if (name === "video-enhance")
+                else if (name === "video-enhance" || name === "enc" || name === "enc_1" || name === "vecs")
                     enhance += val;
-                else if (name === "copy")
+                else if (name === "copy" || name === "dma" || name === "bcs")
                     copy += val;
             } else {
-                resident += val;   // drm-resident-* bytes
+                // drm-resident-<region>: <uint> [KiB|MiB] — bytes when unitless.
+                const unit = m[4];
+                resident += unit === "KiB" ? val * 1024 : unit === "MiB" ? val * 1048576 : val;
             }
         }
         if (resident > 0)
@@ -836,15 +869,18 @@ PlasmoidItem {
 
         const now = Date.now();
         const prev = root._gpuLastEngineNs;
-        let renderPct = -1;
+        let busyPct = -1;
         if (prev && prev.t > 0) {
             const dtNs = (now - prev.t) * 1e6;   // ms → ns
             if (dtNs > 0) {
                 const pct = function (cur, old) {
                     return Math.min(100, Math.max(0, ((cur - old) / dtNs) * 100));
                 };
-                renderPct = pct(render, prev.render);
-                root.gpuComputePercent = renderPct;
+                // Graphics and compute are separate rings; a pure compute load
+                // (ROCm/CUDA) never touches gfx, so the busier of the two is what
+                // "the GPU is doing something" actually means.
+                busyPct = Math.max(pct(render, prev.render), pct(compute, prev.compute));
+                root.gpuComputePercent = busyPct;
                 // "video" is decode-side; "video-enhance" is the encode/post pipe.
                 root.gpuDecPercent = pct(video, prev.video);
                 root.gpuEncPercent = pct(enhance, prev.enhance);
@@ -852,16 +888,20 @@ PlasmoidItem {
         }
         root._gpuLastEngineNs = {
             render,
+            compute,
             video,
             enhance,
             copy,
             t: now
         };
-        return renderPct;
+        return busyPct;
     }
 
     function parseGpuData(src, text) {
-        const lines = text.trim().split("\n");
+        // Split before trimming: a missing sysfs file yields an empty line, and
+        // trimming the whole blob first would swallow it and shift every
+        // subsequent line up by one.
+        const lines = text.split("\n").map(s => s.trim());
         const maxH = Math.max(10, plasmoid.configuration.historySize);
 
         if (root.gpuMode === "nvidia") {
@@ -883,19 +923,31 @@ PlasmoidItem {
                 root.gpuVramTotal = vt * 1048576;
             root.gpuNoDataTicks = 0;
         } else if (root.gpuMode === "amd") {
-            // line0: busy%, line1: vram used (bytes), line2: vram total (bytes)
+            // line0: busy%, line1: vram used (bytes), line2: vram total (bytes),
+            // then "---ENG---" followed by the fdinfo block.
             const v = parseInt(lines[0]);
             const vu = parseInt(lines[1]);
             const vt = parseInt(lines[2]);
+            if (!isNaN(vt) && vt > 0)
+                root.gpuVramTotal = vt;
+            // Per-engine breakdown first: on RDNA4 it also supplies the overall
+            // busy%, since gpu_busy_percent was dropped there.
+            const engIdx = lines.indexOf("---ENG---");
+            const enginePct = engIdx !== -1 ? root._parseFdinfoEngines(lines.slice(engIdx + 1)) : -1;
+            // sysfs reports the real hardware busy%, so prefer it when present;
+            // the fdinfo delta only sees engine time booked to a process.
             if (!isNaN(v)) {
                 root.gpuPercent = Math.min(100, Math.max(0, v));
                 root.gpuNoDataTicks = 0;
+            } else if (enginePct >= 0) {
+                root.gpuPercent = enginePct;
+                root.gpuNoDataTicks = 0;
             } else
                 root.gpuNoDataTicks++;
+            // mem_info_vram_used is authoritative; overwrite whatever the fdinfo
+            // resident sum guessed.
             if (!isNaN(vu))
                 root.gpuVramUsed = vu;
-            if (!isNaN(vt))
-                root.gpuVramTotal = vt;
         } else if (root.gpuMode === "intel") {
             // line0: rc6_residency_ms, line1: rps_cur_freq_mhz, line2: rps_act_freq_mhz,
             // then "---ENG---" followed by the fdinfo block.
