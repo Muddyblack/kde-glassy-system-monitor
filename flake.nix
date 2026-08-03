@@ -81,10 +81,16 @@
               pre-commit
               zip
             ];
+            # The pre-commit hooks invoke their tools through `nix develop`, which
+            # runs this shellHook first. Re-installing the hooks from inside a
+            # hook run deadlocks on pre-commit's own cache lock, so skip setup
+            # when pre-commit is what entered the shell (it exports PRE_COMMIT=1).
             shellHook = ''
-              pre-commit install -f --install-hooks
-              echo "glassy-system-monitor dev shell ready"
-              echo "  make help        — list targets (view, install, pack, tag)"
+              if [ -z "$PRE_COMMIT" ]; then
+                pre-commit install -f --install-hooks
+                echo "glassy-system-monitor dev shell ready"
+                echo "  make help        — list targets (view, install, pack, tag)"
+              fi
             '';
           };
         });

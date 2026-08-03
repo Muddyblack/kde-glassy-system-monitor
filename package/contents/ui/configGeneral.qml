@@ -23,7 +23,7 @@ KCM.SimpleKCM {
     property alias cfg_customCmdUnit: customCmdUnitField.text
     property alias cfg_customCmdMax: customCmdMaxSpin.value
     property alias cfg_customCmdInterval: customCmdIntervalSpin.value
-    property alias cfg_customCmdColor: customCmdColorButton.color
+    property alias cfg_customCmdColor: customCmdColorRow.color
 
     property alias cfg_targets: targetsField.text
     property alias cfg_pingInterval: pingIntervalSpin.value
@@ -35,9 +35,9 @@ KCM.SimpleKCM {
     property string cfg_networkInterface: "auto"
 
     property alias cfg_useSystemAccent: useSystemAccentCB.checked
-    property alias cfg_customColor: customColorButton.color
+    property alias cfg_customColor: customColorRow.color
     property alias cfg_useSystemTextColor: useSystemTextColorCB.checked
-    property alias cfg_customTextColor: customTextColorButton.color
+    property alias cfg_customTextColor: customTextColorRow.color
 
     property alias cfg_dlColor: dlColorButton.color
     property alias cfg_ulColor: ulColorButton.color
@@ -69,7 +69,7 @@ KCM.SimpleKCM {
     property alias cfg_gpuShowEngines: gpuShowEnginesCB.checked
     property alias cfg_netShowInfo: netShowInfoCB.checked
     property alias cfg_showBg: showBgCB.checked
-    property alias cfg_bgColor: bgColorButton.color
+    property alias cfg_bgColor: bgColorRow.color
     property alias cfg_bgRadius: bgRadiusSlider.value
     property alias cfg_frostedGlass: frostedGlassCB.checked
     property alias cfg_frostStrength: frostStrengthSlider.value
@@ -124,6 +124,98 @@ KCM.SimpleKCM {
     // ── helpers ───────────────────────────────────────────────────────────────
     property var detectedIfaces: []
     property var detectedDisks: []
+
+    // KDE's colour dialog only ever shows #RRGGBB and hides the alpha byte
+    // behind a percentage slider, so an exact translucency can't be copied
+    // between widgets. These render/parse the full #AARRGGBB form that the
+    // config actually stores, for the hex field next to the card colour.
+    function argbHex(c) {
+        function hex2(v) {
+            return ("0" + Math.round(Math.max(0, Math.min(1, v)) * 255).toString(16)).slice(-2);
+        }
+        return "#" + hex2(c.a) + hex2(c.r) + hex2(c.g) + hex2(c.b);
+    }
+
+    // Accepts #AARRGGBB, #RRGGBB and #RGB (with or without the #);
+    // returns null when the text isn't a valid colour so the caller can revert.
+    function parseArgbHex(s) {
+        var t = String(s).trim().replace(/^#/, "");
+        if (!/^[0-9a-fA-F]+$/.test(t))
+            return null;
+        if (t.length === 3)
+            t = "ff" + t[0] + t[0] + t[1] + t[1] + t[2] + t[2];
+        else if (t.length === 6)
+            t = "ff" + t;
+        else if (t.length !== 8)
+            return null;
+        function chan(i) {
+            return parseInt(t.substr(i * 2, 2), 16) / 255;
+        }
+        return Qt.rgba(chan(1), chan(2), chan(3), chan(0));
+    }
+
+    // #aarrggbb for colours where transparency is configurable, #rrggbb for the
+    // opaque graph colours (an always-ff alpha byte would just be noise there).
+    function hexOf(c, withAlpha) {
+        return withAlpha ? argbHex(c) : "#" + argbHex(c).substr(3);
+    }
+
+    // Colour button + editable hex field + copy button. KDE's dialog shows no
+    // hex code at all and buries alpha behind a percent slider, so the exact
+    // value can't be copied between stacked widgets; this puts it in reach
+    // without replacing the picker itself.
+    component ColorHexRow: RowLayout {
+        id: chr
+
+        property alias color: chrButton.color
+        property bool showAlpha: false
+        property string label: ""
+
+        Kirigami.FormData.label: chr.label
+        spacing: Kirigami.Units.smallSpacing
+
+        KQuickControls.ColorButton {
+            id: chrButton
+            showAlphaChannel: chr.showAlpha
+            // Title is only applied when the dialog opens, so it must not carry
+            // the hex code — it would freeze at the value the picker started
+            // from while the field below updates live.
+            dialogTitle: String(chr.label).replace(/:$/, "")
+            onColorChanged: {
+                if (!chrField.activeFocus)
+                    chrField.text = root.hexOf(color, chr.showAlpha);
+            }
+        }
+        QQC.TextField {
+            id: chrField
+            Layout.minimumWidth: chr.showAlpha ? 105 : 92
+            maximumLength: 9
+            font.family: "monospace"
+            placeholderText: chr.showAlpha ? "#aarrggbb" : "#rrggbb"
+            inputMethodHints: Qt.ImhNoAutoUppercase | Qt.ImhNoPredictiveText
+            Component.onCompleted: text = root.hexOf(chrButton.color, chr.showAlpha)
+            // Apply on Enter/focus-loss, then re-render from the colour so
+            // partial or invalid input snaps back to the real value.
+            onEditingFinished: {
+                const c = root.parseArgbHex(text);
+                if (c)
+                    chrButton.color = chr.showAlpha ? c : Qt.rgba(c.r, c.g, c.b, 1);
+                text = root.hexOf(chrButton.color, chr.showAlpha);
+            }
+        }
+        QQC.Button {
+            icon.name: "edit-copy"
+            display: QQC.AbstractButton.IconOnly
+            flat: true
+            QQC.ToolTip.visible: hovered
+            QQC.ToolTip.text: i18n("Copy hex code")
+            onClicked: {
+                chrField.selectAll();
+                chrField.copy();
+                chrField.deselect();
+            }
+        }
+    }
 
     // Hidden fields so aliases don't break
     QQC.TextField {
@@ -458,14 +550,14 @@ KCM.SimpleKCM {
                     Kirigami.FormData.label: i18n("Glassy card:")
                     text: i18n("Show background card behind widget")
                 }
-                KQuickControls.ColorButton {
-                    id: bgColorButton
-                    Kirigami.FormData.label: i18n("Card color:")
+                ColorHexRow {
+                    id: bgColorRow
+                    label: i18n("Card color:")
                     visible: showBgCB.checked
-                    showAlphaChannel: true
+                    showAlpha: true
                 }
                 QQC.Label {
-                    text: i18n("Use the alpha slider to control transparency.")
+                    text: i18n("Alpha is the first byte of the hex code (#aarrggbb) — copy it to give stacked widgets an identical transparency. Editable: paste a code and press Enter.")
                     visible: showBgCB.checked
                     opacity: 0.50
                     font.pixelSize: 10
@@ -528,11 +620,10 @@ KCM.SimpleKCM {
                     Kirigami.FormData.label: i18n("Text color:")
                     text: i18n("Use system text color")
                 }
-                KQuickControls.ColorButton {
-                    id: customTextColorButton
-                    Kirigami.FormData.label: i18n("Custom:")
+                ColorHexRow {
+                    id: customTextColorRow
+                    label: i18n("Custom:")
                     visible: !useSystemTextColorCB.checked
-                    showAlphaChannel: false
                 }
 
                 QQC.CheckBox {
@@ -540,11 +631,10 @@ KCM.SimpleKCM {
                     Kirigami.FormData.label: i18n("Accent color:")
                     text: i18n("Use system accent color")
                 }
-                KQuickControls.ColorButton {
-                    id: customColorButton
-                    Kirigami.FormData.label: i18n("Custom:")
+                ColorHexRow {
+                    id: customColorRow
+                    label: i18n("Custom:")
                     visible: !useSystemAccentCB.checked
-                    showAlphaChannel: false
                 }
 
                 // Panel Mode ──────────────────────────────────────────────────
@@ -857,11 +947,10 @@ KCM.SimpleKCM {
                             Kirigami.FormData.isSection: true
                             Kirigami.FormData.label: i18n("CPU")
                         }
-                        KQuickControls.ColorButton {
+                        ColorHexRow {
                             id: cpuColorDetail
                             visible: cfg_activeSection === 2
-                            Kirigami.FormData.label: i18n("CPU total color:")
-                            showAlphaChannel: false
+                            label: i18n("CPU total color:")
                             color: cpuColorButton.color
                             onColorChanged: cpuColorButton.color = color
                         }
@@ -1020,19 +1109,17 @@ KCM.SimpleKCM {
                             Kirigami.FormData.isSection: true
                             Kirigami.FormData.label: i18n("Memory")
                         }
-                        KQuickControls.ColorButton {
+                        ColorHexRow {
                             id: memColorDetail
                             visible: cfg_activeSection === 3
-                            Kirigami.FormData.label: i18n("RAM color:")
-                            showAlphaChannel: false
+                            label: i18n("RAM color:")
                             color: memColorButton.color
                             onColorChanged: memColorButton.color = color
                         }
-                        KQuickControls.ColorButton {
+                        ColorHexRow {
                             id: swapColorDetail
                             visible: cfg_activeSection === 3
-                            Kirigami.FormData.label: i18n("Swap color:")
-                            showAlphaChannel: false
+                            label: i18n("Swap color:")
                             color: swapColorButton.color
                             onColorChanged: swapColorButton.color = color
                         }
@@ -1069,19 +1156,17 @@ KCM.SimpleKCM {
                             wrapMode: Text.WordWrap
                             Layout.fillWidth: true
                         }
-                        KQuickControls.ColorButton {
+                        ColorHexRow {
                             id: dlColorDetail
                             visible: cfg_activeSection === 1
-                            Kirigami.FormData.label: i18n("Download color:")
-                            showAlphaChannel: false
+                            label: i18n("Download color:")
                             color: dlColorButton.color
                             onColorChanged: dlColorButton.color = color
                         }
-                        KQuickControls.ColorButton {
+                        ColorHexRow {
                             id: ulColorDetail
                             visible: cfg_activeSection === 1
-                            Kirigami.FormData.label: i18n("Upload color:")
-                            showAlphaChannel: false
+                            label: i18n("Upload color:")
                             color: ulColorButton.color
                             onColorChanged: ulColorButton.color = color
                         }
@@ -1172,11 +1257,10 @@ KCM.SimpleKCM {
                                 opacity: 0.55
                             }
                         }
-                        KQuickControls.ColorButton {
+                        ColorHexRow {
                             id: pingColorDetail
                             visible: cfg_activeSection === 0
-                            Kirigami.FormData.label: i18n("Ping line color:")
-                            showAlphaChannel: false
+                            label: i18n("Ping line color:")
                             color: customColorButton.color
                             onColorChanged: customColorButton.color = color
                         }
@@ -1237,11 +1321,10 @@ KCM.SimpleKCM {
                                 opacity: 0.55
                             }
                         }
-                        KQuickControls.ColorButton {
-                            id: customCmdColorButton
+                        ColorHexRow {
+                            id: customCmdColorRow
                             visible: cfg_activeSection === 4
-                            Kirigami.FormData.label: i18n("Graph color:")
-                            showAlphaChannel: false
+                            label: i18n("Graph color:")
                         }
 
                         // DISK I/O ────────────────────────────────────────────
@@ -1268,19 +1351,17 @@ KCM.SimpleKCM {
                                 }
                             }
                         }
-                        KQuickControls.ColorButton {
+                        ColorHexRow {
                             id: diskRdColorDetail
                             visible: cfg_activeSection === 5
-                            Kirigami.FormData.label: i18n("Read color:")
-                            showAlphaChannel: false
+                            label: i18n("Read color:")
                             color: diskRdColorButton.color
                             onColorChanged: diskRdColorButton.color = color
                         }
-                        KQuickControls.ColorButton {
+                        ColorHexRow {
                             id: diskWrColorDetail
                             visible: cfg_activeSection === 5
-                            Kirigami.FormData.label: i18n("Write color:")
-                            showAlphaChannel: false
+                            label: i18n("Write color:")
                             color: diskWrColorButton.color
                             onColorChanged: diskWrColorButton.color = color
                         }
@@ -1299,11 +1380,10 @@ KCM.SimpleKCM {
                             font.pixelSize: 10
                             Layout.fillWidth: true
                         }
-                        KQuickControls.ColorButton {
+                        ColorHexRow {
                             id: gpuColorDetail
                             visible: cfg_activeSection === 6
-                            Kirigami.FormData.label: i18n("GPU color:")
-                            showAlphaChannel: false
+                            label: i18n("GPU color:")
                             color: gpuColorButton.color
                             onColorChanged: gpuColorButton.color = color
                         }
