@@ -31,6 +31,7 @@ KCM.SimpleKCM {
     property alias cfg_historySize: historySizeSpin.value
     property alias cfg_latencyThreshold: latencyThresholdSpin.value
     property alias cfg_lossThreshold: lossThresholdSpin.value
+    property alias cfg_pingThresholdColors: pingThresholdColorsCB.checked
 
     property string cfg_networkInterface: "auto"
 
@@ -39,6 +40,9 @@ KCM.SimpleKCM {
     property alias cfg_useSystemTextColor: useSystemTextColorCB.checked
     property alias cfg_customTextColor: customTextColorRow.color
 
+    property alias cfg_pingColor: pingColorButton.color
+    property alias cfg_pingWarnColor: pingWarnColorButton.color
+    property alias cfg_pingCritColor: pingCritColorButton.color
     property alias cfg_dlColor: dlColorButton.color
     property alias cfg_ulColor: ulColorButton.color
     property alias cfg_cpuColor: cpuColorButton.color
@@ -239,6 +243,21 @@ KCM.SimpleKCM {
         visible: false
     }
 
+    KQuickControls.ColorButton {
+        id: pingColorButton
+        visible: false
+        showAlphaChannel: false
+    }
+    KQuickControls.ColorButton {
+        id: pingWarnColorButton
+        visible: false
+        showAlphaChannel: false
+    }
+    KQuickControls.ColorButton {
+        id: pingCritColorButton
+        visible: false
+        showAlphaChannel: false
+    }
     KQuickControls.ColorButton {
         id: dlColorButton
         visible: false
@@ -1261,8 +1280,36 @@ KCM.SimpleKCM {
                             id: pingColorDetail
                             visible: cfg_activeSection === 0
                             label: i18n("Ping line color:")
-                            color: customColorButton.color
-                            onColorChanged: customColorButton.color = color
+                            color: pingColorButton.color
+                            onColorChanged: pingColorButton.color = color
+                        }
+                        QQC.CheckBox {
+                            id: pingThresholdColorsCB
+                            visible: cfg_activeSection === 0
+                            Kirigami.FormData.label: i18n("Threshold colors:")
+                            text: i18n("Recolor the graph above the warning thresholds")
+                        }
+                        QQC.Label {
+                            visible: cfg_activeSection === 0
+                            text: i18n("Off keeps the graph on your ping color at any latency. Packet loss is always marked in the critical color.")
+                            opacity: 0.55
+                            font.pixelSize: 10
+                            wrapMode: Text.WordWrap
+                            Layout.fillWidth: true
+                        }
+                        ColorHexRow {
+                            id: pingWarnColorDetail
+                            visible: cfg_activeSection === 0 && pingThresholdColorsCB.checked
+                            label: i18n("Warning color:")
+                            color: pingWarnColorButton.color
+                            onColorChanged: pingWarnColorButton.color = color
+                        }
+                        ColorHexRow {
+                            id: pingCritColorDetail
+                            visible: cfg_activeSection === 0
+                            label: i18n("Critical color:")
+                            color: pingCritColorButton.color
+                            onColorChanged: pingCritColorButton.color = color
                         }
                         QQC.CheckBox {
                             id: showStatsCB

@@ -74,6 +74,12 @@ PlasmoidItem {
     // ── colors (pre-resolved, no per-frame allocation) ────────────────────────
     readonly property color accentColor: Kirigami.Theme.highlightColor
     readonly property color lineColor: plasmoid.configuration.useSystemAccent ? accentColor : Qt.color(plasmoid.configuration.customColor || "#39ff14")
+    readonly property color pingColor: Qt.color(plasmoid.configuration.pingColor || "#39ff14")
+    readonly property color pingWarnColor: Qt.color(plasmoid.configuration.pingWarnColor || "#ffaa22")
+    readonly property color pingCritColor: Qt.color(plasmoid.configuration.pingCritColor || "#ff4444")
+    // Alert styling is suppressed entirely when threshold colouring is off, so
+    // the ping section stays on the user's own colour no matter the latency.
+    readonly property bool pingAlertActive: plasmoid.configuration.pingThresholdColors && isAlerting
     readonly property color textColor: plasmoid.configuration.useSystemTextColor ? Kirigami.Theme.textColor : Qt.color(plasmoid.configuration.customTextColor || "#ffffff")
     readonly property color dlColor: Qt.color(plasmoid.configuration.dlColor || "#22aaff")
     readonly property color ulColor: Qt.color(plasmoid.configuration.ulColor || "#ff9933")
@@ -153,6 +159,24 @@ PlasmoidItem {
     }
     function gpuScrollPhase() {
         return _gpuPhaseStart > 0 ? (Date.now() - _gpuPhaseStart) / _gpuInterval : 0;
+    }
+
+    // Single source of truth for "what colour is this latency?". With threshold
+    // colouring off the graph always stays on the user's own pingColor.
+    function pingColorFor(ms) {
+        if (!plasmoid.configuration.pingThresholdColors)
+            return pingColor;
+        const threshold = plasmoid.configuration.latencyThreshold;
+        if (ms > threshold * 1.5)
+            return pingCritColor;
+        if (ms > threshold)
+            return pingWarnColor;
+        return pingColor;
+    }
+    // Colour for the live readout / single-value charts, which react to the
+    // alert state (latency *or* packet loss) rather than a raw sample.
+    function pingAlertColor() {
+        return pingAlertActive ? pingCritColor : pingColor;
     }
 
     // Scroll animation ticker. Interval is derived from configured targetFps;
@@ -1490,12 +1514,12 @@ PlasmoidItem {
             anchors.fill: parent
             radius: plasmoid.configuration.bgRadius
             color: "transparent"
-            border.color: "#ff4444"
+            border.color: root.pingCritColor
             border.width: 2
-            visible: root.showPingSection && root.isAlerting
+            visible: root.showPingSection && root.pingAlertActive
             opacity: 0
             SequentialAnimation {
-                running: root.isAlerting && root.showPingSection
+                running: root.pingAlertActive && root.showPingSection
                 loops: Animation.Infinite
                 NumberAnimation {
                     target: alertRing

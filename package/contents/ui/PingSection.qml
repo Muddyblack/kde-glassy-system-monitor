@@ -19,8 +19,8 @@ ColumnLayout {
                     width: Math.min(90, Math.max(36, (pingSection.width - root.targetList.length * 4 - 80) / root.targetList.length))
                     height: 20
                     radius: height / 2
-                    color: active ? Qt.rgba(root.lineColor.r, root.lineColor.g, root.lineColor.b, 0.22) : Qt.rgba(1, 1, 1, 0.06)
-                    border.color: active ? Qt.rgba(root.lineColor.r, root.lineColor.g, root.lineColor.b, 0.60) : Qt.rgba(1, 1, 1, 0.14)
+                    color: active ? Qt.rgba(root.pingColor.r, root.pingColor.g, root.pingColor.b, 0.22) : Qt.rgba(1, 1, 1, 0.06)
+                    border.color: active ? Qt.rgba(root.pingColor.r, root.pingColor.g, root.pingColor.b, 0.60) : Qt.rgba(1, 1, 1, 0.14)
                     border.width: 1
                     Behavior on color {
                         ColorAnimation {
@@ -31,7 +31,7 @@ ColumnLayout {
                         anchors.centerIn: parent
                         width: parent.width - 8
                         text: modelData
-                        color: parent.active ? root.lineColor : Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.55)
+                        color: parent.active ? root.pingColor : Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.55)
                         font.pixelSize: 9
                         elide: Text.ElideRight
                         horizontalAlignment: Text.AlignHCenter
@@ -56,7 +56,7 @@ ColumnLayout {
 
         Text {
             text: root.lastPing >= 0 ? root.lastPing.toFixed(0) + " ms" : "— ms"
-            color: root.isAlerting ? "#ff6666" : root.lineColor
+            color: root.pingAlertColor()
             font.pixelSize: 15
             font.bold: true
             Behavior on color {
@@ -82,7 +82,13 @@ ColumnLayout {
             function onIsAlertingChanged() {
                 pingGraph.requestPaint();
             }
-            function onLineColorChanged() {
+            function onPingColorChanged() {
+                pingGraph.requestPaint();
+            }
+            function onPingWarnColorChanged() {
+                pingGraph.requestPaint();
+            }
+            function onPingCritColorChanged() {
                 pingGraph.requestPaint();
             }
             function onTextColorChanged() {
@@ -103,6 +109,9 @@ ColumnLayout {
                 pingGraph.requestPaint();
             }
             function onLatencyThresholdChanged() {
+                pingGraph.requestPaint();
+            }
+            function onPingThresholdColorsChanged() {
                 pingGraph.requestPaint();
             }
             function onHistorySizeChanged() {
@@ -152,6 +161,10 @@ ColumnLayout {
             const vMax = valid.length > 0 ? Math.max.apply(null, valid) : 0;
             const maxMs = Math.max(vMax * 1.5 + 2, 15);
             const threshold = plasmoid.configuration.latencyThreshold;
+            // Packet-loss markers share the critical colour so the whole ping
+            // palette stays user-configurable.
+            const lossC = root.pingCritColor;
+            const lossFill = Qt.rgba(lossC.r, lossC.g, lossC.b, 0.10);
 
             // Donut/pie/bar keep their own in-helper glow; GPU bloom is for the
             // line/area chart only.
@@ -163,7 +176,7 @@ ColumnLayout {
                 const cx = yLW + gW / 2, cy = height / 2;
                 const rad = Math.min(gW, height) * 0.36;
                 const pct = root.lastPing >= 0 ? Math.min(100, (root.lastPing / maxMs) * 100) : 0;
-                cu.drawDonut(ctx, cx, cy, rad, Math.max(6, rad * 0.22), pct, root.isAlerting ? "#ff6666" : root.lineColor, root.lastPing >= 0 ? root.lastPing.toFixed(0) + "ms" : "—", "latency");
+                cu.drawDonut(ctx, cx, cy, rad, Math.max(6, rad * 0.22), pct, root.pingAlertColor(), root.lastPing >= 0 ? root.lastPing.toFixed(0) + "ms" : "—", "latency");
                 return;
             }
             // Pie
@@ -171,14 +184,14 @@ ColumnLayout {
                 const cx = yLW + gW / 2, cy = height / 2;
                 const rad = Math.min(gW, height) * 0.36;
                 const pct = root.lastPing >= 0 ? Math.min(100, (root.lastPing / maxMs) * 100) : 0;
-                cu.drawPie(ctx, cx, cy, rad, pct, root.isAlerting ? "#ff6666" : root.lineColor, root.lastPing >= 0 ? root.lastPing.toFixed(0) + "ms" : "—", "latency");
+                cu.drawPie(ctx, cx, cy, rad, pct, root.pingAlertColor(), root.lastPing >= 0 ? root.lastPing.toFixed(0) + "ms" : "—", "latency");
                 return;
             }
             // Horizontal bar
             if (ct === 5) {
                 const barH = 14, bx = yLW + 10, bw = gW - 20;
                 const pct = root.lastPing >= 0 ? Math.min(100, (root.lastPing / maxMs) * 100) : 0;
-                cu.drawHorizontalBar(ctx, root.targetList[root.activeTarget] || "Latency", pct, root.lastPing >= 0 ? root.lastPing.toFixed(0) + " ms" : "— ms", root.isAlerting ? "#ff6666" : root.lineColor, bx, height / 2 - barH / 2, bw, barH);
+                cu.drawHorizontalBar(ctx, root.targetList[root.activeTarget] || "Latency", pct, root.lastPing >= 0 ? root.lastPing.toFixed(0) + " ms" : "— ms", root.pingAlertColor(), bx, height / 2 - barH / 2, bw, barH);
                 return;
             }
 
@@ -241,17 +254,17 @@ ColumnLayout {
                     if (x + barW / 2 < yLW || x - barW / 2 > width)
                         continue;
                     if (h[i] < 0) {
-                        ctx.fillStyle = Qt.rgba(1, 0.15, 0.15, 0.08);
+                        ctx.fillStyle = lossFill;
                         ctx.fillRect(x - step / 2, tPad, step, height - tPad * 2);
                         ctx.beginPath();
                         ctx.arc(x, height - tPad, 1.8, 0, Math.PI * 2);
-                        ctx.fillStyle = "#ff4444";
+                        ctx.fillStyle = lossC;
                         ctx.fill();
                         continue;
                     }
                     const bh = Math.max(2, (h[i] / maxMs) * uH);
                     const bx = x - barW / 2, by = height - tPad - bh;
-                    const sc = h[i] > threshold * 1.5 ? "#ff4444" : h[i] > threshold ? "#ffaa22" : root.lineColor;
+                    const sc = root.pingColorFor(h[i]);
                     const c = Qt.color(sc), r = Math.min(barW / 2, 3);
                     const gr = ctx.createLinearGradient(0, by, 0, height - tPad);
                     gr.addColorStop(0, Qt.rgba(c.r, c.g, c.b, 0.88));
@@ -307,11 +320,11 @@ ColumnLayout {
                     if (h[i] < 0) {
                         const x = iToX(i);
                         if (x >= yLW - step / 2 && x <= width + step / 2) {
-                            ctx.fillStyle = Qt.rgba(1, 0.15, 0.15, 0.08);
+                            ctx.fillStyle = lossFill;
                             ctx.fillRect(x - step / 2, tPad, step, height - tPad * 2);
                             ctx.beginPath();
                             ctx.arc(x, height - tPad, 2, 0, Math.PI * 2);
-                            ctx.fillStyle = "#ff4444";
+                            ctx.fillStyle = lossC;
                             ctx.fill();
                         }
                     }
@@ -321,7 +334,7 @@ ColumnLayout {
                 if (pts.length < 2)
                     continue;
                 const sMax = Math.max.apply(null, pts.map(p => p.ms));
-                const sc = sMax > threshold * 1.5 ? "#ff4444" : sMax > threshold ? "#ffaa22" : root.lineColor;
+                const sc = root.pingColorFor(sMax);
                 const plw = plasmoid.configuration.lineWidth;
                 const pc = Qt.color(sc);
                 ctx.save();
@@ -379,7 +392,9 @@ ColumnLayout {
                 const last = segments[segments.length - 1];
                 const lp = last[last.length - 1];
                 if (lp) {
-                    const dc = root.lineColor;
+                    // Match the dot to its own sample so it doesn't sit on a
+                    // recoloured line in the base colour.
+                    const dc = root.pingColorFor(lp.ms);
                     if (plasmoid.configuration.glowLine && !glowPass && !cu.gpuBloom) {
                         ctx.beginPath();
                         ctx.arc(lp.x, lp.y, 8, 0, Math.PI * 2);
@@ -433,7 +448,7 @@ ColumnLayout {
             Text {
                 readonly property var vh: (root.histories[root.activeTarget] || []).filter(v => v >= 0)
                 text: vh.length >= 2 ? root.jitter.toFixed(1) + " ms" : "— ms"
-                color: root.jitter > 20 ? "#ffaa22" : root.textColor
+                color: root.jitter > 20 ? root.pingWarnColor : root.textColor
                 opacity: 0.85
                 font.pixelSize: 10
                 font.bold: true
@@ -455,7 +470,7 @@ ColumnLayout {
             }
             Text {
                 text: root.lossPercent.toFixed(1) + "%"
-                color: root.lossPercent > plasmoid.configuration.lossThreshold ? "#ff4444" : root.textColor
+                color: root.lossPercent > plasmoid.configuration.lossThreshold ? root.pingCritColor : root.textColor
                 opacity: 0.85
                 font.pixelSize: 10
                 font.bold: true
@@ -507,7 +522,7 @@ ColumnLayout {
         }
         LegendItem {
             text: "Latency"
-            color: root.lineColor
+            color: root.pingColor
             textColor: root.textColor
         }
         Item {
