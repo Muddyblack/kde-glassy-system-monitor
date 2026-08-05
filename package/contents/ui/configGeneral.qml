@@ -36,6 +36,7 @@ KCM.SimpleKCM {
     property alias cfg_pingThresholdColors: pingThresholdColorsCB.checked
 
     property string cfg_networkInterface: "auto"
+    property string cfg_gpuDevice: "auto"
 
     property alias cfg_useSystemAccent: useSystemAccentCB.checked
     property alias cfg_customColor: customColorRow.color
@@ -129,6 +130,7 @@ KCM.SimpleKCM {
 
     // ── helpers ───────────────────────────────────────────────────────────────
     property var detectedIfaces: []
+    property var detectedGpus: []
     property var detectedDisks: []
 
     // KDE's colour dialog only ever shows #RRGGBB and hides the alpha byte
@@ -345,9 +347,38 @@ KCM.SimpleKCM {
             root.detectedDisks = disks;
         }
     }
+    P5Support.DataSource {
+        id: gpuDetectSource
+        engine: "executable"
+        connectedSources: []
+        onNewData: function (sourceName, data) {
+            gpuDetectSource.disconnectSource(sourceName);
+            const gpus = [
+                {
+                    value: "auto",
+                    label: i18n("auto — first GPU reporting telemetry")
+                }
+            ];
+            for (const line of (data["stdout"] || "").split("\n")) {
+                const p = line.trim().split("|");
+                if (p.length < 4 || !/^card\d+$/.test(p[0]))
+                    continue;
+                // lspci is optional; fall back to the vendor name when absent.
+                const vendor = p[1] === "0x10de" ? "NVIDIA" : p[1] === "0x1002" ? "AMD" : p[1] === "0x8086" ? "Intel" : i18n("Unknown vendor");
+                const name = (p[4] || "").trim() || vendor;
+                gpus.push({
+                    value: p[2],
+                    label: p[0] + " — " + name + " (" + p[2] + ")"
+                });
+            }
+            root.detectedGpus = gpus;
+        }
+    }
     Component.onCompleted: {
         ifaceSource.connectSource("cat /proc/net/dev");
         diskDetectSource.connectSource("cat /proc/diskstats");
+        // Same enumeration main.qml uses, plus an lspci lookup for a readable name.
+        gpuDetectSource.connectSource("sh -c 'for d in /sys/class/drm/card[0-9]*; do v=$(cat \"$d/device/vendor\" 2>/dev/null); [ -n \"$v\" ] || continue; p=$(readlink -f \"$d/device\" 2>/dev/null); p=${p##*/}; b=0; [ -r \"$d/device/gpu_busy_percent\" ] && b=1; [ -d \"$d/gt/gt0\" ] && b=1; n=$(lspci -mm -s \"$p\" 2>/dev/null | cut -d\\\" -f6); echo \"${d##*/}|$v|$p|$b|$n\"; done'");
     }
 
     function coreColorAt(i) {
@@ -1451,10 +1482,56 @@ KCM.SimpleKCM {
                         }
                         QQC.Label {
                             visible: cfg_activeSection === 6
-                            text: i18n("Auto-detects NVIDIA (nvidia-smi), AMD (rocm-smi / sysfs), or Intel (i915 RC6). Falls back to kernel fdinfo on any GPU.")
+                            text: i18n("Auto-detects NVIDIA (nvidia-smi), AMD (sysfs busy% / VRAM), or Intel (i915 RC6). Falls back to kernel fdinfo on any GPU.")
                             wrapMode: Text.WordWrap
                             opacity: 0.55
                             font.pixelSize: 10
+                            Layout.fillWidth: true
+                        }
+                        QQC.ComboBox {
+                            id: gpuCombo
+                            visible: cfg_activeSection === 6
+                            Kirigami.FormData.label: i18n("Device:")
+                            Layout.minimumWidth: 260
+                            // Editable so an unlisted card can still be entered by
+                            // hand — detection needs sysfs, which is not guaranteed.
+                            editable: true
+                            model: root.detectedGpus
+                            textRole: "label"
+                            valueRole: "value"
+                            onActivated: root.cfg_gpuDevice = currentValue
+                            // Track every edit rather than onAccepted alone: that
+                            // only fires on Enter, so text typed and then applied
+                            // straight away would otherwise be dropped.
+                            onEditTextChanged: {
+                                if (!activeFocus)
+                                    return;   // programmatic sync, not the user typing
+                                // Store the entry's value when the text is a label we
+                                // know, so picking from the list never stores a label.
+                                const hit = root.detectedGpus.find(g => g.label === editText);
+                                root.cfg_gpuDevice = hit ? hit.value : editText.trim();
+                            }
+                            function syncFromConfig() {
+                                const idx = indexOfValue(root.cfg_gpuDevice);
+                                if (idx >= 0)
+                                    currentIndex = idx;
+                                else
+                                    editText = root.cfg_gpuDevice;   // unlisted / hand-typed
+                            }
+                            Component.onCompleted: syncFromConfig()
+                            Connections {
+                                target: root
+                                function onDetectedGpusChanged() {
+                                    gpuCombo.syncFromConfig();
+                                }
+                            }
+                        }
+                        QQC.Label {
+                            visible: cfg_activeSection === 6
+                            text: i18n("\"auto\" prefers a GPU that actually reports counters, so a dormant iGPU is skipped. You can also type a PCI address (0000:03:00.0) or a card name (card1).")
+                            opacity: 0.55
+                            font.pixelSize: 10
+                            wrapMode: Text.WordWrap
                             Layout.fillWidth: true
                         }
                         ColorHexRow {

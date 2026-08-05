@@ -227,6 +227,12 @@
         <entry name="gpuShowEngines" type="Bool">
             <default>true</default>
         </entry>
+        <!-- PCI address of the GPU to monitor ("0000:03:00.0"), or "auto".
+             Stored as the PCI address rather than the card index, because
+             /sys/class/drm/cardN numbering is not stable across reboots. -->
+        <entry name="gpuDevice" type="String">
+            <default>auto</default>
+        </entry>
         <entry name="netShowInfo" type="Bool">
             <default>false</default>
         </entry>
