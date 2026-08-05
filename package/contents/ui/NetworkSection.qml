@@ -222,7 +222,7 @@ ColumnLayout {
         function refresh() {
             connDialog.loading = true;
             connDialog.connections = [];
-            ssSource.connectSource("ss -tunp 2>/dev/null | awk 'NR>1{remote=$6;proc=\"\";for(i=7;i<=NF;i++)proc=proc\" \"$i;match(proc,/\"([^\"]+)\"/,m);if(m[1]!=\"\")print $1\"|\"remote\"|\"m[1]}'");
+            ssSource.connectSource(root.shellCmd("ss -tunp 2>/dev/null | awk 'NR>1{remote=$6;proc=\"\";for(i=7;i<=NF;i++)proc=proc\" \"$i;match(proc,/\"([^\"]+)\"/,m);if(m[1]!=\"\")print $1\"|\"remote\"|\"m[1]}'"));
         }
 
         // Coarse, offline country guess derived from the reverse-DNS hostname.
@@ -368,7 +368,7 @@ ColumnLayout {
                 return "ip='" + safe + "'; " + "h=$(timeout 1 getent hosts \"$ip\" 2>/dev/null | awk '{print $2; exit}'); " + "cc=''; " + "if [ -n \"$MM\" ]; then " + "case \"$ip\" in *:*) DB=\"$DB6\";; *) DB=\"$DB4\";; esac; " + "if [ -n \"$DB\" ] && [ -r \"$DB\" ]; then " + "cc=$(timeout 1 \"$MM\" --file \"$DB\" --ip \"$ip\" country iso_code 2>/dev/null | grep -o '\"[A-Za-z][A-Za-z]\"' | head -1 | tr -d '\"');" + "fi; fi; " + "printf '%s\\t%s\\t%s\\n' \"$ip\" \"$h\" \"$cc\"";
             }).join("; ");
 
-            resolveSource.connectSource(preamble + perIp);
+            resolveSource.connectSource(root.shellCmd(preamble + perIp));
         }
 
         // ISO-3166 alpha-2 → emoji flag via regional indicator symbols.
