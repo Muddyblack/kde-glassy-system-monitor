@@ -62,5 +62,6 @@ Right-click the widget and select "Configure Glassy System Monitor" to customize
 * GPU per-engine breakdown (VRAM, compute, decode, encode)
 * Network SSID / IP readout
 * Chart style, line width, smoothing, and glow / GPU bloom
-* Background card visibility, transparency, corner radius, and frosted glass
-* System accent integration or custom colors and text color
+* Background card transparency, per-corner radius, edge highlight, and frosted glass
+* Sensor poll rate, from 250 ms up to 60 s
+* System accent integration or custom colors and text color, with copyable hex codes

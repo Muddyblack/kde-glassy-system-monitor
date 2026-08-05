@@ -290,7 +290,7 @@ Item {
                 radius: height / 2
                 color: plasmoid.configuration.bgColor || "#800d0f1a"
                 border.color: Qt.rgba(1, 1, 1, 0.13)
-                border.width: 1
+                border.width: plasmoid.configuration.cardBorder ? 1 : 0
                 // inner highlight line
                 Rectangle {
                     anchors {
@@ -304,6 +304,7 @@ Item {
                     height: 1
                     radius: 0.5
                     color: Qt.rgba(1, 1, 1, 0.22)
+                    visible: plasmoid.configuration.cardBorder
                 }
             }
 

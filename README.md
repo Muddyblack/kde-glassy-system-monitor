@@ -62,9 +62,11 @@ A glassy real-time system monitor for KDE Plasma 6. Tracks **ping · CPU · memo
 
 - **Glassy look** — semi-transparent dark card with neon glow, same aesthetic as the [Plasma Audio Visualizer](https://github.com/muddyblack/plasma-audio-visualizer)
 - **GPU bloom** — optional GPU-accelerated halo on graph lines, drawn under crisp axis/text so labels stay sharp
-- **Frosted glass** — optional blurred backdrop with adjustable strength
+- **Frosted glass** — blurred card with adjustable strength (on by default; turn it off for a flat translucent card)
 - **Multiple chart styles** — line, bars, donut, pie, horizontal bar
-- **Theming** — honors the active Plasma accent color (or set custom colors per section), system text color, configurable background color and corner radius
+- **Theming** — honors the active Plasma accent color (or set custom colors per section), system text color, configurable background color, and each of the four card corners rounded independently
+- **Copyable color codes** — every color picker shows an editable `#rrggbb` hex field with a copy button; the card color shows `#aarrggbb` so the exact transparency can be reused across stacked widgets
+- **Tunable poll rate** — one base interval drives every sensor, so you can trade update smoothness for CPU
 - **Compact panel mode** — condensed representation for panel placement
 
 ---
@@ -179,7 +181,12 @@ Right-click the widget → *Configure*:
 | **Glow** | on | Neon shadow on graph lines |
 | **GPU bloom** | off | GPU-accelerated halo on graph lines |
 | **Stats bar** | on | Jitter, loss, min/max below the graph |
-| **Background card** | on | Semi-transparent glass card behind the widget |
+| **Update interval** | `1000 ms` | Base sensor poll rate. CPU/network/disk poll at this rate, memory and GPU at 2×, hardware sensors 3×, power 5×, network info 8×, OS info 30×. Floored at 250 ms — every poll forks a shell, so below that the process spawns cost more than the extra detail |
+| **Card color** | `#800d0f1a` | `#aarrggbb`; the first byte is transparency. Editable and copyable next to the picker |
+| **Corner radius** | `12 px` | Set per corner (top-left, top-right, bottom-right, bottom-left) |
+| **Card edge** | on | Hairline border and top highlight — the line that reads as glass |
+| **Frosted glass** | on | GPU blur of the card's own fill. Off gives a flat translucent card |
+| **Frost amount** | `55 %` | Blur strength when frosted glass is on |
 
 ---
 

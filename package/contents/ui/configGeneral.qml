@@ -29,6 +29,7 @@ KCM.SimpleKCM {
     property alias cfg_pingInterval: pingIntervalSpin.value
     property alias cfg_pingTimeout: pingTimeoutSpin.value
     property alias cfg_historySize: historySizeSpin.value
+    property alias cfg_updateInterval: updateIntervalSpin.value
     property alias cfg_latencyThreshold: latencyThresholdSpin.value
     property alias cfg_lossThreshold: lossThresholdSpin.value
     property alias cfg_jitterThreshold: jitterThresholdSpin.value
@@ -75,9 +76,12 @@ KCM.SimpleKCM {
     property alias cfg_gpuColor: gpuColorButton.color
     property alias cfg_gpuShowEngines: gpuShowEnginesCB.checked
     property alias cfg_netShowInfo: netShowInfoCB.checked
-    property alias cfg_showBg: showBgCB.checked
     property alias cfg_bgColor: bgColorRow.color
-    property alias cfg_bgRadius: bgRadiusSlider.value
+    property alias cfg_bgRadiusTL: bgRadiusTLSlider.value
+    property alias cfg_bgRadiusTR: bgRadiusTRSlider.value
+    property alias cfg_bgRadiusBR: bgRadiusBRSlider.value
+    property alias cfg_bgRadiusBL: bgRadiusBLSlider.value
+    property alias cfg_cardBorder: cardBorderCB.checked
     property alias cfg_frostedGlass: frostedGlassCB.checked
     property alias cfg_frostStrength: frostStrengthSlider.value
     property alias cfg_gpuBloom: gpuBloomCB.checked
@@ -597,56 +601,95 @@ KCM.SimpleKCM {
                     Kirigami.FormData.label: i18n("Background")
                 }
 
-                QQC.CheckBox {
-                    id: showBgCB
-                    Kirigami.FormData.label: i18n("Glassy card:")
-                    text: i18n("Show background card behind widget")
-                }
                 ColorHexRow {
                     id: bgColorRow
                     label: i18n("Card color:")
-                    visible: showBgCB.checked
                     showAlpha: true
                 }
                 QQC.Label {
-                    text: i18n("Alpha is the first byte of the hex code (#aarrggbb) — copy it to give stacked widgets an identical transparency. Editable: paste a code and press Enter.")
-                    visible: showBgCB.checked
+                    text: i18n("Alpha is the first byte of the hex code (#aarrggbb) — copy it to give stacked widgets an identical transparency. Editable: paste a code and press Enter. Set alpha to 00 for no card at all.")
                     opacity: 0.50
                     font.pixelSize: 10
                     wrapMode: Text.WordWrap
                     Layout.fillWidth: true
                 }
                 RowLayout {
-                    visible: showBgCB.checked
-                    Kirigami.FormData.label: i18n("Corner radius:")
+                    Kirigami.FormData.label: i18n("Top Left:")
                     QQC.Slider {
-                        id: bgRadiusSlider
+                        id: bgRadiusTLSlider
                         from: 0
                         to: 30
                         stepSize: 1
                         Layout.minimumWidth: 130
                     }
                     QQC.Label {
-                        text: bgRadiusSlider.value.toFixed(0) + " px"
+                        text: bgRadiusTLSlider.value.toFixed(0) + " px"
                         Layout.minimumWidth: 36
                     }
                 }
+                RowLayout {
+                    Kirigami.FormData.label: i18n("Top Right:")
+                    QQC.Slider {
+                        id: bgRadiusTRSlider
+                        from: 0
+                        to: 30
+                        stepSize: 1
+                        Layout.minimumWidth: 130
+                    }
+                    QQC.Label {
+                        text: bgRadiusTRSlider.value.toFixed(0) + " px"
+                        Layout.minimumWidth: 36
+                    }
+                }
+                RowLayout {
+                    Kirigami.FormData.label: i18n("Bottom Right:")
+                    QQC.Slider {
+                        id: bgRadiusBRSlider
+                        from: 0
+                        to: 30
+                        stepSize: 1
+                        Layout.minimumWidth: 130
+                    }
+                    QQC.Label {
+                        text: bgRadiusBRSlider.value.toFixed(0) + " px"
+                        Layout.minimumWidth: 36
+                    }
+                }
+                RowLayout {
+                    Kirigami.FormData.label: i18n("Bottom Left:")
+                    QQC.Slider {
+                        id: bgRadiusBLSlider
+                        from: 0
+                        to: 30
+                        stepSize: 1
+                        Layout.minimumWidth: 130
+                    }
+                    QQC.Label {
+                        text: bgRadiusBLSlider.value.toFixed(0) + " px"
+                        Layout.minimumWidth: 36
+                    }
+                }
+
+                QQC.CheckBox {
+                    id: cardBorderCB
+                    Kirigami.FormData.label: i18n("Card edge:")
+                    text: i18n("Hairline border and top highlight")
+                }
                 QQC.CheckBox {
                     id: frostedGlassCB
-                    visible: showBgCB.checked
                     Kirigami.FormData.label: i18n("Frosted glass:")
                     text: i18n("Soft GPU-blurred glass card")
                 }
                 QQC.Label {
-                    text: i18n("Blurs the card's own fill for a premium frosted look (GPU-accelerated). Plasma can't blur the desktop behind the widget, so this frosts the card itself.")
-                    visible: showBgCB.checked && frostedGlassCB.checked
+                    text: i18n("Blurs the card's own fill for a premium frosted look (GPU-accelerated). Plasma can't blur the desktop behind the widget, so this frosts the card itself. Off gives a flat translucent card.")
+                    visible: frostedGlassCB.checked
                     opacity: 0.50
                     font.pixelSize: 10
                     wrapMode: Text.WordWrap
                     Layout.fillWidth: true
                 }
                 RowLayout {
-                    visible: showBgCB.checked && frostedGlassCB.checked
+                    visible: frostedGlassCB.checked
                     Kirigami.FormData.label: i18n("Frost amount:")
                     QQC.Slider {
                         id: frostStrengthSlider
@@ -829,6 +872,33 @@ KCM.SimpleKCM {
                 }
 
                 // Display ─────────────────────────────────────────────────────
+                Kirigami.Separator {
+                    Kirigami.FormData.isSection: true
+                    Kirigami.FormData.label: i18n("Polling")
+                }
+
+                RowLayout {
+                    Kirigami.FormData.label: i18n("Update interval:")
+                    QQC.SpinBox {
+                        id: updateIntervalSpin
+                        from: 250
+                        to: 60000
+                        stepSize: 250
+                        editable: true
+                    }
+                    QQC.Label {
+                        text: i18n("ms (%1 s)", (updateIntervalSpin.value / 1000).toFixed(2))
+                        opacity: 0.55
+                    }
+                }
+                QQC.Label {
+                    text: i18n("Base polling rate for all sensors. CPU, Network and Disk poll at this rate; Memory and GPU at 2x; Network info at 8x; Hardware Sensors at 3x; Power at 5x; OS Info at 30x. Higher values use less CPU — every poll forks a shell, so below ~500 ms the process spawns cost more than the extra detail is worth.")
+                    opacity: 0.50
+                    font.pixelSize: 10
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                }
+
                 Kirigami.Separator {
                     Kirigami.FormData.isSection: true
                     Kirigami.FormData.label: i18n("Display")

@@ -31,7 +31,7 @@ PlasmoidItem {
     Layout.preferredHeight: {
         if (root.isInPanel)
             return -1;
-        const m = plasmoid.configuration.showBg ? 16 : 4;
+        const m = 16;
         const title = 24;
         const stats = plasmoid.configuration.showStats && root.showPingSection ? 28 : 0;
         const legend = plasmoid.configuration.showLegend ? 18 : 0;
@@ -193,51 +193,205 @@ PlasmoidItem {
     // important when multiple instances are placed on the desktop.
     property int scrollTick: 0
     readonly property int _tickInterval: Math.max(8, Math.round(1000 / Math.max(15, plasmoid.configuration.targetFps || 60)))
+
+    // Base sensor poll period in milliseconds; the slower sensors are plain
+    // multiples of it (see main.xml). Floored at 250 ms because every tick forks
+    // a shell through the executable engine — below that the process spawns cost
+    // far more than the extra resolution is worth.
+    readonly property int _pollBase: Math.max(250, plasmoid.configuration.updateInterval || 1000)
     // Phase windows are normalised to 1.0 = one full data interval.
     // Keep the threshold just above 1.0 so the animation expires between
     // data updates rather than staying permanently active.
-    readonly property bool _anyAnimating: plasmoid.configuration.smoothScroll && ((root.showPingSection && root._pingPhaseStart > 0 && root.pingScrollPhase() < 1.05) || (root.showNetworkSpeed && root._netPhaseStart > 0 && root.netScrollPhase() < 1.05) || (root.showCpuSection && root._cpuPhaseStart > 0 && root.cpuScrollPhase() < 1.05) || (root.showMemorySection && root._memPhaseStart > 0 && root.memScrollPhase() < 1.05) || (root.showDiskSection && root._dskPhaseStart > 0 && root.diskScrollPhase() < 1.05) || (root.showCustomSection && root._custPhaseStart > 0 && root.custScrollPhase() < 1.05) || (root.showGpuSection && root._gpuPhaseStart > 0 && root.gpuScrollPhase() < 1.05))
+    // NOTE: We deliberately do NOT use a readonly binding for "is anything
+    // animating?". The phase functions read Date.now(), which Qt's binding
+    // system cannot track, so such a binding would never re-evaluate to
+    // false once data arrives, and the ticker would run forever (a major
+    // source of constant CPU). Instead the ticker is started on each data
+    // update and stops ITSELF once every phase has expired past 1.0.
+    function _anyAnimatingNow() {
+        if (!plasmoid.configuration.smoothScroll)
+            return false;
+        if (root.showPingSection && root._pingPhaseStart > 0 && root.pingScrollPhase() < 1.05)
+            return true;
+        if (root.showNetworkSpeed && root._netPhaseStart > 0 && root.netScrollPhase() < 1.05)
+            return true;
+        if (root.showCpuSection && root._cpuPhaseStart > 0 && root.cpuScrollPhase() < 1.05)
+            return true;
+        if (root.showMemorySection && root._memPhaseStart > 0 && root.memScrollPhase() < 1.05)
+            return true;
+        if (root.showDiskSection && root._dskPhaseStart > 0 && root.diskScrollPhase() < 1.05)
+            return true;
+        if (root.showCustomSection && root._custPhaseStart > 0 && root.custScrollPhase() < 1.05)
+            return true;
+        if (root.showGpuSection && root._gpuPhaseStart > 0 && root.gpuScrollPhase() < 1.05)
+            return true;
+        return false;
+    }
+
+    // Start the ticker whenever new data lands on any channel. The ticker
+    // then stops itself once all phases have expired (see onTriggered).
+    function _ensureScrollTicker() {
+        if (plasmoid.configuration.smoothScroll && !scrollTicker.running)
+            scrollTicker.start();
+    }
+    // ── background card ───────────────────────────────────────────────────────
+    // Per-corner radii, read as direct property bindings so Qt tracks them and
+    // the canvases repaint by themselves (a plasmoid.configuration[name] lookup
+    // is opaque to the binding engine and would need manual change handlers).
+    readonly property real _radTL: plasmoid.configuration.bgRadiusTL || 0
+    readonly property real _radTR: plasmoid.configuration.bgRadiusTR || 0
+    readonly property real _radBR: plasmoid.configuration.bgRadiusBR || 0
+    readonly property real _radBL: plasmoid.configuration.bgRadiusBL || 0
+    readonly property real _radMax: Math.max(_radTL, _radTR, _radBR, _radBL)
+
+    // Rounded-rect path with four independent corners. QtQuick's Rectangle has a
+    // single radius, so every card pass (fill, frost source, frost mask, edge)
+    // draws through this one builder to stay pixel-identical.
+    function _cardPath(ctx, w, h, inset) {
+        const i = inset || 0;
+        const tl = Math.max(0, root._radTL - i);
+        const tr = Math.max(0, root._radTR - i);
+        const br = Math.max(0, root._radBR - i);
+        const bl = Math.max(0, root._radBL - i);
+        const x0 = i, y0 = i, x1 = w - i, y1 = h - i;
+        ctx.beginPath();
+        ctx.moveTo(x0 + tl, y0);
+        ctx.lineTo(x1 - tr, y0);
+        ctx.arcTo(x1, y0, x1, y0 + tr, tr);
+        ctx.lineTo(x1, y1 - br);
+        ctx.arcTo(x1, y1, x1 - br, y1, br);
+        ctx.lineTo(x0 + bl, y1);
+        ctx.arcTo(x0, y1, x0, y1 - bl, bl);
+        ctx.lineTo(x0, y0 + tl);
+        ctx.arcTo(x0, y0, x0 + tl, y0, tl);
+        ctx.closePath();
+    }
+
+    // One canvas type for every card pass; `mode` picks what it draws. Repaints
+    // are driven by the bound radii/colour above plus its own geometry.
+    component CardCanvas: Canvas {
+        id: cardCanvas
+        property int mode: 0    // 0 = flat fill, 1 = frost source, 2 = mask, 3 = edge
+        anchors.fill: parent
+        antialiasing: true
+        renderStrategy: Canvas.Image
+
+        readonly property real rTL: root._radTL
+        readonly property real rTR: root._radTR
+        readonly property real rBR: root._radBR
+        readonly property real rBL: root._radBL
+        readonly property color fill: plasmoid.configuration.bgColor || "#800d0f1a"
+
+        onRTLChanged: requestPaint()
+        onRTRChanged: requestPaint()
+        onRBRChanged: requestPaint()
+        onRBLChanged: requestPaint()
+        onFillChanged: requestPaint()
+        onWidthChanged: requestPaint()
+        onHeightChanged: requestPaint()
+        Component.onCompleted: requestPaint()
+
+        onPaint: {
+            if (width < 1 || height < 1)
+                return;
+            const ctx = getContext("2d");
+            ctx.reset();
+
+            if (mode === 2) {
+                // Opaque mask: rounds off the blurred composite. A Rectangle
+                // radius + clip would only clip the square bbox, letting the
+                // blur leak past the corners.
+                root._cardPath(ctx, width, height);
+                ctx.fillStyle = "black";
+                ctx.fill();
+                return;
+            }
+
+            if (mode === 3) {
+                // Crisp edge drawn live on top of the blur — blurring it would
+                // muddy the very line that sells the glass. Inset by half the
+                // stroke so the hairline sits inside the card.
+                root._cardPath(ctx, width, height, 0.5);
+                ctx.lineWidth = 1;
+                ctx.strokeStyle = Qt.rgba(1, 1, 1, 0.13);
+                ctx.stroke();
+                // 1px top highlight, inset from the corners like the old card.
+                const inset = 12;
+                if (width > inset * 2) {
+                    ctx.beginPath();
+                    ctx.moveTo(inset, 1.5);
+                    ctx.lineTo(width - inset, 1.5);
+                    ctx.strokeStyle = Qt.rgba(1, 1, 1, 0.21);
+                    ctx.stroke();
+                }
+                return;
+            }
+
+            root._cardPath(ctx, width, height);
+            ctx.fillStyle = fill;
+            ctx.fill();
+
+            if (mode === 1) {
+                // Vertical sheen baked into the blur source so the blur smears
+                // it into a soft glass gradient rather than a flat tint.
+                const g = ctx.createLinearGradient(0, 0, 0, height);
+                g.addColorStop(0.0, Qt.rgba(1, 1, 1, 0.10));
+                g.addColorStop(0.35, Qt.rgba(1, 1, 1, 0.025));
+                g.addColorStop(1.0, Qt.rgba(0, 0, 0, 0.06));
+                ctx.fillStyle = g;
+                ctx.fill();
+            }
+        }
+    }
     Timer {
         id: scrollTicker
         interval: root._tickInterval
         repeat: true
-        running: root._anyAnimating
+        running: false
         onTriggered: {
-            // Advance every tick. The interval is already derived from targetFps,
-            // so the previous "skip every 3rd frame" only added an uneven 2-on/
-            // 1-off cadence (16/16/33 ms) — the very stutter it claimed to avoid.
             root.scrollTick = (root.scrollTick + 1) & 0x7fffffff;
+            // Self-disable: once no phase is still animating, stop the timer so
+            // we do not keep repainting canvases (and burning CPU) between updates.
+            if (!root._anyAnimatingNow())
+                scrollTicker.stop();
         }
     }
 
     onHistoriesChanged: {
         _pingInterval = _measureInterval(_pingPhaseStart, _pingInterval, 200, 30000);
         _pingPhaseStart = Date.now();
+        _ensureScrollTicker();
     }
     onDlHistoryChanged: {
         _netInterval = _measureInterval(_netPhaseStart, _netInterval, 200, 8000);
         _netPhaseStart = Date.now();
+        _ensureScrollTicker();
     }
     onCpuHistoryChanged: {
         _cpuInterval = _measureInterval(_cpuPhaseStart, _cpuInterval, 200, 8000);
         _cpuPhaseStart = Date.now();
+        _ensureScrollTicker();
     }
     onMemHistoryChanged: {
         _memInterval = _measureInterval(_memPhaseStart, _memInterval, 400, 16000);
         _memPhaseStart = Date.now();
+        _ensureScrollTicker();
     }
     onCustomHistoryChanged: {
         _custInterval = _measureInterval(_custPhaseStart, _custInterval, 200, 120000);
         _custPhaseStart = Date.now();
+        _ensureScrollTicker();
     }
     onGpuHistoryChanged: {
         _gpuInterval = _measureInterval(_gpuPhaseStart, _gpuInterval, 400, 16000);
         _gpuPhaseStart = Date.now();
+        _ensureScrollTicker();
     }
 
     function restartDiskScroll() {
         _dskInterval = _measureInterval(_dskPhaseStart, _dskInterval, 200, 8000);
         _dskPhaseStart = Date.now();
+        _ensureScrollTicker();
     }
 
     // ── ping state ────────────────────────────────────────────────────────────
@@ -371,7 +525,7 @@ PlasmoidItem {
         }
     }
     Timer {
-        interval: 1000
+        interval: root._pollBase
         running: root.showNetworkSpeed
         repeat: true
         onTriggered: {
@@ -400,7 +554,7 @@ PlasmoidItem {
         }
     }
     Timer {
-        interval: 8000
+        interval: root._pollBase * 8
         running: root.showNetworkSpeed && plasmoid.configuration.netShowInfo
         repeat: true
         triggeredOnStart: true
@@ -503,7 +657,7 @@ PlasmoidItem {
         }
     }
     Timer {
-        interval: 1000
+        interval: root._pollBase
         running: root.showCpuSection
         repeat: true
         onTriggered: {
@@ -594,7 +748,7 @@ PlasmoidItem {
         }
     }
     Timer {
-        interval: 2000
+        interval: root._pollBase * 2
         running: root.showMemorySection
         repeat: true
         onTriggered: {
@@ -854,7 +1008,7 @@ PlasmoidItem {
     }
 
     Timer {
-        interval: 2000
+        interval: root._pollBase * 2
         running: root.showGpuSection
         repeat: true
         onTriggered: {
@@ -1096,7 +1250,7 @@ PlasmoidItem {
     }
 
     Timer {
-        interval: 3000
+        interval: root._pollBase * 3
         running: root.showHwSensors && root.visible
         repeat: true
         triggeredOnStart: true
@@ -1360,7 +1514,7 @@ PlasmoidItem {
     }
 
     Timer {
-        interval: 30000
+        interval: root._pollBase * 30
         running: root.showOsInfo && root.visible
         repeat: true
         triggeredOnStart: true
@@ -1397,7 +1551,7 @@ PlasmoidItem {
     }
 
     Timer {
-        interval: 5000
+        interval: root._pollBase * 5
         running: root.showPowerSection && root.visible
         repeat: true
         triggeredOnStart: true
@@ -1538,69 +1692,32 @@ PlasmoidItem {
     fullRepresentation: Item {
         id: container
 
-        // glassy background card — flat path (frostedGlass off)
-        Rectangle {
-            anchors.fill: parent
-            radius: plasmoid.configuration.bgRadius
-            visible: plasmoid.configuration.showBg && !plasmoid.configuration.frostedGlass
-            color: plasmoid.configuration.bgColor
-            border.color: Qt.rgba(1, 1, 1, 0.12)
-            border.width: 1
-            Rectangle {
-                anchors {
-                    left: parent.left
-                    right: parent.right
-                    top: parent.top
-                }
-                anchors.leftMargin: 12
-                anchors.rightMargin: 12
-                anchors.topMargin: 1
-                height: 1
-                radius: 0.5
-                color: Qt.rgba(1, 1, 1, 0.20)
-            }
+        readonly property bool _frosted: plasmoid.configuration.frostedGlass
+
+        // Flat card — the plain translucent fill (frosted glass off).
+        CardCanvas {
+            mode: 0
+            visible: !container._frosted
         }
 
         // ── frosted-glass card (frostedGlass on) ─────────────────────────────
-        // Composite the fill + tint + top highlight into one hidden source, blur
-        // it on the GPU, then round the whole result with a mask pass. Plasma
-        // exposes no backdrop-blur API to QML, so this frosts the card's OWN
-        // fill — a soft premium glass look that is GPU-cheap and doesn't touch
-        // the CPU canvas path. Same structure as the Audio Visualizer card.
-        readonly property bool _frosted: plasmoid.configuration.showBg && plasmoid.configuration.frostedGlass
-
-        Rectangle {
+        // Composite the fill + sheen into one hidden source, blur it on the GPU,
+        // then round the result with a mask pass. Plasma exposes no backdrop-blur
+        // API to QML, so this frosts the card's OWN fill — a soft premium glass
+        // look that is GPU-cheap and doesn't touch the CPU canvas path.
+        CardCanvas {
             id: frostSource
-            anchors.fill: parent
+            mode: 1
             visible: false
-            radius: plasmoid.configuration.bgRadius
-            color: plasmoid.configuration.bgColor
-
-            // Diagonal sheen baked into the source so the blur smears it into a
-            // soft glass gradient rather than a flat tint.
-            Rectangle {
-                anchors.fill: parent
-                radius: parent.radius
-                gradient: Gradient {
-                    orientation: Gradient.Vertical
-                    GradientStop {
-                        position: 0.0
-                        color: Qt.rgba(1, 1, 1, 0.10)
-                    }
-                    GradientStop {
-                        position: 0.35
-                        color: Qt.rgba(1, 1, 1, 0.025)
-                    }
-                    GradientStop {
-                        position: 1.0
-                        color: Qt.rgba(0, 0, 0, 0.06)
-                    }
-                }
-            }
+            layer.enabled: container._frosted
         }
-
+        CardCanvas {
+            id: frostMask
+            mode: 2
+            visible: false
+            layer.enabled: container._frosted
+        }
         MultiEffect {
-            id: frostEffect
             anchors.fill: parent
             visible: container._frosted
             source: frostSource
@@ -1612,48 +1729,18 @@ PlasmoidItem {
             maskSource: frostMask
         }
 
-        // Rounded alpha mask for the frosted composite — rendered to a texture,
-        // never shown. (A Rectangle radius+clip only clips to the square bbox,
-        // so the blur would otherwise leak past the rounded corners.)
-        Rectangle {
-            id: frostMask
-            anchors.fill: parent
-            radius: plasmoid.configuration.bgRadius
-            color: "black"
-            visible: false
-            layer.enabled: true
-        }
-
-        // Crisp border + 1px top highlight drawn LIVE on top of the blur so they
-        // stay sharp (blurring them would muddy the edge that sells the glass).
-        Rectangle {
-            anchors.fill: parent
-            visible: container._frosted
-            radius: plasmoid.configuration.bgRadius
-            color: "transparent"
-            antialiasing: true
-            border.color: Qt.rgba(1, 1, 1, 0.14)
-            border.width: 1
-            Rectangle {
-                anchors {
-                    left: parent.left
-                    right: parent.right
-                    top: parent.top
-                }
-                anchors.leftMargin: 12
-                anchors.rightMargin: 12
-                anchors.topMargin: 1
-                height: 1
-                radius: 0.5
-                color: Qt.rgba(1, 1, 1, 0.22)
-            }
+        // Hairline border + top highlight, drawn last so it stays crisp over
+        // the blur. The edge is what reads as "glass".
+        CardCanvas {
+            mode: 3
+            visible: plasmoid.configuration.cardBorder
         }
 
         // alert pulse ring
         Rectangle {
             id: alertRing
             anchors.fill: parent
-            radius: plasmoid.configuration.bgRadius
+            radius: root._radMax
             color: "transparent"
             border.color: root.pingCritColor
             border.width: 2
@@ -1685,7 +1772,7 @@ PlasmoidItem {
 
         ColumnLayout {
             anchors.fill: parent
-            anchors.margins: plasmoid.configuration.showBg ? 10 : 2
+            anchors.margins: 10
             spacing: 4
 
             // title row — centered label + optional CPU total on the right

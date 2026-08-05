@@ -14,3 +14,6 @@ result
 
 # System junk
 .DS_Store
+.claude
+.kilo
+.codex

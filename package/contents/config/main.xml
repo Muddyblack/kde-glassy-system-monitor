@@ -32,6 +32,16 @@
             <default>60</default>
         </entry>
 
+        <!-- Base polling interval in MILLISECONDS. CPU/Network/Disk poll at this
+             rate; Memory/GPU at 2×; Network info at 8×; Hardware Sensors at 3×;
+             Power at 5×; OS Info at 30×. Higher = less CPU.
+             Floored at 250 ms in main.qml: every tick forks a shell through the
+             executable engine, so sub-250 ms costs far more in process spawns
+             than it gains in resolution. -->
+        <entry name="updateInterval" type="Int">
+            <default>1000</default>
+        </entry>
+
         <!-- Alert thresholds -->
         <entry name="latencyThreshold" type="Int">
             <default>100</default>
@@ -125,26 +135,37 @@
         <entry name="showYLabels" type="Bool">
             <default>true</default>
         </entry>
-        <entry name="showBg" type="Bool">
-            <default>true</default>
-        </entry>
         <entry name="bgColor" type="String">
             <default>#800d0f1a</default>
         </entry>
-        <entry name="bgRadius" type="Double">
+        <entry name="bgRadiusTL" type="Double">
+            <default>12.0</default>
+        </entry>
+        <entry name="bgRadiusTR" type="Double">
+            <default>12.0</default>
+        </entry>
+        <entry name="bgRadiusBR" type="Double">
+            <default>12.0</default>
+        </entry>
+        <entry name="bgRadiusBL" type="Double">
             <default>12.0</default>
         </entry>
         <!-- Frosted-glass card: composite the card fill + tint through a GPU
-             MultiEffect blur instead of a flat translucent rect, for a soft
+             MultiEffect blur instead of a flat translucent fill, for a soft
              premium frost. Self-content blur (Plasma exposes no backdrop-blur
              API to QML), so it frosts the card's own fill/highlight, not the
-             desktop behind it. Falls back to the flat card when disabled. -->
+             desktop behind it. Off = the flat card. -->
         <entry name="frostedGlass" type="Bool">
             <default>true</default>
         </entry>
         <!-- How strongly the frosted card is blurred (0 = crisp, 1 = heavy). -->
         <entry name="frostStrength" type="Double">
             <default>0.55</default>
+        </entry>
+        <!-- Hairline border + 1px top highlight around the card — the edge that
+             reads as "glass". Off = the flat borderless card. -->
+        <entry name="cardBorder" type="Bool">
+            <default>true</default>
         </entry>
         <!-- GPU bloom for chart glow: render the glow halo with a MultiEffect
              blur pass on the GPU instead of per-stroke Context2D shadowBlur on
