@@ -5,6 +5,7 @@ import org.kde.kirigami as Kirigami
 import org.kde.kcmutils as KCM
 import org.kde.kquickcontrols as KQuickControls
 import org.kde.plasma.plasma5support as P5Support
+import "OsFetch.js" as OsFetch
 
 KCM.SimpleKCM {
     id: root
@@ -95,6 +96,13 @@ KCM.SimpleKCM {
     property alias cfg_hwTempWarn: hwTempWarnSpin.value
     property alias cfg_hwTempCrit: hwTempCritSpin.value
     property alias cfg_osInfoTitle: osInfoTitleField.text
+    property alias cfg_osUseFetch: osUseFetchCB.checked
+    property alias cfg_osFetchCmd: osFetchCmdField.text
+    property alias cfg_osPlainText: osPlainTextCB.checked
+    property alias cfg_osShowLogo: osShowLogoCB.checked
+    // StringList — bound directly rather than via an alias, since there is no
+    // single control backing it.
+    property var cfg_osFieldRules: []
     property alias cfg_powerTitle: powerTitleField.text
 
     // Hidden fields for new section title aliases
@@ -378,7 +386,70 @@ KCM.SimpleKCM {
             root.detectedGpus = gpus;
         }
     }
+    // ── OS Info field detection ───────────────────────────────────────────────
+    // Runs the same probe main.qml uses, so what the list shows is exactly what
+    // the widget would render.
+    property bool osProbing: false
+    property string osProbeTool: ""
+    property string osProbeError: ""
+    ListModel {
+        id: osFieldModel
+    }
+
+    P5Support.DataSource {
+        id: osProbeSource
+        engine: "executable"
+        connectedSources: []
+        onNewData: function (sourceName, data) {
+            osProbeSource.disconnectSource(sourceName);
+            root.osProbing = false;
+            const r = OsFetch.parse(data["stdout"] || "");
+            root.osProbeTool = r.tool;
+            if (!r.tool) {
+                root.osProbeError = i18n("No fetch tool found. Install fastfetch or neofetch, or set a custom command above.");
+                return;
+            }
+            root.osProbeError = "";
+            const merged = OsFetch.mergeRules(r.rows, root.cfg_osFieldRules);
+            osFieldModel.clear();
+            for (let i = 0; i < merged.length; i++)
+                osFieldModel.append(merged[i]);
+        }
+    }
+
+    function osProbe() {
+        if (root.osProbing)
+            return;
+        root.osProbing = true;
+        root.osProbeError = "";
+        osProbeSource.connectSource(OsFetch.probeCmd(root.cfg_osFetchCmd));
+    }
+
+    // Serialises the model back into the "key" / "!key" rule list.
+    function osSaveFields() {
+        const out = [];
+        for (let i = 0; i < osFieldModel.count; i++) {
+            const it = osFieldModel.get(i);
+            out.push(OsFetch.makeRule(it.key, it.enabled));
+        }
+        root.cfg_osFieldRules = out;
+    }
+
+    function osMoveField(from, to) {
+        if (to < 0 || to >= osFieldModel.count || from === to)
+            return;
+        osFieldModel.move(from, to, 1);
+        root.osSaveFields();
+    }
+
     Component.onCompleted: {
+        // Show any saved rules straight away so they stay editable without
+        // paying for a probe run (a full fetch is ~0.5 s). "Run test" fills in
+        // live sample values and picks up newly reported fields.
+        const saved = OsFetch.mergeRules([], root.cfg_osFieldRules);
+        for (let i = 0; i < saved.length; i++)
+            osFieldModel.append(saved[i]);
+
         ifaceSource.connectSource("cat /proc/net/dev");
         diskDetectSource.connectSource("cat /proc/diskstats");
         // Same enumeration main.qml uses, plus an lspci lookup for a readable name.
@@ -962,7 +1033,13 @@ KCM.SimpleKCM {
                 Layout.fillWidth: true
                 // This tab uses an internal Flickable (no natural implicit height),
                 // so give the stack an explicit height for it instead of collapsing.
-                Layout.preferredHeight: 520
+                // It has to follow the form's real height rather than a fixed value:
+                // a constant clipped tall sections (the OS field list runs to ~700 px)
+                // at a fixed point regardless of window size. Growing with the content
+                // lets SimpleKCM's own scroll view do the scrolling, so there is no
+                // nested scroll area. The floor keeps the category list usable when a
+                // section's settings are short.
+                Layout.preferredHeight: Math.max(520, sensorDetailForm.implicitHeight + Kirigami.Units.largeSpacing * 2)
                 spacing: 0
 
                 // ── Left: category list ──────────────────────────────────────
@@ -1684,6 +1761,167 @@ KCM.SimpleKCM {
                             opacity: 0.55
                             font.pixelSize: 10
                             Layout.fillWidth: true
+                        }
+                        QQC.CheckBox {
+                            id: osUseFetchCB
+                            visible: cfg_activeSection === 8
+                            text: i18n("Use a system fetch tool when available")
+                        }
+                        QQC.Label {
+                            visible: cfg_activeSection === 8
+                            text: i18n("Looks for fastfetch, neofetch, screenfetch, macchina or hyfetch (in that order) and shows everything the first one found reports. Falls back to the four built-in rows when none is installed.")
+                            wrapMode: Text.WordWrap
+                            opacity: 0.55
+                            font.pixelSize: 10
+                            Layout.fillWidth: true
+                        }
+                        QQC.TextField {
+                            id: osFetchCmdField
+                            visible: cfg_activeSection === 8 && osUseFetchCB.checked
+                            Kirigami.FormData.label: i18n("Custom command:")
+                            placeholderText: "fastfetch --logo none --pipe true"
+                            Layout.fillWidth: true
+                        }
+                        QQC.Label {
+                            visible: cfg_activeSection === 8 && osUseFetchCB.checked
+                            text: i18n("Optional. Must print \"Key: Value\" lines to stdout. Auto-detection takes over if this command is not installed.")
+                            wrapMode: Text.WordWrap
+                            opacity: 0.55
+                            font.pixelSize: 10
+                            Layout.fillWidth: true
+                        }
+                        QQC.CheckBox {
+                            id: osShowLogoCB
+                            visible: cfg_activeSection === 8 && osUseFetchCB.checked
+                            text: i18n("Show distribution logo")
+                        }
+                        QQC.CheckBox {
+                            id: osPlainTextCB
+                            visible: cfg_activeSection === 8 && osUseFetchCB.checked
+                            text: i18n("Plain text output")
+                        }
+                        QQC.Label {
+                            visible: cfg_activeSection === 8 && osUseFetchCB.checked
+                            text: i18n("Renders the tool output verbatim in a monospace block instead of aligned rows.")
+                            wrapMode: Text.WordWrap
+                            opacity: 0.55
+                            font.pixelSize: 10
+                            Layout.fillWidth: true
+                        }
+
+                        // FIELD PICKER ────────────────────────────────────────
+                        // Plain-text mode prints the tool output verbatim, so
+                        // per-field rules do not apply there.
+                        Kirigami.Separator {
+                            visible: cfg_activeSection === 8 && osUseFetchCB.checked && !osPlainTextCB.checked
+                            Kirigami.FormData.isSection: true
+                            Kirigami.FormData.label: i18n("Fields")
+                        }
+                        RowLayout {
+                            visible: cfg_activeSection === 8 && osUseFetchCB.checked && !osPlainTextCB.checked
+                            Layout.fillWidth: true
+                            spacing: 8
+
+                            QQC.Button {
+                                text: root.osProbing ? i18n("Running…") : i18n("Run test")
+                                enabled: !root.osProbing
+                                icon.name: "system-run"
+                                onClicked: root.osProbe()
+                            }
+                            QQC.Button {
+                                text: i18n("Reset order")
+                                icon.name: "edit-undo"
+                                visible: osFieldModel.count > 0
+                                onClicked: {
+                                    root.cfg_osFieldRules = [];
+                                    root.osProbe();
+                                }
+                            }
+                            QQC.Label {
+                                Layout.fillWidth: true
+                                text: root.osProbeError ? root.osProbeError : root.osProbeTool ? i18n("%1 — %2 fields", root.osProbeTool, osFieldModel.count) : i18n("Run the detected command and list the fields it reports.")
+                                color: root.osProbeError ? Kirigami.Theme.negativeTextColor : Kirigami.Theme.textColor
+                                opacity: root.osProbeError ? 1.0 : 0.55
+                                wrapMode: Text.WordWrap
+                                font.pixelSize: 10
+                            }
+                        }
+                        QQC.Label {
+                            visible: cfg_activeSection === 8 && osUseFetchCB.checked && !osPlainTextCB.checked && osFieldModel.count > 0
+                            text: i18n("Uncheck to hide a field, or reorder with the arrows. Fields a future tool version adds are shown automatically at the end.")
+                            wrapMode: Text.WordWrap
+                            opacity: 0.55
+                            font.pixelSize: 10
+                            Layout.fillWidth: true
+                        }
+                        // Rendered as a plain ColumnLayout of natural-height rows
+                        // rather than a fixed-height ListView. Kirigami.FormLayout
+                        // never assigns its children a height (FormLayout.qml syncs
+                        // "item.width = width" with no height counterpart), so any
+                        // box relying on Layout.preferredHeight gets squeezed and
+                        // clips its contents. Letting the rows size themselves and
+                        // the settings page scroll also avoids a nested scroll area
+                        // that steals wheel events from the form.
+                        ColumnLayout {
+                            visible: cfg_activeSection === 8 && osUseFetchCB.checked && !osPlainTextCB.checked && osFieldModel.count > 0
+                            Layout.fillWidth: true
+                            Layout.topMargin: Kirigami.Units.smallSpacing
+                            spacing: 0
+
+                            Repeater {
+                                model: osFieldModel
+
+                                delegate: Rectangle {
+                                    Layout.fillWidth: true
+                                    implicitHeight: 28
+                                    color: index % 2 === 0 ? "transparent" : Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.05)
+                                    radius: 2
+
+                                    RowLayout {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 2
+                                        anchors.rightMargin: 2
+                                        spacing: 4
+
+                                        QQC.CheckBox {
+                                            checked: model.enabled
+                                            onToggled: {
+                                                osFieldModel.setProperty(index, "enabled", checked);
+                                                root.osSaveFields();
+                                            }
+                                        }
+                                        QQC.Label {
+                                            text: model.key
+                                            // A key kept from the saved rules that the
+                                            // tool no longer reports — still editable,
+                                            // just not currently in the output.
+                                            opacity: model.present ? 1.0 : 0.5
+                                            font.italic: !model.present
+                                            Layout.preferredWidth: 150
+                                            elide: Text.ElideRight
+                                        }
+                                        QQC.Label {
+                                            text: model.present ? model.sample : i18n("not reported")
+                                            opacity: 0.5
+                                            font.pixelSize: 10
+                                            Layout.fillWidth: true
+                                            elide: Text.ElideRight
+                                        }
+                                        QQC.ToolButton {
+                                            icon.name: "arrow-up"
+                                            enabled: index > 0
+                                            implicitWidth: 24
+                                            onClicked: root.osMoveField(index, index - 1)
+                                        }
+                                        QQC.ToolButton {
+                                            icon.name: "arrow-down"
+                                            enabled: index < osFieldModel.count - 1
+                                            implicitWidth: 24
+                                            onClicked: root.osMoveField(index, index + 1)
+                                        }
+                                    }
+                                }
+                            }
                         }
 
                         // POWER & PRESSURE ────────────────────────────────────

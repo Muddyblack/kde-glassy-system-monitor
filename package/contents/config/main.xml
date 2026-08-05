@@ -301,6 +301,34 @@
         <entry name="osInfoTitle" type="String">
             <default>System Info</default>
         </entry>
+        <!-- When on, the section is populated by a system "fetch" tool
+             (fastfetch, neofetch, screenfetch …) if one is installed, giving far
+             more rows than the built-in reader. Falls back to the built-in
+             OS/Kernel/Host/Uptime reader when no tool is found. -->
+        <entry name="osUseFetch" type="Bool">
+            <default>true</default>
+        </entry>
+        <!-- Overrides auto-detection. Must print "Key: Value" lines on stdout.
+             Ignored if its binary is not on PATH, in which case auto-detection
+             takes over again. -->
+        <entry name="osFetchCmd" type="String">
+            <default></default>
+        </entry>
+        <!-- Render the tool output verbatim in a monospace block instead of
+             parsing it into label/value rows. -->
+        <entry name="osPlainText" type="Bool">
+            <default>false</default>
+        </entry>
+        <entry name="osShowLogo" type="Bool">
+            <default>true</default>
+        </entry>
+        <!-- Ordered field rules for the fetch output. Each item is a key, or
+             "!key" when hidden. Keys absent from this list default to visible
+             and are appended in the tool's own order, so fields added by a tool
+             update appear rather than being silently dropped. -->
+        <entry name="osFieldRules" type="StringList">
+            <default></default>
+        </entry>
 
         <!-- Power & Pressure -->
         <entry name="powerTitle" type="String">

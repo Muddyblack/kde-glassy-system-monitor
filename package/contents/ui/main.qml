@@ -5,6 +5,7 @@ import org.kde.plasma.plasmoid
 import org.kde.plasma.core as PlasmaCore
 import org.kde.plasma.plasma5support as P5Support
 import org.kde.kirigami as Kirigami
+import "OsFetch.js" as OsFetch
 
 PlasmoidItem {
     id: root
@@ -426,10 +427,9 @@ PlasmoidItem {
     // The "executable" engine does NOT run its source through a shell — it splits
     // the string into argv and execs directly. Any command using pipes, redirection,
     // `;`, `||`, `$(...)`, globs or loops must therefore be handed to an explicit
-    // shell, or the metacharacters arrive as literal arguments. Single quotes in the
-    // payload are escaped the POSIX way ('\'').
+    // shell, or the metacharacters arrive as literal arguments.
     function shellCmd(cmd) {
-        return "sh -c '" + cmd.replace(/'/g, "'\\''") + "'";
+        return OsFetch.shellCmd(cmd);
     }
 
     P5Support.DataSource {
@@ -1531,6 +1531,58 @@ PlasmoidItem {
             const cmd = "grep -m1 PRETTY_NAME /etc/os-release 2>/dev/null | cut -d= -f2 | tr -d '\"'; " + "uname -r 2>/dev/null; " + "cat /etc/hostname 2>/dev/null || hostname 2>/dev/null; " + "awk '{d=int($1/86400);h=int(($1%86400)/3600);m=int(($1%3600)/60);" + "if(d>0)printf \"%dd %dh %dm\\n\",d,h,m;" + "else if(h>0)printf \"%dh %dm\\n\",h,m;" + "else printf \"%dm\\n\",m}' /proc/uptime 2>/dev/null";
             osInfoSource.connectSource(root.shellCmd(cmd));
         }
+    }
+
+    // ── OS Info: "fetch" tool integration ─────────────────────────────────────
+    // The four values above always come from the cheap built-in reader (the
+    // compact representation depends on osUptime). When a fetch tool is present
+    // it additionally fills osFetchRows / osFetchRaw, which the section prefers.
+    property var osFetchRows: []       // [{lbl, val}] parsed from the tool
+    property string osFetchRaw: ""     // ANSI-stripped verbatim output
+    property string osFetchTool: ""    // binary that won detection, "" = none
+    property string osFetchTitle: ""   // e.g. "user@host" banner line
+    property string osLogoIcon: ""     // freedesktop icon name from os-release
+    property bool isReadingOsFetch: false
+    readonly property bool osFetchActive: plasmoid.configuration.osUseFetch && root.osFetchTool !== ""
+    // Rows after the user's exclude/reorder rules. Keys the user has never seen
+    // are kept and appended in tool order, so a tool update that adds a field
+    // surfaces it instead of silently dropping it.
+    readonly property var osFetchVisibleRows: OsFetch.applyRules(root.osFetchRows, plasmoid.configuration.osFieldRules || [])
+
+    P5Support.DataSource {
+        id: osFetchSource
+        engine: "executable"
+        connectedSources: []
+        onNewData: function (sourceName, data) {
+            root.isReadingOsFetch = false;
+            osFetchSource.disconnectSource(sourceName);
+            root.parseOsFetch(data["stdout"] || "");
+        }
+    }
+
+    Timer {
+        // Deliberately slower than the built-in reader: a full fetch run forks a
+        // sizeable process (~0.5 s on some distros, package counting dominates).
+        interval: root._pollBase * 60
+        running: root.showOsInfo && root.visible && plasmoid.configuration.osUseFetch
+        repeat: true
+        triggeredOnStart: true
+        onTriggered: {
+            if (!root.isReadingOsFetch) {
+                root.isReadingOsFetch = true;
+                osFetchSource.connectSource(OsFetch.probeCmd(plasmoid.configuration.osFetchCmd));
+            }
+        }
+    }
+
+    function parseOsFetch(out) {
+        const r = OsFetch.parse(out);
+        root.osFetchTool = r.tool;
+        root.osFetchRows = r.rows;
+        root.osFetchRaw = r.raw;
+        root.osFetchTitle = r.title;
+        if (r.logo)
+            root.osLogoIcon = r.logo;
     }
 
     // ── Power & Pressure state ────────────────────────────────────────────────
