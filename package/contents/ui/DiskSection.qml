@@ -1,6 +1,5 @@
 import QtQuick
 import QtQuick.Layouts
-import org.kde.plasma.plasma5support as P5Support
 
 ColumnLayout {
     id: diskSection
@@ -12,7 +11,6 @@ ColumnLayout {
     property var rdHistory: []
     property var wrHistory: []
     property var lastDiskStats: null
-    property bool isReading: false
     property string activeDisk: ""
 
     // cached Qt.color objects so we don't allocate on every paint
@@ -20,27 +18,38 @@ ColumnLayout {
     readonly property color wrColor: plasmoid.configuration.diskWrColor || "#ffaa22"
 
     // ── data source ───────────────────────────────────────────────────────────
-    P5Support.DataSource {
-        id: diskSource
-        engine: "executable"
-        connectedSources: []
-        onNewData: function (sourceName, data) {
-            diskSection.isReading = false;
-            diskSource.disconnectSource(sourceName);
-            diskSection.parseDiskStats(data["stdout"] || "");
+    // /proc/diskstats is read by the root's combined poll, together with the
+    // other per-second /proc files, so this section costs no subprocess of its
+    // own. The root hands the block over as soon as it arrives.
+    Connections {
+        target: root
+        function onDiskStatsReady(text) {
+            diskSection.parseDiskStats(text);
         }
     }
 
-    Timer {
-        interval: root._pollBase
-        running: root.showDiskSection
-        repeat: true
-        onTriggered: {
-            if (!diskSection.isReading) {
-                diskSection.isReading = true;
-                diskSource.connectSource("cat /proc/diskstats");
-            }
+    // Under the sensor backend the throughput arrives from the daemon instead,
+    // and the block above degrades to a slow device-enumeration pass.
+    Connections {
+        target: root.sensorBackend
+        ignoreUnknownSignals: true
+        enabled: root.sensorsActive
+        function onDiskSample(readBytesPerSec, writeBytesPerSec) {
+            diskSection.activeDisk = root.resolvedDisk;
+            diskSection.applyDiskSample(readBytesPerSec, writeBytesPerSec);
         }
+    }
+
+    // Read/write throughput in bytes per second. The sensor backend reports this
+    // directly; the /proc/diskstats path derives it from a sector-count delta.
+    function applyDiskSample(readBytesPerSec, writeBytesPerSec) {
+        readSpeed = Math.max(0, readBytesPerSec);
+        writeSpeed = Math.max(0, writeBytesPerSec);
+        root.diskReadSpeed = readSpeed;
+        root.diskWriteSpeed = writeSpeed;
+        rdHistory = root.appendHistory(rdHistory, readSpeed);
+        wrHistory = root.appendHistory(wrHistory, writeSpeed);
+        root.restartDiskScroll();
     }
 
     function parseDiskStats(text) {
@@ -84,8 +93,14 @@ ColumnLayout {
             }
         }
 
+        root.autoDisk = bestDisk;
+
         const disk = (cfgDisk !== "auto" && diskData[cfgDisk]) ? cfgDisk : bestDisk;
         if (!disk || !diskData[disk])
+            return;
+        activeDisk = disk;
+        // Sensors own the throughput; this pass only refreshes the "auto" pick.
+        if (root.sensorsActive)
             return;
         const now = Date.now();
         const {
@@ -95,23 +110,8 @@ ColumnLayout {
 
         if (lastDiskStats && lastDiskStats.disk === disk) {
             const dt = (now - lastDiskStats.time) / 1000;
-            if (dt > 0.1) {
-                readSpeed = Math.max(0, (rd - lastDiskStats.rd) / dt);
-                writeSpeed = Math.max(0, (wr - lastDiskStats.wr) / dt);
-                root.diskReadSpeed = readSpeed;
-                root.diskWriteSpeed = writeSpeed;
-                const maxH = Math.max(10, plasmoid.configuration.historySize);
-                const nr = rdHistory.slice();
-                nr.push(readSpeed);
-                if (nr.length > maxH + 1)
-                    nr.splice(0, nr.length - (maxH + 1));
-                rdHistory = nr;
-                const nw = wrHistory.slice();
-                nw.push(writeSpeed);
-                if (nw.length > maxH + 1)
-                    nw.splice(0, nw.length - (maxH + 1));
-                wrHistory = nw;
-            }
+            if (dt > 0.1)
+                applyDiskSample((rd - lastDiskStats.rd) / dt, (wr - lastDiskStats.wr) / dt);
         }
         lastDiskStats = {
             disk,
@@ -119,8 +119,6 @@ ColumnLayout {
             wr,
             time: now
         };
-        activeDisk = disk;
-        root.restartDiskScroll();
     }
 
     // ── disk name badge ───────────────────────────────────────────────────────
@@ -138,6 +136,7 @@ ColumnLayout {
         Layout.fillWidth: true
         Layout.fillHeight: true
         visible: plasmoid.configuration.chartType !== 6
+        dataIntervalMs: root._dskInterval
 
         Connections {
             target: diskSection
@@ -157,8 +156,11 @@ ColumnLayout {
                 diskGraph.requestPaint();
             }
             function onScrollTickChanged() {
-                if (root._dskPhaseStart > 0 && root.diskScrollPhase() < 2)
-                    diskGraph.requestPaint();
+                if (root._phaseActive(root._dskPhaseStart, root._dskInterval))
+                    diskGraph.requestScrollPaint();
+            }
+            function onRepaintCharts() {
+                diskGraph.requestPaint();
             }
         }
         Connections {
@@ -199,6 +201,43 @@ ColumnLayout {
             }
         }
 
+        // Axis and grid — the part of the chart that does not move. Painted on
+        // BloomChart's chrome canvas, which repaints on data rather than on every
+        // scroll frame; the range is recomputed here because an auto-ranged axis
+        // relabels itself whenever the data rescales.
+        paintChrome: function (ctx) {
+            const rd = diskSection.rdHistory, wr = diskSection.wrHistory;
+            if ((rd.length < 1 && wr.length < 1) || !plasmoid.configuration.showYLabels)
+                return;
+            // Bars and the gauges carry no axis, matching paint() below.
+            const ct = plasmoid.configuration.chartType || 0;
+            if (ct === 1 || ct >= 3)
+                return;
+            const height = diskGraph.height, yLW = 38;
+            const allVals = rd.concat(wr);
+            const dataMax = allVals.length > 0 ? Math.max.apply(null, allVals) : 0;
+            const maxBps = Math.max(1024, dataMax * (plasmoid.configuration.autoYRange ? 1.10 : 1.20));
+            const tPad = height * 0.06, uH = height * 0.88;
+            const bToY = b => height - tPad - (b / maxBps) * uH;
+            cu.drawYAxis(ctx, yLW, height, [
+                {
+                    y: bToY(maxBps),
+                    text: cu.formatSpeed(maxBps),
+                    grid: false
+                },
+                {
+                    y: bToY(maxBps * 0.5),
+                    text: cu.formatSpeed(maxBps * 0.5),
+                    grid: true
+                },
+                {
+                    y: bToY(0),
+                    text: "0",
+                    grid: false
+                }
+            ]);
+        }
+
         paint: function (ctx, glowPass) {
             const width = diskGraph.width, height = diskGraph.height;
             const rd = diskSection.rdHistory, wr = diskSection.wrHistory;
@@ -223,7 +262,7 @@ ColumnLayout {
             const maxBps = Math.max(1024, dataMax * (plasmoid.configuration.autoYRange ? 1.10 : 1.20));
             const tPad = height * 0.06, uH = height * 0.88;
             const step = gW / Math.max(1, maxH - 1);
-            const sf = root.diskScrollPhase();
+            const sf = root.scrollDrawPhase(root.diskScrollPhase(), root._dskInterval);
             function bToY(b) {
                 return height - tPad - (b / maxBps) * uH;
             }
@@ -270,26 +309,6 @@ ColumnLayout {
                     ctx.globalAlpha = 1.0;
                 }
                 return;
-            }
-
-            if (!glowPass && plasmoid.configuration.showYLabels) {
-                cu.drawYAxis(ctx, yLW, height, [
-                    {
-                        y: bToY(maxBps),
-                        text: cu.formatSpeed(maxBps),
-                        grid: false
-                    },
-                    {
-                        y: bToY(maxBps * 0.5),
-                        text: cu.formatSpeed(maxBps * 0.5),
-                        grid: true
-                    },
-                    {
-                        y: bToY(0),
-                        text: "0",
-                        grid: false
-                    }
-                ]);
             }
 
             const fillA = glowPass ? 0 : (ct === 2 ? 0.60 : 0.35);

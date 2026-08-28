@@ -658,6 +658,7 @@ ColumnLayout {
         Layout.fillWidth: true
         Layout.fillHeight: true
         visible: plasmoid.configuration.chartType !== 6
+        dataIntervalMs: root._netInterval
 
         Connections {
             target: root
@@ -671,8 +672,11 @@ ColumnLayout {
                 netGraph.requestPaint();
             }
             function onScrollTickChanged() {
-                if (root._netPhaseStart > 0 && root.netScrollPhase() < 2)
-                    netGraph.requestPaint();
+                if (root._phaseActive(root._netPhaseStart, root._netInterval))
+                    netGraph.requestScrollPaint();
+            }
+            function onRepaintCharts() {
+                netGraph.requestPaint();
             }
         }
         Connections {
@@ -713,6 +717,43 @@ ColumnLayout {
             }
         }
 
+        // Axis and grid — the part of the chart that does not move. Painted on
+        // BloomChart's chrome canvas, which repaints on data rather than on every
+        // scroll frame; the range is recomputed here because an auto-ranged axis
+        // relabels itself whenever the data rescales.
+        paintChrome: function (ctx) {
+            const dl = root.dlHistory, ul = root.ulHistory;
+            if ((dl.length < 1 && ul.length < 1) || !plasmoid.configuration.showYLabels)
+                return;
+            // Bars and the gauges carry no axis, matching paint() below.
+            const ct = plasmoid.configuration.chartType || 0;
+            if (ct === 1 || ct >= 3)
+                return;
+            const height = netGraph.height, yLW = 38;
+            const allVals = dl.concat(ul);
+            const dataMax = allVals.length > 0 ? Math.max.apply(null, allVals) : 0;
+            const maxBps = Math.max(1024, dataMax * (plasmoid.configuration.autoYRange ? 1.10 : 1.20));
+            const tPad = height * 0.06, uH = height * 0.88;
+            const bToY = b => height - tPad - (b / maxBps) * uH;
+            cu.drawYAxis(ctx, yLW, height, [
+                {
+                    y: bToY(maxBps),
+                    text: cu.formatSpeed(maxBps),
+                    grid: false
+                },
+                {
+                    y: bToY(maxBps * 0.5),
+                    text: cu.formatSpeed(maxBps * 0.5),
+                    grid: true
+                },
+                {
+                    y: bToY(0),
+                    text: "0",
+                    grid: false
+                }
+            ]);
+        }
+
         paint: function (ctx, glowPass) {
             const width = netGraph.width, height = netGraph.height;
             const dl = root.dlHistory, ul = root.ulHistory;
@@ -737,7 +778,7 @@ ColumnLayout {
             const maxBps = Math.max(1024, dataMax * (plasmoid.configuration.autoYRange ? 1.10 : 1.20));
             const tPad = height * 0.06, uH = height * 0.88;
             const step = gW / Math.max(1, maxH - 1);
-            const sf = root.netScrollPhase();
+            const sf = root.scrollDrawPhase(root.netScrollPhase(), root._netInterval);
             function bToY(b) {
                 return height - tPad - (b / maxBps) * uH;
             }
@@ -788,26 +829,6 @@ ColumnLayout {
                     ctx.globalAlpha = 1.0;
                 }
                 return;
-            }
-
-            if (!glowPass && plasmoid.configuration.showYLabels) {
-                cu.drawYAxis(ctx, yLW, height, [
-                    {
-                        y: bToY(maxBps),
-                        text: cu.formatSpeed(maxBps),
-                        grid: false
-                    },
-                    {
-                        y: bToY(maxBps * 0.5),
-                        text: cu.formatSpeed(maxBps * 0.5),
-                        grid: true
-                    },
-                    {
-                        y: bToY(0),
-                        text: "0",
-                        grid: false
-                    }
-                ]);
             }
 
             const fillA = glowPass ? 0 : (ct === 2 ? 0.60 : 0.35);

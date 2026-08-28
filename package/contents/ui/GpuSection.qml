@@ -71,6 +71,7 @@ ColumnLayout {
         Layout.fillWidth: true
         Layout.fillHeight: true
         visible: plasmoid.configuration.chartType !== 6
+        dataIntervalMs: root._gpuInterval
 
         Connections {
             target: root
@@ -81,8 +82,11 @@ ColumnLayout {
                 gpuGraph.requestPaint();
             }
             function onScrollTickChanged() {
-                if (root._gpuPhaseStart > 0 && root.gpuScrollPhase() < 2)
-                    gpuGraph.requestPaint();
+                if (root._phaseActive(root._gpuPhaseStart, root._gpuInterval))
+                    gpuGraph.requestScrollPaint();
+            }
+            function onRepaintCharts() {
+                gpuGraph.requestPaint();
             }
         }
         Connections {
@@ -120,6 +124,47 @@ ColumnLayout {
             }
         }
 
+        // Axis and grid — the part of the chart that does not move. Painted on
+        // BloomChart's chrome canvas, so it costs nothing per scroll frame.
+        paintChrome: function (ctx) {
+            if (root.gpuHistory.length < 1 || !plasmoid.configuration.showYLabels)
+                return;
+            // Bars and the gauges carry no axis, matching paint() below.
+            const ct = plasmoid.configuration.chartType || 0;
+            if (ct === 1 || ct >= 3)
+                return;
+            const height = gpuGraph.height, yLW = 38;
+            const tPad = height * 0.06, uH = height * 0.88;
+            const pToY = p => height - tPad - (p / 100) * uH;
+            cu.drawYAxis(ctx, yLW, height, [
+                {
+                    y: pToY(100),
+                    text: "100%",
+                    grid: false
+                },
+                {
+                    y: pToY(75),
+                    text: "75%",
+                    grid: true
+                },
+                {
+                    y: pToY(50),
+                    text: "50%",
+                    grid: true
+                },
+                {
+                    y: pToY(25),
+                    text: "25%",
+                    grid: true
+                },
+                {
+                    y: pToY(0),
+                    text: "0%",
+                    grid: false
+                }
+            ]);
+        }
+
         paint: function (ctx, glowPass) {
             const width = gpuGraph.width, height = gpuGraph.height;
             const h = root.gpuHistory, n = h.length;
@@ -142,7 +187,7 @@ ColumnLayout {
 
             const tPad = height * 0.06, uH = height * 0.88;
             const step = gW / Math.max(1, maxH - 1);
-            const sf = root.gpuScrollPhase();
+            const sf = root.scrollDrawPhase(root.gpuScrollPhase(), root._gpuInterval);
             function pToY(p) {
                 return height - tPad - (p / 100) * uH;
             }
@@ -169,36 +214,6 @@ ColumnLayout {
             if (ct === 1) {
                 cu.drawHistoryBars(ctx, h, col, yLW, gW, height, maxH, 100, sf);
                 return;
-            }
-
-            if (!glowPass && plasmoid.configuration.showYLabels) {
-                cu.drawYAxis(ctx, yLW, height, [
-                    {
-                        y: pToY(100),
-                        text: "100%",
-                        grid: false
-                    },
-                    {
-                        y: pToY(75),
-                        text: "75%",
-                        grid: true
-                    },
-                    {
-                        y: pToY(50),
-                        text: "50%",
-                        grid: true
-                    },
-                    {
-                        y: pToY(25),
-                        text: "25%",
-                        grid: true
-                    },
-                    {
-                        y: pToY(0),
-                        text: "0%",
-                        grid: false
-                    }
-                ]);
             }
 
             ctx.save();

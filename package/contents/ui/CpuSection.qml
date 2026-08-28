@@ -12,6 +12,7 @@ ColumnLayout {
         Layout.fillWidth: true
         Layout.fillHeight: true
         visible: plasmoid.configuration.chartType !== 6
+        dataIntervalMs: root._cpuInterval
 
         Connections {
             target: root
@@ -25,8 +26,11 @@ ColumnLayout {
                 cpuGraph.requestPaint();
             }
             function onScrollTickChanged() {
-                if (root._cpuPhaseStart > 0 && root.cpuScrollPhase() < 2)
-                    cpuGraph.requestPaint();
+                if (root._phaseActive(root._cpuPhaseStart, root._cpuInterval))
+                    cpuGraph.requestScrollPaint();
+            }
+            function onRepaintCharts() {
+                cpuGraph.requestPaint();
             }
         }
         Connections {
@@ -70,6 +74,46 @@ ColumnLayout {
             }
         }
 
+        // Axis and grid — everything that stays put while the chart scrolls.
+        // Runs on data and config changes only, never on a scroll frame.
+        paintChrome: function (ctx) {
+            if (root.cpuHistory.length < 1 || !plasmoid.configuration.showYLabels)
+                return;
+            // Gauges (donut/pie/bars) and the text-only type have no axis.
+            if ((plasmoid.configuration.chartType || 0) >= 3)
+                return;
+            const height = cpuGraph.height, yLW = 38;
+            const tPad = height * 0.06, uH = height * 0.88;
+            const pToY = p => height - tPad - (p / 100) * uH;
+            cu.drawYAxis(ctx, yLW, height, [
+                {
+                    y: pToY(100),
+                    text: "100%",
+                    grid: false
+                },
+                {
+                    y: pToY(75),
+                    text: "75%",
+                    grid: true
+                },
+                {
+                    y: pToY(50),
+                    text: "50%",
+                    grid: true
+                },
+                {
+                    y: pToY(25),
+                    text: "25%",
+                    grid: true
+                },
+                {
+                    y: pToY(0),
+                    text: "0%",
+                    grid: false
+                }
+            ]);
+        }
+
         // glowPass===true → draw ONLY glowable colored primitives (for the GPU
         // bloom source canvas); false → draw the full chart (axis/grid/fill +
         // crisp lines) with CPU glow suppressed when bloom owns it.
@@ -97,7 +141,7 @@ ColumnLayout {
 
             const tPad = height * 0.06, uH = height * 0.88;
             const step = gW / Math.max(1, maxH - 1);
-            const sf = root.cpuScrollPhase();
+            const sf = root.scrollDrawPhase(root.cpuScrollPhase(), root._cpuInterval);
             function pToY(p) {
                 return height - tPad - (p / 100) * uH;
             }
@@ -171,36 +215,6 @@ ColumnLayout {
                     cu.drawHistoryBars(ctx, h, root.cpuColor, yLW, gW, height, maxH, 100, sf);
                 }
                 return;
-            }
-
-            if (!glowPass && plasmoid.configuration.showYLabels) {
-                cu.drawYAxis(ctx, yLW, height, [
-                    {
-                        y: pToY(100),
-                        text: "100%",
-                        grid: false
-                    },
-                    {
-                        y: pToY(75),
-                        text: "75%",
-                        grid: true
-                    },
-                    {
-                        y: pToY(50),
-                        text: "50%",
-                        grid: true
-                    },
-                    {
-                        y: pToY(25),
-                        text: "25%",
-                        grid: true
-                    },
-                    {
-                        y: pToY(0),
-                        text: "0%",
-                        grid: false
-                    }
-                ]);
             }
 
             ctx.save();

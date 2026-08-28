@@ -11,6 +11,7 @@ ColumnLayout {
         Layout.fillWidth: true
         Layout.fillHeight: true
         visible: plasmoid.configuration.chartType !== 6
+        dataIntervalMs: root._memInterval
 
         Connections {
             target: root
@@ -24,8 +25,11 @@ ColumnLayout {
                 memGraph.requestPaint();
             }
             function onScrollTickChanged() {
-                if (root._memPhaseStart > 0 && root.memScrollPhase() < 2)
-                    memGraph.requestPaint();
+                if (root._phaseActive(root._memPhaseStart, root._memInterval))
+                    memGraph.requestScrollPaint();
+            }
+            function onRepaintCharts() {
+                memGraph.requestPaint();
             }
         }
         Connections {
@@ -66,6 +70,37 @@ ColumnLayout {
             }
         }
 
+        // Axis and grid — the part of the chart that does not move. Painted on
+        // BloomChart's chrome canvas, so it costs nothing per scroll frame.
+        paintChrome: function (ctx) {
+            if (root.memHistory.length < 1 || !plasmoid.configuration.showYLabels)
+                return;
+            // Bars and the gauges carry no axis, matching paint() below.
+            const ct = plasmoid.configuration.chartType || 0;
+            if (ct === 1 || ct >= 3)
+                return;
+            const height = memGraph.height, yLW = 38;
+            const tPad = height * 0.06, uH = height * 0.88;
+            const pToY = p => height - tPad - (p / 100) * uH;
+            cu.drawYAxis(ctx, yLW, height, [
+                {
+                    y: pToY(100),
+                    text: "100%",
+                    grid: false
+                },
+                {
+                    y: pToY(50),
+                    text: "50%",
+                    grid: true
+                },
+                {
+                    y: pToY(0),
+                    text: "0%",
+                    grid: false
+                }
+            ]);
+        }
+
         paint: function (ctx, glowPass) {
             const width = memGraph.width, height = memGraph.height;
             const h = root.memHistory, n = h.length;
@@ -89,7 +124,7 @@ ColumnLayout {
 
             const tPad = height * 0.06, uH = height * 0.88;
             const step = gW / Math.max(1, maxH - 1);
-            const sf = root.memScrollPhase();
+            const sf = root.scrollDrawPhase(root.memScrollPhase(), root._memInterval);
             function pToY(p) {
                 return height - tPad - (p / 100) * uH;
             }
@@ -137,26 +172,6 @@ ColumnLayout {
                 if (!root.isLineDisabled("ram"))
                     cu.drawHistoryBars(ctx, h, root.memColor, yLW, gW, height, maxH, 100, sf);
                 return;
-            }
-
-            if (!glowPass && plasmoid.configuration.showYLabels) {
-                cu.drawYAxis(ctx, yLW, height, [
-                    {
-                        y: pToY(100),
-                        text: "100%",
-                        grid: false
-                    },
-                    {
-                        y: pToY(50),
-                        text: "50%",
-                        grid: true
-                    },
-                    {
-                        y: pToY(0),
-                        text: "0%",
-                        grid: false
-                    }
-                ]);
             }
 
             ctx.save();

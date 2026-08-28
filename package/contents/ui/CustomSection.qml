@@ -28,6 +28,7 @@ ColumnLayout {
         Layout.fillWidth: true
         Layout.fillHeight: true
         visible: plasmoid.configuration.chartType !== 6
+        dataIntervalMs: root._custInterval
 
         Connections {
             target: root
@@ -38,8 +39,11 @@ ColumnLayout {
                 customGraph.requestPaint();
             }
             function onScrollTickChanged() {
-                if (root._custPhaseStart > 0 && root.custScrollPhase() < 2)
-                    customGraph.requestPaint();
+                if (root._phaseActive(root._custPhaseStart, root._custInterval))
+                    customGraph.requestScrollPaint();
+            }
+            function onRepaintCharts() {
+                customGraph.requestPaint();
             }
         }
         Connections {
@@ -77,6 +81,38 @@ ColumnLayout {
             }
         }
 
+        // Axis and grid — the part of the chart that does not move. Painted on
+        // BloomChart's chrome canvas, so it costs nothing per scroll frame.
+        paintChrome: function (ctx) {
+            if (root.customHistory.length < 1 || !plasmoid.configuration.showYLabels)
+                return;
+            // Bars and the gauges carry no axis, matching paint() below.
+            const ct = plasmoid.configuration.chartType || 0;
+            if (ct === 1 || ct >= 3)
+                return;
+            const height = customGraph.height, yLW = 38;
+            const maxVal = Math.max(0.1, plasmoid.configuration.customCmdMax);
+            const tPad = height * 0.06, uH = height * 0.88;
+            const valToY = v => height - tPad - (Math.min(maxVal, Math.max(0, v)) / maxVal) * uH;
+            cu.drawYAxis(ctx, yLW, height, [
+                {
+                    y: valToY(maxVal),
+                    text: maxVal.toFixed(1) + (plasmoid.configuration.customCmdUnit || ""),
+                    grid: false
+                },
+                {
+                    y: valToY(maxVal * 0.5),
+                    text: (maxVal * 0.5).toFixed(1),
+                    grid: true
+                },
+                {
+                    y: valToY(0),
+                    text: "0",
+                    grid: false
+                }
+            ]);
+        }
+
         paint: function (ctx, glowPass) {
             const width = customGraph.width, height = customGraph.height;
             const h = root.customHistory, n = h.length;
@@ -100,7 +136,7 @@ ColumnLayout {
 
             const tPad = height * 0.06, uH = height * 0.88;
             const step = gW / Math.max(1, maxH - 1);
-            const sf = root.custScrollPhase();
+            const sf = root.scrollDrawPhase(root.custScrollPhase(), root._custInterval);
             function valToY(v) {
                 return height - tPad - (Math.min(maxVal, Math.max(0, v)) / maxVal) * uH;
             }
@@ -126,26 +162,6 @@ ColumnLayout {
             if (ct === 1) {
                 cu.drawHistoryBars(ctx, h, color, yLW, gW, height, maxH, maxVal, sf);
                 return;
-            }
-
-            if (!glowPass && plasmoid.configuration.showYLabels) {
-                cu.drawYAxis(ctx, yLW, height, [
-                    {
-                        y: valToY(maxVal),
-                        text: maxVal.toFixed(1) + (plasmoid.configuration.customCmdUnit || ""),
-                        grid: false
-                    },
-                    {
-                        y: valToY(maxVal * 0.5),
-                        text: (maxVal * 0.5).toFixed(1),
-                        grid: true
-                    },
-                    {
-                        y: valToY(0),
-                        text: "0",
-                        grid: false
-                    }
-                ]);
             }
 
             ctx.save();

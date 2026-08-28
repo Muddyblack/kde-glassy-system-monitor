@@ -162,6 +162,89 @@ PlasmoidItem {
         return _gpuPhaseStart > 0 ? (Date.now() - _gpuPhaseStart) / _gpuInterval : 0;
     }
 
+    // ── late and early data ───────────────────────────────────────────────────
+    // The raw phase runs 0 → 1 over one data interval and the newest sample
+    // reaches the right edge exactly at 1. What happens on either side of that
+    // is the whole difference between a graph that glides and one that hitches,
+    // because data never lands on time: the daemon jitters, a ping takes an
+    // extra 40 ms, a poll is skipped entirely.
+    //
+    //   • Ran past 1 (data late). Drawing the raw phase keeps sliding the line
+    //     left and opens a gap on the right that snaps shut on arrival. Freezing
+    //     at 1 instead trades that snap for a dead stop, which reads worse — a
+    //     stopped line is far more visible than a slow one.
+    //     So neither: past 1 the scroll DECELERATES, easing toward a limit a
+    //     fraction of a step further on. It leaves at the same speed it arrived
+    //     (the curve is C¹ at 1, see tau below), never stops dead, and never
+    //     wanders more than a fraction of a sample past the newest one.
+    //
+    //   • Arrived before 1 (data early). Appending a sample shifts the series
+    //     one step right, so restarting the phase at 0 is only continuous if the
+    //     phase was at exactly 1. Anywhere else it is a jump. _phaseCarry hands
+    //     the difference to the next cycle instead, so the line keeps moving
+    //     through the update at the speed it already had.
+    //
+    // Together these mean nothing about the arrival of data is visible in the
+    // motion: the line slides at a near-constant rate whether the samples behind
+    // it are early, late, or missing.
+
+    // Time constant of the overshoot, in phase units. Its own value is also the
+    // limit the overshoot eases toward, which is what makes the curve C¹ at
+    // phase 1 — decelerating from exactly the speed the normal scroll had.
+    // 250 ms of easing regardless of cadence: enough that the slowdown reads as
+    // gliding to a halt, short enough that a chart whose data has genuinely
+    // stopped settles (and lets the ticker stop) within about a second.
+    function _phaseTau(intervalMs) {
+        return Math.min(0.5, 250 / Math.max(1, intervalMs));
+    }
+
+    // The phase a chart should DRAW at, given its raw phase and cadence.
+    function scrollDrawPhase(phase, intervalMs) {
+        if (isNaN(phase))
+            return 0;
+        // Below zero is a chart carrying an early sample (see _phaseCarry): the
+        // newest point sits a little further off the right edge for a while.
+        // Clamping that to zero would be exactly the freeze this is all here to
+        // avoid, so it is allowed, with a floor no reading can reach.
+        if (phase < -1)
+            return -1;
+        if (phase <= 1)
+            return phase;
+        const tau = root._phaseTau(intervalMs);
+        return 1 + tau * (1 - Math.exp(-(phase - 1) / tau));
+    }
+
+    // Phase to resume at after a sample lands: where the line was actually drawn
+    // last, minus the one step the new sample just added. Zero when the sample
+    // was exactly on time, positive when it was late, negative when early.
+    //
+    // Bounded to half a step in both directions. Above, that is where the
+    // overshoot ends anyway; below, it is what keeps the left edge honest — a
+    // negative phase holds the oldest sample that far short of the left edge,
+    // and half a step of that is a couple of pixels nobody reads as a gap, while
+    // a whole one would be. Damped by 0.9 as well, so a one-off hiccup fades
+    // over the next few updates instead of biasing the chart forever; that
+    // leaves a correction of at most 0.05 steps, well under a pixel.
+    function _phaseCarry(prevStart, prevInterval) {
+        // With smooth scrolling off there is no motion to be continuous with,
+        // and the charts want a phase of exactly 0 — that is the flag their
+        // static layout keys off.
+        if (prevStart <= 0 || !plasmoid.configuration.smoothScroll)
+            return 0;
+        const raw = (Date.now() - prevStart) / prevInterval;
+        const drawn = root.scrollDrawPhase(raw, prevInterval);
+        return Math.max(-0.5, Math.min(0.5, drawn - 1)) * 0.9;
+    }
+
+    // Is this channel still moving? True until the overshoot above has eased out
+    // — four time constants, by which point the remaining travel is a hundredth
+    // of a step and no repaint could show it.
+    function _phaseActive(start, intervalMs) {
+        if (start <= 0)
+            return false;
+        return (Date.now() - start) / intervalMs < 1 + 4 * root._phaseTau(intervalMs);
+    }
+
     // Latency band of a single sample: 0 = normal, 1 = warning, 2 = critical.
     // The graph is split into runs of equal band so one spike only recolours
     // itself instead of the whole line. With threshold colouring off every
@@ -188,43 +271,156 @@ PlasmoidItem {
         return pingAlertActive ? pingCritColor : pingColor;
     }
 
-    // Scroll animation ticker. Interval is derived from configured targetFps;
-    // 30/60/120 fps are the typical values. Only runs while a visible section
-    // is within its post-data scroll window, so it auto-pauses when idle —
-    // important when multiple instances are placed on the desktop.
+    // Scroll animation ticker. Only runs while a visible section is within its
+    // post-data scroll window, so it auto-pauses when idle — which matters a
+    // lot once several instances are spread over several screens.
     property int scrollTick: 0
-    readonly property int _tickInterval: Math.max(8, Math.round(1000 / Math.max(15, plasmoid.configuration.targetFps || 60)))
+
+    // ── repaint budget ────────────────────────────────────────────────────────
+    // The ticker runs at the configured frame rate, full stop. Pacing it to the
+    // data instead — ticking only as often as the fastest chart needs to move
+    // some visible distance — sounds like the same picture for less work and is
+    // not: a Timer is not vsync-aligned, so its jitter is a fixed few
+    // milliseconds, and that is a tenth of the default 42 ms frame but a fifth
+    // of the ~70 ms the data-paced rate worked out to. Smooth motion is a matter
+    // of even spacing far more than of step size, and the tick rate whose
+    // spacing survives best is the one with the most room to absorb that jitter.
+    //
+    // What IS worth skipping is a chart moving so slowly that a frame cannot
+    // show it — a custom command polled every two minutes crawls at a thousandth
+    // of a pixel per frame. Charts repaint on every N-th tick, N being how many
+    // frames THEY need to travel this far (see BloomChart). At the defaults a
+    // line covers about five pixels a second, so a frame moves it further than
+    // this and N is 1: every chart on a normal setup paints every frame, exactly
+    // as it did before any of the pacing existed. The number only bites for
+    // charts whose motion is already invisible, which is why it is set an order
+    // of magnitude below the pixel where stepping starts to show.
+    readonly property real scrollPaintStepPx: 0.05
+
+    // targetFps is the animation rate, and the ticker holds it whatever the data
+    // is doing.
+    readonly property int _tickFloorMs: Math.max(8, Math.round(1000 / Math.max(15, plasmoid.configuration.targetFps || 60)))
+
+    // The one thing that changes it: while we are not being drawn at all there
+    // is no point pacing for the eye, so the ticker drops to the probe that
+    // notices when we are back (see _renderStalled).
+    readonly property int _tickInterval: root._renderStalled ? root._stalledProbeMs : root._tickFloorMs
+
+    // Whether the popup's charts are actually on screen. In a panel the full
+    // representation only exists while the popup is open, so without this the
+    // ticker kept repainting canvases nobody could see. On the desktop the full
+    // representation is the only representation and this stays true.
+    property bool fullRepVisible: false
+
+    // ── render-stall detection ────────────────────────────────────────────────
+    // Being "visible" is not the same as being drawn. A maximised browser over
+    // the desktop leaves the widget visible by every property QML exposes, while
+    // the compositor quietly stops asking for frames — and nothing tells a
+    // plasmoid that happened. It does not have to: a Canvas only runs onPaint as
+    // part of a real render pass, so if we ask for a paint and none arrives, we
+    // are not being drawn. That is a signal readable without any platform API —
+    // charts stamp both sides of it, and when requests stop being answered the
+    // ticker drops to a slow probe until one lands again.
+    // Data collection is deliberately untouched by this — the histories keep
+    // filling while nothing is drawn, so coming back shows a complete chart
+    // rather than a gap where the window was covering it.
+    property real _lastPaintRequestMs: 0
+    property real _lastPaintMs: 0
+    property bool _renderStalled: false
+    // How often to check whether we are back on screen, while stalled.
+    readonly property int _stalledProbeMs: 1000
+    // How long unanswered before we call it a stall. Comfortably longer than any
+    // single frame, so a slow frame or a busy compositor is not mistaken for one.
+    readonly property int _stallAfterMs: 1000
+
+    // Called by BloomChart on both sides of a paint.
+    function notePaintRequested() {
+        _lastPaintRequestMs = Date.now();
+    }
+    function notePainted() {
+        _lastPaintMs = Date.now();
+        if (_renderStalled) {
+            _renderStalled = false;
+            // Whatever moved while we were dark is already in the histories, so
+            // one full repaint brings every chart back complete.
+            repaintCharts();
+        }
+    }
+
+    // Emitted when the charts need to be redrawn from scratch regardless of the
+    // scroll budget — currently when the popup comes back on screen, where the
+    // canvases may still hold the frame from before it was hidden.
+    signal repaintCharts
+
+    // Chart types 3-5 are gauges and 6 is text-only: none of them scroll, so the
+    // ticker has nothing to animate and never needs to start.
+    readonly property bool _chartScrolls: (plasmoid.configuration.chartType || 0) < 3
 
     // Base sensor poll period in milliseconds; the slower sensors are plain
-    // multiples of it (see main.xml). Floored at 250 ms because every tick forks
-    // a shell through the executable engine — below that the process spawns cost
-    // far more than the extra resolution is worth.
+    // multiples of it (see main.xml). Floored at 250 ms because every tick still
+    // spawns a process through the executable engine — below that the spawns
+    // cost far more than the extra resolution is worth.
     readonly property int _pollBase: Math.max(250, plasmoid.configuration.updateInterval || 1000)
-    // Phase windows are normalised to 1.0 = one full data interval.
-    // Keep the threshold just above 1.0 so the animation expires between
-    // data updates rather than staying permanently active.
+    // The same setting without that floor. The floor exists to price process
+    // spawns, and the sensor backend has none to pay for — it is handed values
+    // the daemon has already computed. Below the daemon's own 500 ms tick there
+    // is simply nothing more to collect, by us or by anyone else.
+    readonly property int updateIntervalMs: Math.max(100, plasmoid.configuration.updateInterval || 1000)
+
+    // ── data backend ──────────────────────────────────────────────────────────
+    // Preferred path: subscribe to ksystemstats, the daemon Plasma's own monitor
+    // widgets use, and let it push values at its native rate. Fallback path: the
+    // combined /proc poll further down. The backend lives behind a Loader
+    // because its libksysguard import is fatal to a whole QML file when the
+    // module is not installed — the Loader turns that into a status we can read.
+    Loader {
+        id: sensorLoader
+        // setSource rather than a source binding: the backend declares `host` as
+        // a required property, which has to be supplied at creation time.
+        Component.onCompleted: setSource("SensorBackend.qml", {
+            host: root
+        })
+        onStatusChanged: if (status === Loader.Error)
+            console.log("glassy: libksysguard sensors unavailable, falling back to /proc polling")
+    }
+    // Both conditions matter: the module can be present while the daemon is not
+    // running, in which case the sensors never leave Loading and we must keep
+    // reading /proc ourselves.
+    readonly property bool sensorsActive: sensorLoader.status === Loader.Ready && sensorLoader.item !== null && sensorLoader.item.ready
+    // The backend object, for sections that take samples from it by signal.
+    // Null whenever the fallback path is in charge.
+    readonly property var sensorBackend: sensorLoader.status === Loader.Ready ? sensorLoader.item : null
+
+    // Say so once when the daemon takes over, so the choice is visible in the
+    // journal rather than something to infer from a process listing. The failure
+    // cases are quiet by design: a missing module logs from the Loader above, and
+    // a module present with no daemon behind it simply never gets here.
+    onSensorsActiveChanged: if (sensorsActive)
+        console.log("glassy: using ksystemstats sensors for CPU/memory/network/disk")
+    // Phase windows are normalised to 1.0 = one full data interval, plus the
+    // overshoot that eases out after it (see _phaseActive).
     // NOTE: We deliberately do NOT use a readonly binding for "is anything
     // animating?". The phase functions read Date.now(), which Qt's binding
     // system cannot track, so such a binding would never re-evaluate to
     // false once data arrives, and the ticker would run forever (a major
     // source of constant CPU). Instead the ticker is started on each data
-    // update and stops ITSELF once every phase has expired past 1.0.
+    // update and stops ITSELF once every phase has come to rest.
     function _anyAnimatingNow() {
-        if (!plasmoid.configuration.smoothScroll)
+        if (!plasmoid.configuration.smoothScroll || !root._chartScrolls || !root.fullRepVisible)
             return false;
-        if (root.showPingSection && root._pingPhaseStart > 0 && root.pingScrollPhase() < 1.05)
+        if (root.showPingSection && root._phaseActive(root._pingPhaseStart, root._pingInterval))
             return true;
-        if (root.showNetworkSpeed && root._netPhaseStart > 0 && root.netScrollPhase() < 1.05)
+        if (root.showNetworkSpeed && root._phaseActive(root._netPhaseStart, root._netInterval))
             return true;
-        if (root.showCpuSection && root._cpuPhaseStart > 0 && root.cpuScrollPhase() < 1.05)
+        if (root.showCpuSection && root._phaseActive(root._cpuPhaseStart, root._cpuInterval))
             return true;
-        if (root.showMemorySection && root._memPhaseStart > 0 && root.memScrollPhase() < 1.05)
+        if (root.showMemorySection && root._phaseActive(root._memPhaseStart, root._memInterval))
             return true;
-        if (root.showDiskSection && root._dskPhaseStart > 0 && root.diskScrollPhase() < 1.05)
+        if (root.showDiskSection && root._phaseActive(root._dskPhaseStart, root._dskInterval))
             return true;
-        if (root.showCustomSection && root._custPhaseStart > 0 && root.custScrollPhase() < 1.05)
+        if (root.showCustomSection && root._phaseActive(root._custPhaseStart, root._custInterval))
             return true;
-        if (root.showGpuSection && root._gpuPhaseStart > 0 && root.gpuScrollPhase() < 1.05)
+        if (root.showGpuSection && root._phaseActive(root._gpuPhaseStart, root._gpuInterval))
             return true;
         return false;
     }
@@ -232,9 +428,27 @@ PlasmoidItem {
     // Start the ticker whenever new data lands on any channel. The ticker
     // then stops itself once all phases have expired (see onTriggered).
     function _ensureScrollTicker() {
-        if (plasmoid.configuration.smoothScroll && !scrollTicker.running)
+        if (plasmoid.configuration.smoothScroll && root._chartScrolls && root.fullRepVisible && !scrollTicker.running)
             scrollTicker.start();
     }
+
+    // Closing the popup (or switching to a non-scrolling chart type) must stop
+    // the ticker right away rather than waiting for the current phase to expire.
+    onFullRepVisibleChanged: {
+        if (fullRepVisible) {
+            repaintCharts();
+            _ensureScrollTicker();
+        } else {
+            scrollTicker.stop();
+        }
+    }
+    on_ChartScrollsChanged: {
+        if (_chartScrolls)
+            _ensureScrollTicker();
+        else
+            scrollTicker.stop();
+    }
+
     // ── background card ───────────────────────────────────────────────────────
     // Per-corner radii, read as direct property bindings so Qt tracks them and
     // the canvases repaint by themselves (a plasmoid.configuration[name] lookup
@@ -350,6 +564,12 @@ PlasmoidItem {
         repeat: true
         running: false
         onTriggered: {
+            // A request outstanding longer than the stall window means our paints
+            // are not being served — see the note on _renderStalled. The ticker
+            // keeps running at the probe rate so that one request per second
+            // still goes out; whichever of those is answered clears the stall.
+            root._renderStalled = root._lastPaintRequestMs > root._lastPaintMs && Date.now() - root._lastPaintRequestMs > root._stallAfterMs;
+
             root.scrollTick = (root.scrollTick + 1) & 0x7fffffff;
             // Self-disable: once no phase is still animating, stop the timer so
             // we do not keep repainting canvases (and burning CPU) between updates.
@@ -358,40 +578,50 @@ PlasmoidItem {
         }
     }
 
+    // Each channel restarts its phase where the line was actually drawn rather
+    // than at zero, so the sample that just landed changes the data under the
+    // line without changing the line's speed — see _phaseCarry.
     onHistoriesChanged: {
+        const carry = _phaseCarry(_pingPhaseStart, _pingInterval);
         _pingInterval = _measureInterval(_pingPhaseStart, _pingInterval, 200, 30000);
-        _pingPhaseStart = Date.now();
+        _pingPhaseStart = Date.now() - carry * _pingInterval;
         _ensureScrollTicker();
     }
     onDlHistoryChanged: {
+        const carry = _phaseCarry(_netPhaseStart, _netInterval);
         _netInterval = _measureInterval(_netPhaseStart, _netInterval, 200, 8000);
-        _netPhaseStart = Date.now();
+        _netPhaseStart = Date.now() - carry * _netInterval;
         _ensureScrollTicker();
     }
     onCpuHistoryChanged: {
+        const carry = _phaseCarry(_cpuPhaseStart, _cpuInterval);
         _cpuInterval = _measureInterval(_cpuPhaseStart, _cpuInterval, 200, 8000);
-        _cpuPhaseStart = Date.now();
+        _cpuPhaseStart = Date.now() - carry * _cpuInterval;
         _ensureScrollTicker();
     }
     onMemHistoryChanged: {
+        const carry = _phaseCarry(_memPhaseStart, _memInterval);
         _memInterval = _measureInterval(_memPhaseStart, _memInterval, 400, 16000);
-        _memPhaseStart = Date.now();
+        _memPhaseStart = Date.now() - carry * _memInterval;
         _ensureScrollTicker();
     }
     onCustomHistoryChanged: {
+        const carry = _phaseCarry(_custPhaseStart, _custInterval);
         _custInterval = _measureInterval(_custPhaseStart, _custInterval, 200, 120000);
-        _custPhaseStart = Date.now();
+        _custPhaseStart = Date.now() - carry * _custInterval;
         _ensureScrollTicker();
     }
     onGpuHistoryChanged: {
+        const carry = _phaseCarry(_gpuPhaseStart, _gpuInterval);
         _gpuInterval = _measureInterval(_gpuPhaseStart, _gpuInterval, 400, 16000);
-        _gpuPhaseStart = Date.now();
+        _gpuPhaseStart = Date.now() - carry * _gpuInterval;
         _ensureScrollTicker();
     }
 
     function restartDiskScroll() {
+        const carry = _phaseCarry(_dskPhaseStart, _dskInterval);
         _dskInterval = _measureInterval(_dskPhaseStart, _dskInterval, 200, 8000);
-        _dskPhaseStart = Date.now();
+        _dskPhaseStart = Date.now() - carry * _dskInterval;
         _ensureScrollTicker();
     }
 
@@ -468,15 +698,10 @@ PlasmoidItem {
     }
 
     function addPingResult(idx, ms) {
-        const maxH = Math.max(10, plasmoid.configuration.historySize);
         if (idx < 0 || idx >= histories.length)
             return;
-        const h = histories[idx].slice();
-        h.push(ms);
-        if (h.length > maxH + 1)
-            h.splice(0, h.length - (maxH + 1));
         const newH = histories.slice();
-        newH[idx] = h;
+        newH[idx] = appendHistory(histories[idx], ms);
         histories = newH;
         if (idx !== activeTarget)
             return;
@@ -511,6 +736,129 @@ PlasmoidItem {
         triggerPing();
     }
 
+    // ── combined /proc poll ───────────────────────────────────────────────────
+    // /proc/diskstats, /proc/stat, /proc/meminfo and /proc/net/dev used to be
+    // read by four independent DataSources on four timers, each forking its own
+    // `cat` — four processes every single second, forever. Fork + exec + the
+    // page faults that follow are cheap individually and ruinous in aggregate
+    // for idle power: they keep waking a core that would otherwise stay parked.
+    // The executable engine runs one argv, so a single `cat a b c` reads all of
+    // them in one process and the reply is split back apart below.
+    property bool isReadingSys: false
+    property int _sysTick: 0
+    // When the in-flight request was sent, for the watchdog in the timer below.
+    property real _sysRequestedAt: 0
+    // What the in-flight request asked for, so the reply can be routed. Recorded
+    // when the request goes out because the section toggles may change while it
+    // is in flight.
+    property bool _sysWantDisk: false
+    property bool _sysWantCpu: false
+    property bool _sysWantMem: false
+    property bool _sysWantNet: false
+
+    // True for the first line of /proc/stat, /proc/meminfo and /proc/net/dev.
+    // /proc/diskstats has no distinctive first line, which is why it is always
+    // requested first: its block is simply everything before the next file
+    // starts.
+    function _isProcBlockStart(line) {
+        return /^cpu\s/.test(line) || /^MemTotal:/.test(line) || /^Inter-\|/.test(line);
+    }
+
+    function _parseSysPoll(text) {
+        let body = text;
+        if (root._sysWantDisk) {
+            const lines = text.split("\n");
+            let at = 0;
+            while (at < lines.length && !root._isProcBlockStart(lines[at]))
+                at++;
+            diskStatsReady(lines.slice(0, at).join("\n"));
+            body = lines.slice(at).join("\n");
+        }
+        // The remaining three go to their parsers unsplit. Each matches only its
+        // own line shape and the shapes do not overlap: parseCpuStats wants
+        // "cpu<n> " followed by eight counters (no colon, so no /proc/net/dev
+        // line reaches it), parseNetStats wants "<name>:" followed by nine
+        // counters (meminfo has one value, /proc/stat has no colons), and
+        // parseMemStats only ever looks up MemTotal/MemAvailable/SwapTotal/
+        // SwapFree by name.
+        if (root._sysWantCpu)
+            parseCpuStats(body);
+        if (root._sysWantMem)
+            parseMemStats(body);
+        if (root._sysWantNet)
+            parseNetStats(body);
+    }
+
+    // Carries the /proc/diskstats block to DiskSection, which owns the parsing.
+    // A signal rather than a property because two consecutive polls can return
+    // byte-identical text on an idle disk, and a property assignment that does
+    // not change the value emits nothing.
+    signal diskStatsReady(string text)
+
+    P5Support.DataSource {
+        id: sysSource
+        engine: "executable"
+        connectedSources: []
+        onNewData: function (sourceName, data) {
+            root.isReadingSys = false;
+            sysSource.disconnectSource(sourceName);
+            root._parseSysPoll(data["stdout"] || "");
+        }
+    }
+
+    Timer {
+        // With the sensor backend live this drops to a slow discovery pass: the
+        // daemon supplies every rate, but it has no say in which interface or
+        // disk "auto" should follow, and the in-popup device pickers still want
+        // a list. One read every thirty ticks keeps both current for a cost that
+        // rounds to nothing.
+        interval: root._pollBase * (root.sensorsActive ? 30 : 1)
+        // Only the sections that actually need this read. Under the sensor
+        // backend that is just network and disk, and only for device discovery —
+        // CPU and memory have nothing to enumerate, so a widget showing either of
+        // them stops running this timer altogether rather than waking up to
+        // build an empty file list.
+        running: root.sensorsActive ? (root.showDiskSection || root.showNetworkSpeed) : (root.showDiskSection || root.showCpuSection || root.showMemorySection || root.showNetworkSpeed)
+        repeat: true
+        onTriggered: {
+            if (root.isReadingSys) {
+                // A read that never comes back used to stall one section; now it
+                // would stall all four, so abandon it rather than queueing behind
+                // it forever.
+                if (Date.now() - root._sysRequestedAt < root._pollBase * 4)
+                    return;
+                sysSource.connectedSources = [];
+                root.isReadingSys = false;
+            }
+            // Memory rides along on every second poll, preserving the half-rate
+            // cadence it had as a standalone timer — the memory graph's time span
+            // depends on how often a sample is appended to its history.
+            // In discovery mode CPU and memory are not wanted at all — nothing
+            // about them needs enumerating, and the sensors already have them.
+            root._sysWantDisk = root.showDiskSection;
+            root._sysWantCpu = root.showCpuSection && !root.sensorsActive;
+            root._sysWantMem = root.showMemorySection && !root.sensorsActive && (root._sysTick % 2) === 0;
+            root._sysWantNet = root.showNetworkSpeed;
+            root._sysTick = (root._sysTick + 1) & 0x7fffffff;
+
+            // /proc/diskstats first — see _isProcBlockStart.
+            const files = [];
+            if (root._sysWantDisk)
+                files.push("/proc/diskstats");
+            if (root._sysWantCpu)
+                files.push("/proc/stat");
+            if (root._sysWantMem)
+                files.push("/proc/meminfo");
+            if (root._sysWantNet)
+                files.push("/proc/net/dev");
+            if (files.length === 0)
+                return;
+            root.isReadingSys = true;
+            root._sysRequestedAt = Date.now();
+            sysSource.connectSource("cat " + files.join(" "));
+        }
+    }
+
     // ── network state ─────────────────────────────────────────────────────────
     property real downloadSpeed: 0
     property real uploadSpeed: 0
@@ -519,31 +867,17 @@ PlasmoidItem {
     property var lastNetBytes: null
     property string activeIface: ""
     property var availableIfaces: ["auto"]
-    property bool isReadingNet: false
+    // Busiest interface seen by the last enumeration; what "auto" resolves to.
+    property string autoIface: ""
+    // The interface the section actually follows, and the one the sensor backend
+    // subscribes to. Empty until the first enumeration lands, which the backend
+    // reads as "use the daemon's aggregate for now".
+    readonly property string resolvedIface: {
+        const cfg = (plasmoid.configuration.networkInterface || "auto").trim();
+        return (cfg === "" || cfg === "auto") ? autoIface : cfg;
+    }
     property real sessionDlBytes: 0
     property real sessionUlBytes: 0
-
-    P5Support.DataSource {
-        id: netSource
-        engine: "executable"
-        connectedSources: []
-        onNewData: function (sourceName, data) {
-            root.isReadingNet = false;
-            netSource.disconnectSource(sourceName);
-            root.parseNetStats(data["stdout"] || "");
-        }
-    }
-    Timer {
-        interval: root._pollBase
-        running: root.showNetworkSpeed
-        repeat: true
-        onTriggered: {
-            if (!root.isReadingNet) {
-                root.isReadingNet = true;
-                netSource.connectSource("cat /proc/net/dev");
-            }
-        }
-    }
 
     // ── Network identity (SSID / IP) ──────────────────────────────────────────
     // Optional, off by default. Polled infrequently (changes rarely). SSID is the
@@ -586,6 +920,20 @@ PlasmoidItem {
         root.netIpAddr = ip.split("/")[0];   // strip CIDR suffix
     }
 
+    // Download/upload in bytes per second, plus the seconds those rates covered
+    // so the session totals can integrate them. The sensor path knows the rate
+    // directly; the /proc path derives it from a counter delta.
+    function applyNetSample(dlBytesPerSec, ulBytesPerSec, dtSeconds) {
+        downloadSpeed = Math.max(0, dlBytesPerSec);
+        uploadSpeed = Math.max(0, ulBytesPerSec);
+        if (dtSeconds > 0) {
+            sessionDlBytes += downloadSpeed * dtSeconds;
+            sessionUlBytes += uploadSpeed * dtSeconds;
+        }
+        dlHistory = appendHistory(dlHistory, downloadSpeed);
+        ulHistory = appendHistory(ulHistory, uploadSpeed);
+    }
+
     function parseNetStats(text) {
         const cfgIface = plasmoid.configuration.networkInterface || "auto";
         let bestIface = "", bestRx = -1;
@@ -611,32 +959,26 @@ PlasmoidItem {
             root.availableIfaces = foundIfaces;
         }
 
+        autoIface = bestIface;
+
         const iface = (cfgIface !== "auto" && ifaceData[cfgIface]) ? cfgIface : bestIface;
         if (!iface || !ifaceData[iface])
             return;
+        activeIface = iface;
+        // Under the sensor backend this pass exists purely to refresh the list
+        // above and the "auto" pick; the rates come from the daemon, and a
+        // counter delta taken across a thirty-tick gap would be meaningless.
+        if (root.sensorsActive)
+            return;
+
         const now = Date.now(), {
             rx,
             tx
         } = ifaceData[iface];
         if (lastNetBytes && lastNetBytes.iface === iface) {
             const dt = (now - lastNetBytes.time) / 1000;
-            if (dt > 0.1) {
-                downloadSpeed = Math.max(0, (rx - lastNetBytes.rx) / dt);
-                uploadSpeed = Math.max(0, (tx - lastNetBytes.tx) / dt);
-                sessionDlBytes += downloadSpeed * dt;
-                sessionUlBytes += uploadSpeed * dt;
-                const maxH = Math.max(10, plasmoid.configuration.historySize);
-                const nd = dlHistory.slice();
-                nd.push(downloadSpeed);
-                if (nd.length > maxH + 1)
-                    nd.splice(0, nd.length - (maxH + 1));
-                dlHistory = nd;
-                const nu = ulHistory.slice();
-                nu.push(uploadSpeed);
-                if (nu.length > maxH + 1)
-                    nu.splice(0, nu.length - (maxH + 1));
-                ulHistory = nu;
-            }
+            if (dt > 0.1)
+                applyNetSample((rx - lastNetBytes.rx) / dt, (tx - lastNetBytes.tx) / dt, dt);
         }
         lastNetBytes = {
             iface,
@@ -644,7 +986,6 @@ PlasmoidItem {
             tx,
             time: now
         };
-        activeIface = iface;
     }
 
     // ── CPU state ─────────────────────────────────────────────────────────────
@@ -653,28 +994,42 @@ PlasmoidItem {
     property var corePercents: []
     property var coreHistories: []
     property var lastCpuStats: null
-    property bool isReadingCpu: false
 
-    P5Support.DataSource {
-        id: cpuSource
-        engine: "executable"
-        connectedSources: []
-        onNewData: function (sourceName, data) {
-            root.isReadingCpu = false;
-            cpuSource.disconnectSource(sourceName);
-            root.parseCpuStats(data["stdout"] || "");
-        }
+    // Append one sample to a rolling history, returning the new array. Every
+    // section's history is capped at historySize + 1: the extra sample is the
+    // one sliding off the left edge, which the scroll animation still needs to
+    // draw. Kept in one place because both data paths (the ksystemstats sensors
+    // and the /proc fallback) append through it.
+    function appendHistory(history, value) {
+        const maxH = Math.max(10, plasmoid.configuration.historySize);
+        const next = history.slice();
+        next.push(value);
+        if (next.length > maxH + 1)
+            next.splice(0, next.length - (maxH + 1));
+        return next;
     }
-    Timer {
-        interval: root._pollBase
-        running: root.showCpuSection
-        repeat: true
-        onTriggered: {
-            if (!root.isReadingCpu) {
-                root.isReadingCpu = true;
-                cpuSource.connectSource("cat /proc/stat");
-            }
-        }
+
+    // ── sample sinks ──────────────────────────────────────────────────────────
+    // Everything below takes *finished* values — percentages, bytes per second —
+    // and does the bookkeeping the charts read. Whoever produced the numbers
+    // (the sensor daemon, or the /proc parsers further down) is not their
+    // concern, which is what lets the two paths stay interchangeable.
+
+    function applyCpuSample(totalPct, corePcts) {
+        cpuPercent = Math.min(100, Math.max(0, totalPct));
+        // An empty list means "no per-core reading in this sample", not "zero
+        // cores": the sensor backend hands one over until the daemon has
+        // answered how many cores there are. Overwriting with it would throw
+        // away the per-core histories built so far and rebuild them from
+        // scratch a moment later.
+        if (corePcts && corePcts.length > 0)
+            corePercents = corePcts;
+        cpuHistory = appendHistory(cpuHistory, cpuPercent);
+        const n = corePercents.length;
+        let ch = coreHistories.length === n ? coreHistories.map(h => h.slice()) : corePercents.map(() => []);
+        for (let i = 0; i < n; i++)
+            ch[i] = appendHistory(ch[i], corePercents[i]);
+        coreHistories = ch;
     }
 
     function parseCpuStats(text) {
@@ -717,20 +1072,7 @@ PlasmoidItem {
                 const cdt = stats.cores[i].total - prev.total, cda = stats.cores[i].active - prev.active;
                 newCP.push(cdt > 0 ? Math.min(100, Math.max(0, cda / cdt * 100)) : 0);
             }
-            corePercents = newCP;
-            const maxH = Math.max(10, plasmoid.configuration.historySize);
-            const nh = cpuHistory.slice();
-            nh.push(cpuPercent);
-            if (nh.length > maxH + 1)
-                nh.splice(0, nh.length - (maxH + 1));
-            cpuHistory = nh;
-            let ch = coreHistories.length === newCP.length ? coreHistories.map(h => h.slice()) : newCP.map(() => []);
-            for (let i = 0; i < newCP.length; i++) {
-                ch[i].push(newCP[i]);
-                if (ch[i].length > maxH + 1)
-                    ch[i].splice(0, ch[i].length - (maxH + 1));
-            }
-            coreHistories = ch;
+            applyCpuSample(cpuPercent, newCP);
         }
         lastCpuStats = stats;
     }
@@ -744,28 +1086,27 @@ PlasmoidItem {
     property real memTotalGiB: 0
     property real swapUsedGiB: 0
     property bool hasSwap: false
-    property bool isReadingMem: false
 
-    P5Support.DataSource {
-        id: memSource
-        engine: "executable"
-        connectedSources: []
-        onNewData: function (sourceName, data) {
-            root.isReadingMem = false;
-            memSource.disconnectSource(sourceName);
-            root.parseMemStats(data["stdout"] || "");
+    // usedBytes/totalBytes and the swap pair, in bytes. A zero total means "no
+    // such device" — no swap, or a reading that has not arrived yet.
+    function applyMemSample(usedBytes, totalBytes, swapUsedBytes, swapTotalBytes) {
+        if (totalBytes > 0) {
+            memPercent = usedBytes / totalBytes * 100;
+            memUsedGiB = usedBytes / 1073741824;
+            memTotalGiB = totalBytes / 1073741824;
         }
-    }
-    Timer {
-        interval: root._pollBase * 2
-        running: root.showMemorySection
-        repeat: true
-        onTriggered: {
-            if (!root.isReadingMem) {
-                root.isReadingMem = true;
-                memSource.connectSource("cat /proc/meminfo");
-            }
+        hasSwap = swapTotalBytes > 0;
+        if (hasSwap) {
+            swapPercent = swapUsedBytes / swapTotalBytes * 100;
+            swapUsedGiB = swapUsedBytes / 1073741824;
+        } else {
+            // swapoff while we are running: clear the readings rather than
+            // leaving the last ones frozen in the legend and the history.
+            swapPercent = 0;
+            swapUsedGiB = 0;
         }
+        memHistory = appendHistory(memHistory, memPercent);
+        swapHistory = appendHistory(swapHistory, swapPercent);
     }
 
     function parseMemStats(text) {
@@ -775,35 +1116,24 @@ PlasmoidItem {
             if (m)
                 v[m[1]] = parseInt(m[2]);
         }
-        const total = v["MemTotal"] || 0, avail = v["MemAvailable"] || 0;
-        const swapTot = v["SwapTotal"] || 0, swapFree = v["SwapFree"] || 0;
-        if (total > 0) {
-            const used = total - avail;
-            memPercent = used / total * 100;
-            memUsedGiB = used / 1048576;
-            memTotalGiB = total / 1048576;
-        }
-        hasSwap = swapTot > 0;
-        if (hasSwap) {
-            swapPercent = (swapTot - swapFree) / swapTot * 100;
-            swapUsedGiB = (swapTot - swapFree) / 1048576;
-        }
-        const maxH = Math.max(10, plasmoid.configuration.historySize);
-        const nm = memHistory.slice();
-        nm.push(memPercent);
-        if (nm.length > maxH + 1)
-            nm.splice(0, nm.length - (maxH + 1));
-        memHistory = nm;
-        const ns = swapHistory.slice();
-        ns.push(swapPercent);
-        if (ns.length > maxH + 1)
-            ns.splice(0, ns.length - (maxH + 1));
-        swapHistory = ns;
+        // /proc/meminfo reports KiB; the sink works in bytes, like the sensors do.
+        const KiB = 1024;
+        const total = (v["MemTotal"] || 0) * KiB, avail = (v["MemAvailable"] || 0) * KiB;
+        const swapTot = (v["SwapTotal"] || 0) * KiB, swapFree = (v["SwapFree"] || 0) * KiB;
+        applyMemSample(total - avail, total, swapTot - swapFree, swapTot);
     }
 
     // ── disk state (written by DiskSection, read by CompactRepresentation) ───────
     property real diskReadSpeed: 0
     property real diskWriteSpeed: 0
+    // Busiest whole disk seen by the last enumeration; what "auto" resolves to.
+    property string autoDisk: ""
+    // The device the section follows, and the one the sensor backend subscribes
+    // to. Mirrors resolvedIface, including the empty-until-discovered contract.
+    readonly property string resolvedDisk: {
+        const cfg = (plasmoid.configuration.diskDevice || "auto").trim();
+        return (cfg === "" || cfg === "auto") ? autoDisk : cfg;
+    }
     readonly property color diskRdColor: Qt.color(plasmoid.configuration.diskRdColor || "#22ddff")
     readonly property color diskWrColor: Qt.color(plasmoid.configuration.diskWrColor || "#ffaa22")
 
@@ -822,12 +1152,7 @@ PlasmoidItem {
             const val = parseFloat((data["stdout"] || "").trim());
             if (!isNaN(val)) {
                 root.customValue = val;
-                const maxH = Math.max(10, plasmoid.configuration.historySize);
-                const nh = root.customHistory.slice();
-                nh.push(val);
-                if (nh.length > maxH + 1)
-                    nh.splice(0, nh.length - (maxH + 1));
-                root.customHistory = nh;
+                root.customHistory = root.appendHistory(root.customHistory, val);
             }
         }
     }
@@ -956,6 +1281,8 @@ PlasmoidItem {
         root.gpuCardPath = "";
         root.gpuPciId = "";
         root.gpuNoDataTicks = 0;
+        root.gpuSysfsBusyOk = false;
+        root._gpuPollTick = 0;
         // Drop the previous card's readings, so switching devices does not leave
         // a graph mixing two GPUs' history.
         root.gpuPercent = 0;
@@ -1016,30 +1343,76 @@ PlasmoidItem {
         onTriggered: root.detectGpu()
     }
 
+    // ── the fdinfo scan ───────────────────────────────────────────────────────
+    // `grep -r` over /proc/[0-9]*/fdinfo/ opens and reads every file descriptor
+    // of every process on the machine. On a desktop with a browser and a couple
+    // of Electron apps open that is tens of thousands of files per run, and each
+    // DRM fd makes the graphics driver generate its stats on the spot — so most
+    // of the cost lands in kernel time, attributed to nobody, rather than in
+    // plasmashell. It used to run unconditionally every two seconds.
+    // It is the only way to get a per-engine breakdown, so it still runs — but
+    // only when something actually consumes the result, and far less often.
+
+    // True when sysfs gave us a real gpu_busy_percent, i.e. the fdinfo scan is a
+    // nice-to-have rather than the sole source of utilisation. RDNA4 (RX 9000)
+    // dropped that file, which is the case this distinguishes.
+    property bool gpuSysfsBusyOk: false
+
+    // The scan is the *only* source of utilisation in these cases, so it cannot
+    // be skipped — instead the whole GPU poll slows down (see the timer below).
+    readonly property bool _gpuScanIsSoleSource: root.gpuMode === "fdinfo" || (root.gpuMode === "amd" && !root.gpuSysfsBusyOk)
+
+    // Counts GPU polls so the scan can ride along on only some of them.
+    property int _gpuPollTick: 0
+    // One GPU poll in every three carries the scan when it is merely feeding the
+    // engine breakdown; engine shares are a coarse readout and reading them at
+    // a third of the rate is not noticeable.
+    readonly property int _gpuScanEveryNthPoll: 3
+
+    function _gpuScanDue() {
+        if (root._gpuScanIsSoleSource)
+            return true;
+        if (!plasmoid.configuration.gpuShowEngines)
+            return false;
+        return (root._gpuPollTick % root._gpuScanEveryNthPoll) === 0;
+    }
+
+    // The scan command itself. /proc/[0-9]* rather than /proc/* so that the
+    // aliases /proc/self and /proc/thread-self are not walked a second time.
+    readonly property string _gpuScanCmd: "grep -rhE \"drm-(pdev|engine|resident)\" /proc/[0-9]*/fdinfo/ 2>/dev/null"
+
     Timer {
-        interval: root._pollBase * 2
+        // When the scan is the sole source of utilisation, poll at a third of the
+        // usual rate: a slower GPU gauge is a fair trade for not walking every
+        // process's file descriptors every two seconds.
+        interval: root._pollBase * (root._gpuScanIsSoleSource ? 6 : 2)
         running: root.showGpuSection
         repeat: true
         onTriggered: {
             if (!root.isReadingGpu && root.gpuMode !== "") {
                 root.isReadingGpu = true;
+                const scan = root._gpuScanDue();
+                // Marker + scan, or nothing at all — the parser keys off the
+                // "---ENG---" line and leaves the engine readings untouched when
+                // it is absent, so a skipped scan simply holds the last values.
+                const engBlock = scan ? "; echo \"---ENG---\"; " + root._gpuScanCmd : "";
+                root._gpuPollTick++;
                 if (root.gpuMode === "nvidia") {
                     // util, freq, encode%, decode%, vram used (MiB), vram total (MiB)
                     gpuSource.connectSource("sh -c 'nvidia-smi --query-gpu=utilization.gpu,clocks.current.graphics,utilization.encoder,utilization.decoder,memory.used,memory.total --format=csv,noheader,nounits" + root._nvidiaTarget() + " 2>/dev/null'");
                 } else if (root.gpuMode === "amd") {
                     // busy% + VRAM used/total from sysfs, then the fdinfo block.
                     // gpu_busy_percent is absent on RDNA4 (RX 9000), so that line can
-                    // come back empty and the fdinfo engines are the fallback — but we
-                    // always read both, since sysfs has no per-engine breakdown.
-                    gpuSource.connectSource("sh -c '" + root._gpuReadFn + "c=" + root.gpuCardPath + "/device; r \"$c/gpu_busy_percent\"; r \"$c/mem_info_vram_used\"; r \"$c/mem_info_vram_total\"; echo \"---ENG---\"; grep -rhE \"drm-(pdev|engine|resident)\" /proc/*/fdinfo/ 2>/dev/null'");
+                    // come back empty; there the scan is the fallback and always runs.
+                    gpuSource.connectSource("sh -c '" + root._gpuReadFn + "c=" + root.gpuCardPath + "/device; r \"$c/gpu_busy_percent\"; r \"$c/mem_info_vram_used\"; r \"$c/mem_info_vram_total\"" + engBlock + "'");
                 } else if (root.gpuMode === "intel") {
                     // Intel: rc6_residency_ms delta → busy %, plus current freq, plus
                     // per-engine ns sums + memory from fdinfo (one combined read).
-                    gpuSource.connectSource("sh -c '" + root._gpuReadFn + "g=" + root.gpuCardPath + "/gt/gt0; r \"$g/rc6_residency_ms\"; r \"$g/rps_cur_freq_mhz\"; r \"$g/rps_act_freq_mhz\"; echo \"---ENG---\"; grep -rhE \"drm-(pdev|engine|resident)\" /proc/*/fdinfo/ 2>/dev/null'");
+                    gpuSource.connectSource("sh -c '" + root._gpuReadFn + "g=" + root.gpuCardPath + "/gt/gt0; r \"$g/rc6_residency_ms\"; r \"$g/rps_cur_freq_mhz\"; r \"$g/rps_act_freq_mhz\"" + engBlock + "'");
                 } else {
                     // fdinfo: sum each engine's cumulative ns across all processes, plus
                     // resident memory. Render≈compute/3D, video≈decode, video-enhance≈encode.
-                    gpuSource.connectSource("sh -c 'grep -rhE \"drm-(pdev|engine|resident)\" /proc/*/fdinfo/ 2>/dev/null'");
+                    gpuSource.connectSource("sh -c '" + root._gpuScanCmd + "'");
                 }
             } else if (!root.isReadingGpu && root.gpuMode === "" && root.gpuNoDataTicks < 2) {
                 // Vendor detection came back empty (unknown vendor id, or sysfs not
@@ -1146,7 +1519,6 @@ PlasmoidItem {
         // trimming the whole blob first would swallow it and shift every
         // subsequent line up by one.
         const lines = text.split("\n").map(s => s.trim());
-        const maxH = Math.max(10, plasmoid.configuration.historySize);
 
         if (root.gpuMode === "nvidia") {
             // "util, freq, enc%, dec%, vramUsedMiB, vramTotalMiB" (one GPU)
@@ -1180,6 +1552,9 @@ PlasmoidItem {
             const enginePct = engIdx !== -1 ? root._parseFdinfoEngines(lines.slice(engIdx + 1)) : -1;
             // sysfs reports the real hardware busy%, so prefer it when present;
             // the fdinfo delta only sees engine time booked to a process.
+            // Remember whether sysfs answered: that decides whether the fdinfo
+            // scan is a luxury or the only thing keeping the gauge alive.
+            root.gpuSysfsBusyOk = !isNaN(v);
             if (!isNaN(v)) {
                 root.gpuPercent = Math.min(100, Math.max(0, v));
                 root.gpuNoDataTicks = 0;
@@ -1226,11 +1601,7 @@ PlasmoidItem {
                 root.gpuNoDataTicks++;
         }
 
-        const nh = root.gpuHistory.slice();
-        nh.push(root.gpuPercent);
-        if (nh.length > maxH + 1)
-            nh.splice(0, nh.length - (maxH + 1));
-        root.gpuHistory = nh;
+        root.gpuHistory = root.appendHistory(root.gpuHistory, root.gpuPercent);
     }
 
     // ── Hardware Sensors state ────────────────────────────────────────────────
@@ -1692,12 +2063,7 @@ PlasmoidItem {
         root.batteryPowerW = pw;
 
         // History for sparkline (absolute value)
-        const maxH = Math.max(10, plasmoid.configuration.historySize);
-        const nh = root.batteryPowerHistory.slice();
-        nh.push(Math.abs(pw));
-        if (nh.length > maxH + 1)
-            nh.splice(0, nh.length - (maxH + 1));
-        root.batteryPowerHistory = nh;
+        root.batteryPowerHistory = root.appendHistory(root.batteryPowerHistory, Math.abs(pw));
 
         // Diagnostics
         root.batteryCycles = cycles;
@@ -1754,6 +2120,13 @@ PlasmoidItem {
         id: container
 
         readonly property bool _frosted: plasmoid.configuration.frostedGlass
+
+        // In a panel this item is created on first expand and then only hidden
+        // when the popup closes, so its visibility — not its existence — is what
+        // tells the root whether anything is worth drawing.
+        onVisibleChanged: root.fullRepVisible = visible
+        Component.onCompleted: root.fullRepVisible = visible
+        Component.onDestruction: root.fullRepVisible = false
 
         // Flat card — the plain translucent fill (frosted glass off).
         CardCanvas {

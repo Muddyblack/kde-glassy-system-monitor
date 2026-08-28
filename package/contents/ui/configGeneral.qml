@@ -929,7 +929,7 @@ KCM.SimpleKCM {
                 }
                 RowLayout {
                     visible: smoothScrollCB.checked
-                    Kirigami.FormData.label: i18n("Target FPS:")
+                    Kirigami.FormData.label: i18n("Animation rate:")
                     QQC.SpinBox {
                         id: targetFpsSpin
                         from: 15
@@ -940,6 +940,14 @@ KCM.SimpleKCM {
                         text: i18n("fps")
                         opacity: 0.55
                     }
+                }
+                QQC.Label {
+                    visible: smoothScrollCB.checked
+                    text: i18n("How often a scrolling chart redraws. This is the animation rate itself, so it is what smoothness costs and what it buys — the charts hold it whatever the update interval is set to. The exception is a chart fed so rarely that its line moves less than a pixel between frames: that one redraws only as often as it actually moves. Drawing stops entirely while the widget is covered by another window, and resumes complete when it is uncovered.")
+                    opacity: 0.50
+                    font.pixelSize: 10
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
                 }
 
                 // Display ─────────────────────────────────────────────────────
@@ -952,7 +960,12 @@ KCM.SimpleKCM {
                     Kirigami.FormData.label: i18n("Update interval:")
                     QQC.SpinBox {
                         id: updateIntervalSpin
-                        from: 250
+                        // 500 ms is the floor because that is the daemon's own
+                        // tick: asking for less does not produce a single extra
+                        // reading, it just relabels the same 500 ms frames. On
+                        // the /proc fallback it is also the point below which
+                        // the process spawns cost more than the added detail.
+                        from: 500
                         to: 60000
                         stepSize: 250
                         editable: true
@@ -963,7 +976,7 @@ KCM.SimpleKCM {
                     }
                 }
                 QQC.Label {
-                    text: i18n("Base polling rate for all sensors. CPU, Network and Disk poll at this rate; Memory and GPU at 2x; Network info at 8x; Hardware Sensors at 3x; Power at 5x; OS Info at 30x. Higher values use less CPU — every poll forks a shell, so below ~500 ms the process spawns cost more than the extra detail is worth.")
+                    text: i18n("Base update rate. CPU, memory, network and disk come from the ksystemstats daemon when it is available: it samples every 500 ms for the whole system and pushes the values here, so 500 ms is as fast as the data physically gets — nothing below it would produce another reading, which is why that is the floor. The widget takes one sample per push, so this rounds to a whole number of the daemon's 500 ms frames. Without that daemon the widget reads /proc itself at this rate, and higher values then use less CPU. The remaining sections are multiples of it: GPU 2x, hardware sensors 3x, power 5x, network info 8x, OS info 30x.")
                     opacity: 0.50
                     font.pixelSize: 10
                     wrapMode: Text.WordWrap

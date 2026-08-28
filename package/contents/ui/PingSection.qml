@@ -73,6 +73,7 @@ ColumnLayout {
         Layout.fillWidth: true
         Layout.fillHeight: true
         visible: plasmoid.configuration.chartType !== 6
+        dataIntervalMs: root._pingInterval
 
         Connections {
             target: root
@@ -95,8 +96,11 @@ ColumnLayout {
                 pingGraph.requestPaint();
             }
             function onScrollTickChanged() {
-                if (root._pingPhaseStart > 0 && root.pingScrollPhase() < 2)
-                    pingGraph.requestPaint();
+                if (root._phaseActive(root._pingPhaseStart, root._pingInterval))
+                    pingGraph.requestScrollPaint();
+            }
+            function onRepaintCharts() {
+                pingGraph.requestPaint();
             }
         }
         Connections {
@@ -138,6 +142,43 @@ ColumnLayout {
             function onBloomStrengthChanged() {
                 pingGraph.requestPaint();
             }
+        }
+
+        // Axis and grid — the part of the chart that does not move. Painted on
+        // BloomChart's chrome canvas, which repaints on data rather than on every
+        // scroll frame; the range is recomputed here because an auto-ranged axis
+        // relabels itself whenever the data rescales.
+        paintChrome: function (ctx) {
+            const h = root.histories[root.activeTarget] || [];
+            if (h.length === 0 || !plasmoid.configuration.showYLabels)
+                return;
+            // Only the gauges drop the axis here — the bar chart keeps it, which
+            // is what paint() below does too.
+            if ((plasmoid.configuration.chartType || 0) >= 3)
+                return;
+            const height = pingGraph.height, yLW = 38;
+            const valid = h.filter(v => v >= 0);
+            const vMax = valid.length > 0 ? Math.max.apply(null, valid) : 0;
+            const maxMs = Math.max(vMax * 1.5 + 2, 15);
+            const tPad = height * 0.06, uH = height * 0.88;
+            const msToY = ms => height - tPad - (ms / maxMs) * uH;
+            cu.drawYAxis(ctx, yLW, height, [
+                {
+                    y: msToY(maxMs),
+                    text: maxMs.toFixed(0) + "ms",
+                    grid: false
+                },
+                {
+                    y: msToY(maxMs * 0.5),
+                    text: (maxMs * 0.5).toFixed(0) + "ms",
+                    grid: true
+                },
+                {
+                    y: msToY(0),
+                    text: "0",
+                    grid: false
+                }
+            ]);
         }
 
         paint: function (ctx, glowPass) {
@@ -197,7 +238,7 @@ ColumnLayout {
 
             const step = gW / Math.max(1, maxH - 1);
             const tPad = height * 0.06, uH = height * 0.88;
-            const sf = root.pingScrollPhase();
+            const sf = root.scrollDrawPhase(root.pingScrollPhase(), root._pingInterval);
 
             // OPTIMIZATION: Precalculate coordinate functions
             function msToY(ms) {
@@ -205,26 +246,6 @@ ColumnLayout {
             }
             function iToX(i) {
                 return yLW + gW - (n - 2 - i + sf) * step;
-            }
-
-            if (!glowPass && plasmoid.configuration.showYLabels) {
-                cu.drawYAxis(ctx, yLW, height, [
-                    {
-                        y: msToY(maxMs),
-                        text: maxMs.toFixed(0) + "ms",
-                        grid: false
-                    },
-                    {
-                        y: msToY(maxMs * 0.5),
-                        text: (maxMs * 0.5).toFixed(0) + "ms",
-                        grid: true
-                    },
-                    {
-                        y: msToY(0),
-                        text: "0",
-                        grid: false
-                    }
-                ]);
             }
 
             // threshold line (not glow content)

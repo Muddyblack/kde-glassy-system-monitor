@@ -38,6 +38,8 @@
              Floored at 250 ms in main.qml: every tick forks a shell through the
              executable engine, so sub-250 ms costs far more in process spawns
              than it gains in resolution. -->
+        <!-- Base update period in ms. The ksystemstats daemon ticks every 500 ms,
+             so that is the floor: below it the same frames just get relabelled. -->
         <entry name="updateInterval" type="Int">
             <default>1000</default>
         </entry>

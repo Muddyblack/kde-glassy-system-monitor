@@ -10,12 +10,12 @@ QtObject {
     required property bool showGridLines
 
     // When true, chart glow is rendered by a GPU MultiEffect bloom pass on a
-    // separate lines-only canvas (see BloomChart.qml), so the in-canvas
-    // Context2D shadowBlur is suppressed — the bloom replaces it. When false,
-    // glow falls back to the per-stroke shadowBlur drawn here on the CPU.
+    // separate lines-only canvas (see BloomChart.qml), so the in-canvas glow is
+    // suppressed — the bloom replaces it. When false, glow falls back to the
+    // wide low-alpha under-stroke drawn here.
     property bool gpuBloom: false
 
-    // Effective shadowBlur for a stroke: 0 when GPU bloom owns the glow (it is
+    // Effective glow width for a stroke: 0 when GPU bloom owns the glow (it is
     // drawn separately), otherwise the caller's requested value. Sections pass
     // their desired glow through this so the two paths stay in one place.
     function glowFor(requested) {
@@ -33,33 +33,40 @@ QtObject {
         ctx.setLineDash([]);
     }
 
+    // The axis is redrawn far less often than the line — sections hand it to
+    // BloomChart's chrome canvas, which repaints on data and config changes
+    // rather than on every scroll frame. It is still worth keeping tight: text
+    // is the most expensive thing a Context2D does, and everything here that
+    // does not vary per label is hoisted out of the loop.
     function drawYAxis(ctx, yLW, height, labels) {
         ctx.textAlign = "right";
+        const gridAlpha = showGridLines ? 0.12 : 0.07;
+        const gridColor = Qt.rgba(textColor.r, textColor.g, textColor.b, gridAlpha);
+        const numColor = Qt.rgba(textColor.r, textColor.g, textColor.b, 0.65);
+        const unitColor = Qt.rgba(textColor.r, textColor.g, textColor.b, 0.38);
+        const dash = [3, 5], noDash = [];
         for (const l of labels) {
             if (showGridLines || l.grid) {
                 ctx.beginPath();
                 ctx.lineWidth = 0.5;
-                ctx.strokeStyle = Qt.rgba(textColor.r, textColor.g, textColor.b, showGridLines ? 0.12 : 0.07);
-                ctx.setLineDash([3, 5]);
+                ctx.strokeStyle = gridColor;
+                ctx.setLineDash(dash);
                 ctx.moveTo(yLW, l.y);
                 ctx.lineTo(9999, l.y);
                 ctx.stroke();
-                ctx.setLineDash([]);
+                ctx.setLineDash(noDash);
             }
             const spaceIdx = l.text.lastIndexOf(" ");
             if (spaceIdx > 0) {
-                const numPart = l.text.slice(0, spaceIdx);
-                const unitPart = l.text.slice(spaceIdx + 1);
                 ctx.font = "bold 10px sans-serif";
-                ctx.fillStyle = Qt.rgba(textColor.r, textColor.g, textColor.b, 0.65);
-                const numW = ctx.measureText(numPart).width;
-                ctx.fillText(numPart, yLW - 4, l.y + 3);
+                ctx.fillStyle = numColor;
+                ctx.fillText(l.text.slice(0, spaceIdx), yLW - 4, l.y + 3);
                 ctx.font = "8px sans-serif";
-                ctx.fillStyle = Qt.rgba(textColor.r, textColor.g, textColor.b, 0.38);
-                ctx.fillText(unitPart, yLW - 4, l.y + 11);
+                ctx.fillStyle = unitColor;
+                ctx.fillText(l.text.slice(spaceIdx + 1), yLW - 4, l.y + 11);
             } else {
                 ctx.font = "bold 10px sans-serif";
-                ctx.fillStyle = Qt.rgba(textColor.r, textColor.g, textColor.b, 0.65);
+                ctx.fillStyle = numColor;
                 ctx.fillText(l.text, yLW - 4, l.y + 3);
             }
         }
@@ -108,16 +115,21 @@ QtObject {
         ctx.stroke();
         if (percent > 0.1) {
             const a1 = -Math.PI / 2 + Math.min(1, percent / 100) * Math.PI * 2;
+            // Wide low-alpha arc under the crisp one instead of shadowBlur — see
+            // the note in drawLine on why the shadow path is avoided.
             if (glowEnabled) {
-                ctx.shadowBlur = 6;
-                ctx.shadowColor = color;
+                const gc = Qt.color(color);
+                ctx.beginPath();
+                ctx.arc(cx, cy, radius, -Math.PI / 2, a1);
+                ctx.lineWidth = lineW + 5;
+                ctx.strokeStyle = Qt.rgba(gc.r, gc.g, gc.b, 0.20);
+                ctx.stroke();
             }
             ctx.beginPath();
             ctx.arc(cx, cy, radius, -Math.PI / 2, a1);
             ctx.lineWidth = lineW;
             ctx.strokeStyle = color;
             ctx.stroke();
-            ctx.shadowBlur = 0;
         }
         if (label) {
             ctx.textAlign = "center";
@@ -140,17 +152,22 @@ QtObject {
         ctx.fill();
         if (percent > 0.1) {
             const a1 = -Math.PI / 2 + Math.min(1, percent / 100) * Math.PI * 2;
-            if (glowEnabled) {
-                ctx.shadowBlur = 5;
-                ctx.shadowColor = color;
-            }
             ctx.beginPath();
             ctx.moveTo(cx, cy);
             ctx.arc(cx, cy, radius, -Math.PI / 2, a1);
             ctx.lineTo(cx, cy);
+            // Outline the wedge with a wide low-alpha stroke to fake the halo the
+            // shadow used to give it; the stroke straddles the edge, so it reads
+            // as a bloom spilling outward once the wedge is filled over it.
+            if (glowEnabled) {
+                const gc = Qt.color(color);
+                ctx.lineJoin = "round";
+                ctx.lineWidth = 8;
+                ctx.strokeStyle = Qt.rgba(gc.r, gc.g, gc.b, 0.18);
+                ctx.stroke();
+            }
             ctx.fillStyle = color;
             ctx.fill();
-            ctx.shadowBlur = 0;
         }
         if (label) {
             ctx.textAlign = "center";
@@ -172,14 +189,18 @@ QtObject {
         ctx.fill();
         if (percent > 0) {
             const filledW = Math.max(h, (Math.min(100, percent) / 100) * w);
+            roundedRectPath(ctx, x, y, filledW, h, r);
+            // Same trick as drawPie: a wide low-alpha outline stroked before the
+            // fill lands on top of it, replacing a per-frame shadow blur.
             if (glowEnabled) {
-                ctx.shadowBlur = 4;
-                ctx.shadowColor = color;
+                const gc = Qt.color(color);
+                ctx.lineJoin = "round";
+                ctx.lineWidth = 6;
+                ctx.strokeStyle = Qt.rgba(gc.r, gc.g, gc.b, 0.18);
+                ctx.stroke();
             }
             ctx.fillStyle = color;
-            roundedRectPath(ctx, x, y, filledW, h, r);
             ctx.fill();
-            ctx.shadowBlur = 0;
         }
         ctx.font = "8px sans-serif";
         ctx.textAlign = "left";
@@ -195,9 +216,11 @@ QtObject {
         const n = history.length;
         if (n < 1)
             return;
-        // Clamp the phase so the newest bar lands exactly on the right edge and
-        // never overshoots into a visible gap between data updates.
-        sf = Math.max(0, Math.min(1, sf));
+        // Sanity bound only. The phase is deliberately allowed a little either
+        // side of 0..1 — main.qml eases it past 1 when data is late and carries
+        // it below 0 when data is early — and clamping that away here would make
+        // the bars stop dead in exactly the moments the line keeps gliding.
+        sf = Math.max(-1, Math.min(2, sf));
         const step = gW / Math.max(1, maxH - 1);
         const barW = Math.max(2, step * 0.62);
         const tPad = h * 0.06, uH = h * 0.88;
@@ -211,8 +234,11 @@ QtObject {
         // from just off the right edge at sf=0 and slides to the right edge as
         // sf→1, while the oldest bar slides off the left. With a non-zero sf the
         // history holds one extra (off-screen) sample so removal happens behind
-        // the clip rect instead of popping. sf=0 keeps the old static layout.
-        const off = sf > 0 ? 2 : 1;
+        // the clip rect instead of popping. sf=0 — smooth scrolling switched off
+        // — keeps the old static layout, which is why the test is against zero
+        // exactly rather than against a sign: an early sample scrolls at a
+        // slightly negative phase and still belongs in the sliding layout.
+        const off = sf !== 0 ? 2 : 1;
         for (let i = 0; i < n; i++) {
             const x = gLeft + gW - (n - off - i + sf) * step;
             if (x + barW / 2 < gLeft || x - barW / 2 > gLeft + gW)
@@ -287,20 +313,34 @@ QtObject {
         ctx.lineCap = "round";
         ctx.lineJoin = "round";
 
-        if (glowStr) {
-            ctx.shadowBlur = Math.min(12, glowStr);
-            ctx.shadowColor = color;
+        // Halo, core and fill all come off ONE trace of the path. Context2D
+        // keeps the current path until the next beginPath(), so a stroke can be
+        // repeated with different width and colour, and the fill only has to
+        // extend the path it already has down to the baseline. Tracing it three
+        // times instead — which is what this did — meant running the bezier loop
+        // three times per line per frame, and a CPU graph with eight cores shown
+        // draws nine lines: twenty-seven traces a frame, sixty times a second.
+        // That was the single largest item in the paint.
+        //
+        // The halo is a wide, low-alpha stroke under the crisp one rather than a
+        // Context2D shadowBlur. Qt renders shadowBlur by rasterising the
+        // primitive into an offscreen image and blurring it, once per stroke per
+        // frame, which on a scrolling chart dominates everything else.
+        _traceLinePath(ctx, len, smooth);
+
+        if (glowStr > 0) {
+            ctx.strokeStyle = Qt.rgba(c.r, c.g, c.b, 0.22);
+            ctx.lineWidth = lw + Math.min(12, glowStr) * 0.55;
+            ctx.stroke();
         }
 
         // Core stroke
-        _traceLinePath(ctx, len, smooth);
         ctx.strokeStyle = color;
         ctx.lineWidth = lw;
         ctx.stroke();
-        ctx.shadowBlur = 0;
 
         if (fillAlpha > 0) {
-            _traceLinePath(ctx, len, smooth);
+            // Continues from the last point of the stroked path.
             ctx.lineTo(_xs[len - 1], height);
             ctx.lineTo(_xs[0], height);
             ctx.closePath();
