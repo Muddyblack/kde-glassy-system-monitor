@@ -9,7 +9,7 @@
       metadata = builtins.fromJSON (builtins.readFile ./package/metadata.json);
     in {
       packages = forAllSystems (system:
-        let pkgs = import nixpkgs { inherit system; };
+        let pkgs = nixpkgs.legacyPackages.${system};
         in {
           default = pkgs.stdenvNoCC.mkDerivation {
             pname = "glassy-system-monitor";
@@ -44,12 +44,13 @@
         });
 
       apps = forAllSystems (system:
-        let pkgs = import nixpkgs { inherit system; };
+        let pkgs = nixpkgs.legacyPackages.${system};
         in {
           view = {
             type = "app";
             program = toString (pkgs.writeShellScript "view" ''
-              exec nix shell nixpkgs#kdePackages.plasma-sdk nixpkgs#kdePackages.plasma-desktop -c plasmoidviewer \
+              export PATH=${pkgs.lib.makeBinPath [ pkgs.kdePackages.plasma-sdk pkgs.kdePackages.plasma-desktop ]}:"$PATH"
+              exec plasmoidviewer \
                 -a "$PWD/package" -f "''${1:-planar}"
             '');
           };
@@ -69,7 +70,7 @@
         });
 
       devShells = forAllSystems (system:
-        let pkgs = import nixpkgs { inherit system; };
+        let pkgs = nixpkgs.legacyPackages.${system};
         in {
           default = pkgs.mkShell {
             name = "glassy-system-monitor-dev";
