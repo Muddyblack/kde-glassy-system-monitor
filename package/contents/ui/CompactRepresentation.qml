@@ -44,23 +44,25 @@ Item {
         return "#44dd88";
     }
 
+    // One decimal below 10 — whole numbers turned 1.5 MB/s into "2M/s" and
+    // 3.4 MB/s into "3M/s" — and whole numbers from 10 up, where a decimal is
+    // noise. At most four digits before the unit steps up (1023M → 1.0G), which
+    // is what the fixed-width panel columns below are measured against.
+    function _fmtScaled(v, suffix) {
+        const units = ["B", "K", "M", "G", "T"];
+        let i = 0;
+        v = Math.max(0, v || 0);
+        while (v >= 1024 && i < units.length - 1) {
+            v /= 1024;
+            i++;
+        }
+        return v.toFixed(i > 0 && v < 10 ? 1 : 0) + units[i] + suffix;
+    }
     function _fmtSpeed(bps) {
-        if (bps >= 1073741824)
-            return (bps / 1073741824).toFixed(1) + "G/s";
-        if (bps >= 1048576)
-            return (bps / 1048576).toFixed(0) + "M/s";
-        if (bps >= 1024)
-            return (bps / 1024).toFixed(0) + "K/s";
-        return bps.toFixed(0) + "B/s";
+        return _fmtScaled(bps, "/s");
     }
     function _fmtBytes(b) {
-        if (b >= 1073741824)
-            return (b / 1073741824).toFixed(1) + "G";
-        if (b >= 1048576)
-            return (b / 1048576).toFixed(0) + "M";
-        if (b >= 1024)
-            return (b / 1024).toFixed(0) + "K";
-        return b.toFixed(0) + "B";
+        return _fmtScaled(b, "");
     }
 
     MouseArea {
@@ -315,12 +317,41 @@ Item {
                 width: pill.width - panelRoot.hPad * 2
                 active: compact._valid && compact._root.showNetworkSpeed
                 sourceComponent: Component {
-                    // Two stacked rows must fit the panel height, so each row's
-                    // font is sized off ~half the height (not the full height) —
-                    // otherwise ↓ and ↑ together overflow the pill.
+                    // Two stacked rows share the panel height, so each row gets
+                    // half of what is left inside the pill's vertical padding.
+                    //
+                    // The numbers sit in fixed-width, right-aligned columns
+                    // measured from the widest value _fmtSpeed can produce. Sized
+                    // to the live text instead, the applet changed width with
+                    // every sample — Plasma re-laid out the whole panel each
+                    // second, the neighbours shuffled, and ↓/↑ never lined up.
                     ColumnLayout {
+                        id: netRows
                         spacing: 0
                         implicitWidth: Math.max(downloadRow.implicitWidth, uploadRow.implicitWidth)
+
+                        readonly property int rowPx: Math.max(8, Math.floor((compact.height - 2 * panelRoot.vPad) / 2 / 1.25))
+                        readonly property int totalPx: Math.max(7, Math.round(rowPx * 0.8))
+                        // Tabular figures, so "1" is as wide as "8" and a column
+                        // measured on eights never jitters as digits change.
+                        readonly property var digitFeatures: ({
+                                "tnum": 1
+                            })
+
+                        TextMetrics {
+                            id: speedMetrics
+                            font.pixelSize: netRows.rowPx
+                            font.bold: true
+                            font.features: netRows.digitFeatures
+                            text: "8888M/s"
+                        }
+                        TextMetrics {
+                            id: totalMetrics
+                            font.pixelSize: netRows.totalPx
+                            font.features: netRows.digitFeatures
+                            text: "8888M"
+                        }
+
                         // Download row
                         RowLayout {
                             id: downloadRow
@@ -329,15 +360,18 @@ Item {
                             Text {
                                 text: "↓"
                                 color: compact.panelAlphaColor(compact._root.dlColor, 0.65)
-                                font.pixelSize: Math.max(7, compact.height * 0.20)
+                                font.pixelSize: netRows.rowPx
                                 font.bold: true
                                 Layout.alignment: Qt.AlignVCenter
                             }
                             Text {
                                 text: compact._fmtSpeed(compact._root.downloadSpeed)
                                 color: compact.panelColor(compact._root.dlColor)
-                                font.pixelSize: Math.max(8, compact.height * 0.23)
+                                font.pixelSize: netRows.rowPx
                                 font.bold: true
+                                font.features: netRows.digitFeatures
+                                horizontalAlignment: Text.AlignRight
+                                Layout.preferredWidth: Math.ceil(speedMetrics.advanceWidth)
                                 Layout.alignment: Qt.AlignVCenter
                             }
                             // session total
@@ -345,7 +379,10 @@ Item {
                                 visible: compact._root.panelSessionTotalsVisible
                                 text: compact._fmtBytes(compact._root.sessionDlBytes)
                                 color: compact.panelAlphaColor(compact._root.dlColor, 0.5)
-                                font.pixelSize: Math.max(7, compact.height * 0.17)
+                                font.pixelSize: netRows.totalPx
+                                font.features: netRows.digitFeatures
+                                horizontalAlignment: Text.AlignRight
+                                Layout.preferredWidth: Math.ceil(totalMetrics.advanceWidth)
                                 Layout.alignment: Qt.AlignVCenter
                             }
                         }
@@ -357,22 +394,28 @@ Item {
                             Text {
                                 text: "↑"
                                 color: compact.panelAlphaColor(compact._root.ulColor, 0.65)
-                                font.pixelSize: Math.max(7, compact.height * 0.20)
+                                font.pixelSize: netRows.rowPx
                                 font.bold: true
                                 Layout.alignment: Qt.AlignVCenter
                             }
                             Text {
                                 text: compact._fmtSpeed(compact._root.uploadSpeed)
                                 color: compact.panelColor(compact._root.ulColor)
-                                font.pixelSize: Math.max(8, compact.height * 0.23)
+                                font.pixelSize: netRows.rowPx
                                 font.bold: true
+                                font.features: netRows.digitFeatures
+                                horizontalAlignment: Text.AlignRight
+                                Layout.preferredWidth: Math.ceil(speedMetrics.advanceWidth)
                                 Layout.alignment: Qt.AlignVCenter
                             }
                             Text {
                                 visible: compact._root.panelSessionTotalsVisible
                                 text: compact._fmtBytes(compact._root.sessionUlBytes)
                                 color: compact.panelAlphaColor(compact._root.ulColor, 0.5)
-                                font.pixelSize: Math.max(7, compact.height * 0.17)
+                                font.pixelSize: netRows.totalPx
+                                font.features: netRows.digitFeatures
+                                horizontalAlignment: Text.AlignRight
+                                Layout.preferredWidth: Math.ceil(totalMetrics.advanceWidth)
                                 Layout.alignment: Qt.AlignVCenter
                             }
                         }

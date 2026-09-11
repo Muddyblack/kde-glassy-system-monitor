@@ -659,6 +659,10 @@ ColumnLayout {
         Layout.fillHeight: true
         visible: plasmoid.configuration.chartType !== 6
         dataIntervalMs: root._netInterval
+        sampleSerial: root._netSampleSerial
+        scrollPhase: function () {
+            return root.scrollDrawPhase(root.netScrollPhase(), root._netInterval);
+        }
 
         Connections {
             target: root
@@ -778,7 +782,7 @@ ColumnLayout {
             const maxBps = Math.max(1024, dataMax * (plasmoid.configuration.autoYRange ? 1.10 : 1.20));
             const tPad = height * 0.06, uH = height * 0.88;
             const step = gW / Math.max(1, maxH - 1);
-            const sf = root.scrollDrawPhase(root.netScrollPhase(), root._netInterval);
+            const sf = netGraph.paintPhase;
             function bToY(b) {
                 return height - tPad - (b / maxBps) * uH;
             }
@@ -822,10 +826,10 @@ ColumnLayout {
             }
             if (ct === 1) {
                 if (!root.isLineDisabled("dl"))
-                    cu.drawHistoryBars(ctx, dl, root.dlColor, yLW, gW, height, maxH, maxBps, sf);
+                    cu.drawHistoryBars(ctx, dl, root.dlColor, yLW, gW, height, maxH, maxBps, sf, netGraph.scrollPadding);
                 if (!root.isLineDisabled("ul")) {
                     ctx.globalAlpha = 0.65;
-                    cu.drawHistoryBars(ctx, ul, root.ulColor, yLW, gW, height, maxH, maxBps, sf);
+                    cu.drawHistoryBars(ctx, ul, root.ulColor, yLW, gW, height, maxH, maxBps, sf, netGraph.scrollPadding);
                     ctx.globalAlpha = 1.0;
                 }
                 return;
@@ -850,7 +854,7 @@ ColumnLayout {
 
                 ctx.save();
                 ctx.beginPath();
-                ctx.rect(yLW, 0, gW, height);
+                ctx.rect(yLW - netGraph.scrollPadding, 0, gW + 2 * netGraph.scrollPadding, height);
                 ctx.clip();
                 ctx.globalAlpha = dimOth ? 0.15 : 1.0;
                 const lw = plasmoid.configuration.lineWidth;

@@ -29,6 +29,10 @@ ColumnLayout {
         Layout.fillHeight: true
         visible: plasmoid.configuration.chartType !== 6
         dataIntervalMs: root._custInterval
+        sampleSerial: root._custSampleSerial
+        scrollPhase: function () {
+            return root.scrollDrawPhase(root.custScrollPhase(), root._custInterval);
+        }
 
         Connections {
             target: root
@@ -49,6 +53,15 @@ ColumnLayout {
         Connections {
             target: plasmoid.configuration
             ignoreUnknownSignals: true
+            function onCustomCmdMaxChanged() {
+                customGraph.requestPaint();
+            }
+            function onCustomCmdUnitChanged() {
+                customGraph.requestPaint();
+            }
+            function onCustomCmdTitleChanged() {
+                customGraph.requestPaint();
+            }
             function onGlowLineChanged() {
                 customGraph.requestPaint();
             }
@@ -136,7 +149,7 @@ ColumnLayout {
 
             const tPad = height * 0.06, uH = height * 0.88;
             const step = gW / Math.max(1, maxH - 1);
-            const sf = root.scrollDrawPhase(root.custScrollPhase(), root._custInterval);
+            const sf = customGraph.paintPhase;
             function valToY(v) {
                 return height - tPad - (Math.min(maxVal, Math.max(0, v)) / maxVal) * uH;
             }
@@ -160,13 +173,13 @@ ColumnLayout {
                 return;
             }
             if (ct === 1) {
-                cu.drawHistoryBars(ctx, h, color, yLW, gW, height, maxH, maxVal, sf);
+                cu.drawHistoryBars(ctx, h, color, yLW, gW, height, maxH, maxVal, sf, customGraph.scrollPadding);
                 return;
             }
 
             ctx.save();
             ctx.beginPath();
-            ctx.rect(yLW, 0, gW, height);
+            ctx.rect(yLW - customGraph.scrollPadding, 0, gW + 2 * customGraph.scrollPadding, height);
             ctx.clip();
             ctx.lineWidth = plasmoid.configuration.lineWidth;
             const fillA = glowPass ? 0 : (ct === 2 ? 0.65 : 0.38);

@@ -12,6 +12,10 @@ ColumnLayout {
         Layout.fillHeight: true
         visible: plasmoid.configuration.chartType !== 6
         dataIntervalMs: root._memInterval
+        sampleSerial: root._memSampleSerial
+        scrollPhase: function () {
+            return root.scrollDrawPhase(root.memScrollPhase(), root._memInterval);
+        }
 
         Connections {
             target: root
@@ -124,7 +128,7 @@ ColumnLayout {
 
             const tPad = height * 0.06, uH = height * 0.88;
             const step = gW / Math.max(1, maxH - 1);
-            const sf = root.scrollDrawPhase(root.memScrollPhase(), root._memInterval);
+            const sf = memGraph.paintPhase;
             function pToY(p) {
                 return height - tPad - (p / 100) * uH;
             }
@@ -166,17 +170,17 @@ ColumnLayout {
                 const sw2 = root.swapHistory;
                 if (root.hasSwap && sw2.length > 0 && !root.isLineDisabled("swap")) {
                     ctx.globalAlpha = 0.55;
-                    cu.drawHistoryBars(ctx, sw2, root.swapColor, yLW, gW, height, maxH, 100, sf);
+                    cu.drawHistoryBars(ctx, sw2, root.swapColor, yLW, gW, height, maxH, 100, sf, memGraph.scrollPadding);
                     ctx.globalAlpha = 1.0;
                 }
                 if (!root.isLineDisabled("ram"))
-                    cu.drawHistoryBars(ctx, h, root.memColor, yLW, gW, height, maxH, 100, sf);
+                    cu.drawHistoryBars(ctx, h, root.memColor, yLW, gW, height, maxH, 100, sf, memGraph.scrollPadding);
                 return;
             }
 
             ctx.save();
             ctx.beginPath();
-            ctx.rect(yLW, 0, gW, height);
+            ctx.rect(yLW - memGraph.scrollPadding, 0, gW + 2 * memGraph.scrollPadding, height);
             ctx.clip();
             const fillA = glowPass ? 0 : (ct === 2 ? 0.62 : 0.35);
             const sw = root.swapHistory, swLen = sw.length;

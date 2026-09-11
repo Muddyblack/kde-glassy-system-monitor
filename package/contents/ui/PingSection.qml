@@ -74,10 +74,17 @@ ColumnLayout {
         Layout.fillHeight: true
         visible: plasmoid.configuration.chartType !== 6
         dataIntervalMs: root._pingInterval
+        sampleSerial: root._pingSampleSerial
+        scrollPhase: function () {
+            return root.scrollDrawPhase(root.pingScrollPhase(), root._pingInterval);
+        }
 
         Connections {
             target: root
             function onHistoriesChanged() {
+                pingGraph.requestPaint();
+            }
+            function onActiveTargetChanged() {
                 pingGraph.requestPaint();
             }
             function onIsAlertingChanged() {
@@ -150,35 +157,49 @@ ColumnLayout {
         // relabels itself whenever the data rescales.
         paintChrome: function (ctx) {
             const h = root.histories[root.activeTarget] || [];
-            if (h.length === 0 || !plasmoid.configuration.showYLabels)
+            if (h.length === 0)
                 return;
             // Only the gauges drop the axis here — the bar chart keeps it, which
             // is what paint() below does too.
             if ((plasmoid.configuration.chartType || 0) >= 3)
                 return;
-            const height = pingGraph.height, yLW = 38;
+            const height = pingGraph.height;
+            const yLW = plasmoid.configuration.showYLabels ? 38 : 0;
             const valid = h.filter(v => v >= 0);
             const vMax = valid.length > 0 ? Math.max.apply(null, valid) : 0;
             const maxMs = Math.max(vMax * 1.5 + 2, 15);
             const tPad = height * 0.06, uH = height * 0.88;
             const msToY = ms => height - tPad - (ms / maxMs) * uH;
-            cu.drawYAxis(ctx, yLW, height, [
-                {
-                    y: msToY(maxMs),
-                    text: maxMs.toFixed(0) + "ms",
-                    grid: false
-                },
-                {
-                    y: msToY(maxMs * 0.5),
-                    text: (maxMs * 0.5).toFixed(0) + "ms",
-                    grid: true
-                },
-                {
-                    y: msToY(0),
-                    text: "0",
-                    grid: false
-                }
-            ]);
+            if (plasmoid.configuration.showYLabels)
+                cu.drawYAxis(ctx, yLW, height, [
+                    {
+                        y: msToY(maxMs),
+                        text: maxMs.toFixed(0) + "ms",
+                        grid: false
+                    },
+                    {
+                        y: msToY(maxMs * 0.5),
+                        text: (maxMs * 0.5).toFixed(0) + "ms",
+                        grid: true
+                    },
+                    {
+                        y: msToY(0),
+                        text: "0",
+                        grid: false
+                    }
+                ]);
+            const ty = msToY(plasmoid.configuration.latencyThreshold);
+            if (ty > 2 && ty < height - 2) {
+                ctx.save();
+                ctx.lineWidth = 0.8;
+                ctx.strokeStyle = Qt.rgba(1, 0.45, 0.1, 0.30);
+                ctx.setLineDash([3, 6]);
+                ctx.beginPath();
+                ctx.moveTo(yLW, ty);
+                ctx.lineTo(pingGraph.width, ty);
+                ctx.stroke();
+                ctx.restore();
+            }
         }
 
         paint: function (ctx, glowPass) {
@@ -201,7 +222,6 @@ ColumnLayout {
             const valid = h.filter(v => v >= 0);
             const vMax = valid.length > 0 ? Math.max.apply(null, valid) : 0;
             const maxMs = Math.max(vMax * 1.5 + 2, 15);
-            const threshold = plasmoid.configuration.latencyThreshold;
             // Packet-loss markers share the critical colour so the whole ping
             // palette stays user-configurable.
             const lossC = root.pingCritColor;
@@ -238,7 +258,7 @@ ColumnLayout {
 
             const step = gW / Math.max(1, maxH - 1);
             const tPad = height * 0.06, uH = height * 0.88;
-            const sf = root.scrollDrawPhase(root.pingScrollPhase(), root._pingInterval);
+            const sf = pingGraph.paintPhase;
 
             // OPTIMIZATION: Precalculate coordinate functions
             function msToY(ms) {
@@ -248,31 +268,16 @@ ColumnLayout {
                 return yLW + gW - (n - 2 - i + sf) * step;
             }
 
-            // threshold line (not glow content)
-            const ty = msToY(threshold);
-            if (!glowPass && ty > 2 && ty < height - 2) {
-                ctx.save();
-                ctx.lineWidth = 0.8;
-                ctx.strokeStyle = Qt.rgba(1, 0.45, 0.1, 0.30);
-                ctx.setLineDash([3, 6]);
-                ctx.beginPath();
-                ctx.moveTo(yLW, ty);
-                ctx.lineTo(width, ty);
-                ctx.stroke();
-                ctx.setLineDash([]);
-                ctx.restore();
-            }
-
             // vertical bars chart
             if (ct === 1) {
                 const barW = Math.max(2, step * 0.62);
                 ctx.save();
                 ctx.beginPath();
-                ctx.rect(yLW, 0, gW, height);
+                ctx.rect(yLW - pingGraph.scrollPadding, 0, gW + 2 * pingGraph.scrollPadding, height);
                 ctx.clip();
                 for (let i = 0; i < n; i++) {
                     const x = iToX(i);
-                    if (x + barW / 2 < yLW || x - barW / 2 > width)
+                    if (x + barW / 2 < yLW - pingGraph.scrollPadding || x - barW / 2 > width + pingGraph.scrollPadding)
                         continue;
                     if (h[i] < 0) {
                         ctx.fillStyle = lossFill;
@@ -313,7 +318,7 @@ ColumnLayout {
             let seg = [];
             for (let i = 0; i < n; i++) {
                 const x = iToX(i);
-                if (x < yLW - step)
+                if (x < yLW - pingGraph.scrollPadding - step)
                     continue;
                 if (h[i] < 0) {
                     if (seg.length) {
@@ -332,7 +337,7 @@ ColumnLayout {
 
             ctx.save();
             ctx.beginPath();
-            ctx.rect(yLW, 0, gW, height);
+            ctx.rect(yLW - pingGraph.scrollPadding, 0, gW + 2 * pingGraph.scrollPadding, height);
             ctx.clip();
 
             // packet-loss columns (alert markers, not glow content)
@@ -340,7 +345,7 @@ ColumnLayout {
                 for (let i = 0; i < n; i++) {
                     if (h[i] < 0) {
                         const x = iToX(i);
-                        if (x >= yLW - step / 2 && x <= width + step / 2) {
+                        if (x >= yLW - pingGraph.scrollPadding - step / 2 && x <= width + pingGraph.scrollPadding + step / 2) {
                             ctx.fillStyle = lossFill;
                             ctx.fillRect(x - step / 2, tPad, step, height - tPad * 2);
                             ctx.beginPath();

@@ -137,6 +137,10 @@ ColumnLayout {
         Layout.fillHeight: true
         visible: plasmoid.configuration.chartType !== 6
         dataIntervalMs: root._dskInterval
+        sampleSerial: root._dskSampleSerial
+        scrollPhase: function () {
+            return root.scrollDrawPhase(root.diskScrollPhase(), root._dskInterval);
+        }
 
         Connections {
             target: diskSection
@@ -262,7 +266,7 @@ ColumnLayout {
             const maxBps = Math.max(1024, dataMax * (plasmoid.configuration.autoYRange ? 1.10 : 1.20));
             const tPad = height * 0.06, uH = height * 0.88;
             const step = gW / Math.max(1, maxH - 1);
-            const sf = root.scrollDrawPhase(root.diskScrollPhase(), root._dskInterval);
+            const sf = diskGraph.paintPhase;
             function bToY(b) {
                 return height - tPad - (b / maxBps) * uH;
             }
@@ -302,10 +306,10 @@ ColumnLayout {
             }
             if (ct === 1) {
                 if (!root.isLineDisabled("diskRd"))
-                    cu.drawHistoryBars(ctx, rd, diskSection.rdColor, yLW, gW, height, maxH, maxBps, sf);
+                    cu.drawHistoryBars(ctx, rd, diskSection.rdColor, yLW, gW, height, maxH, maxBps, sf, diskGraph.scrollPadding);
                 if (!root.isLineDisabled("diskWr")) {
                     ctx.globalAlpha = 0.65;
-                    cu.drawHistoryBars(ctx, wr, diskSection.wrColor, yLW, gW, height, maxH, maxBps, sf);
+                    cu.drawHistoryBars(ctx, wr, diskSection.wrColor, yLW, gW, height, maxH, maxBps, sf, diskGraph.scrollPadding);
                     ctx.globalAlpha = 1.0;
                 }
                 return;
@@ -319,7 +323,7 @@ ColumnLayout {
                 const dimOth = (root.hoveredLine === "diskRd" || root.hoveredLine === "diskWr") && !isHov;
                 ctx.save();
                 ctx.beginPath();
-                ctx.rect(yLW, 0, gW, height);
+                ctx.rect(yLW - diskGraph.scrollPadding, 0, gW + 2 * diskGraph.scrollPadding, height);
                 ctx.clip();
                 ctx.globalAlpha = dimOth ? 0.15 : 1.0;
                 ctx.lineWidth = plasmoid.configuration.lineWidth;

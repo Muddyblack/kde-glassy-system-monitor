@@ -72,6 +72,10 @@ ColumnLayout {
         Layout.fillHeight: true
         visible: plasmoid.configuration.chartType !== 6
         dataIntervalMs: root._gpuInterval
+        sampleSerial: root._gpuSampleSerial
+        scrollPhase: function () {
+            return root.scrollDrawPhase(root.gpuScrollPhase(), root._gpuInterval);
+        }
 
         Connections {
             target: root
@@ -187,7 +191,7 @@ ColumnLayout {
 
             const tPad = height * 0.06, uH = height * 0.88;
             const step = gW / Math.max(1, maxH - 1);
-            const sf = root.scrollDrawPhase(root.gpuScrollPhase(), root._gpuInterval);
+            const sf = gpuGraph.paintPhase;
             function pToY(p) {
                 return height - tPad - (p / 100) * uH;
             }
@@ -212,13 +216,13 @@ ColumnLayout {
                 return;
             }
             if (ct === 1) {
-                cu.drawHistoryBars(ctx, h, col, yLW, gW, height, maxH, 100, sf);
+                cu.drawHistoryBars(ctx, h, col, yLW, gW, height, maxH, 100, sf, gpuGraph.scrollPadding);
                 return;
             }
 
             ctx.save();
             ctx.beginPath();
-            ctx.rect(yLW, 0, gW, height);
+            ctx.rect(yLW - gpuGraph.scrollPadding, 0, gW + 2 * gpuGraph.scrollPadding, height);
             ctx.clip();
             const fillA = glowPass ? 0 : (ct === 2 ? 0.62 : 0.35);
             if (n >= 2) {

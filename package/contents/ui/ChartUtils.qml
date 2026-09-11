@@ -212,15 +212,12 @@ QtObject {
         ctx.fillText(valStr, x + w - 2, y - 3);
     }
 
-    function drawHistoryBars(ctx, history, color, gLeft, gW, h, maxH, maxVal, sf) {
+    function drawHistoryBars(ctx, history, color, gLeft, gW, h, maxH, maxVal, sf, padding) {
         const n = history.length;
         if (n < 1)
             return;
-        // Sanity bound only. The phase is deliberately allowed a little either
-        // side of 0..1 — main.qml eases it past 1 when data is late and carries
-        // it below 0 when data is early — and clamping that away here would make
-        // the bars stop dead in exactly the moments the line keeps gliding.
         sf = Math.max(-1, Math.min(2, sf));
+        padding = padding || 0;
         const step = gW / Math.max(1, maxH - 1);
         const barW = Math.max(2, step * 0.62);
         const tPad = h * 0.06, uH = h * 0.88;
@@ -228,32 +225,19 @@ QtObject {
         const c = Qt.color(color);
         ctx.save();
         ctx.beginPath();
-        ctx.rect(gLeft, 0, gW, h);
+        ctx.rect(gLeft - padding, 0, gW + 2 * padding, h);
         ctx.clip();
-        // Mirror the line path's phase model: the newest bar (i = n-1) enters
-        // from just off the right edge at sf=0 and slides to the right edge as
-        // sf→1, while the oldest bar slides off the left. With a non-zero sf the
-        // history holds one extra (off-screen) sample so removal happens behind
-        // the clip rect instead of popping. sf=0 — smooth scrolling switched off
-        // — keeps the old static layout, which is why the test is against zero
-        // exactly rather than against a sign: an early sample scrolls at a
-        // slightly negative phase and still belongs in the sliding layout.
-        const off = sf !== 0 ? 2 : 1;
         for (let i = 0; i < n; i++) {
-            const x = gLeft + gW - (n - off - i + sf) * step;
-            if (x + barW / 2 < gLeft || x - barW / 2 > gLeft + gW)
+            const x = gLeft + gW - (n - 2 - i + sf) * step;
+            if (x + barW / 2 < gLeft - padding || x - barW / 2 > gLeft + gW + padding)
                 continue;
             const v = Math.max(0, Math.min(1, history[i] / maxVal));
             const bh = Math.max(2, v * uH);
             const bx = x - barW / 2;
             const by = h - tPad - bh;
-            // Fade out the oldest bar as it slides off the left edge, mirroring
-            // how the newest bar smoothly appears on the right.
-            const edgeDist = (x + barW / 2) - gLeft;
-            const fadeAlpha = Math.max(0, Math.min(1, edgeDist / barW));
             const gr = ctx.createLinearGradient(0, by, 0, h - tPad);
-            gr.addColorStop(0, Qt.rgba(c.r, c.g, c.b, 0.88 * fadeAlpha));
-            gr.addColorStop(1, Qt.rgba(c.r, c.g, c.b, 0.28 * fadeAlpha));
+            gr.addColorStop(0, Qt.rgba(c.r, c.g, c.b, 0.88));
+            gr.addColorStop(1, Qt.rgba(c.r, c.g, c.b, 0.28));
             ctx.fillStyle = gr;
             ctx.beginPath();
             if (bh > r * 2) {

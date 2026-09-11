@@ -98,151 +98,126 @@ PlasmoidItem {
         gpuBloom: plasmoid.configuration.gpuBloom && plasmoid.configuration.glowLine
     }
 
-    // ── smooth scroll: timestamp-based, computed at paint time ───────────────
-    // Each section reads scrollPhase(start, interval) directly in onPaint via
-    // Date.now() — no intermediate property, no signal cascade, no race.
-    // The ticker drives requestPaint() at ~60fps so canvases stay animated.
-    // On new data the start timestamp is recorded; the canvas computes the
-    // current phase itself when it paints.
-    property real _pingPhaseStart: 0
-    property real _netPhaseStart: 0
-    property real _cpuPhaseStart: 0
-    property real _memPhaseStart: 0
-    property real _dskPhaseStart: 0
-    property real _custPhaseStart: 0
-    property real _gpuPhaseStart: 0
-
-    // Measured interval (ms) between the last two data updates per channel.
-    // Seeded from the nominal/configured cadence and then EMA-smoothed toward
-    // the real gap. Using the *actual* gap as the phase divisor makes the
-    // scroll finish exactly as the next sample lands — late data slows the
-    // scroll instead of freezing, early data speeds it instead of snapping.
-    // Computed once per update (in markPhase), so it adds nothing per frame.
-    property real _netInterval: 1000
-    property real _cpuInterval: 1000
-    property real _memInterval: 2000
-    property real _dskInterval: 1000
-    property real _custInterval: 2000
-    property real _pingInterval: 1000
-    property real _gpuInterval: 2000
-
-    // Record a new data update: smooth the measured gap toward the real cadence.
-    // prevStart is the previous start timestamp; minMs/maxMs clamp out absurd
-    // gaps (first sample, system sleep/resume, config change).
-    function _measureInterval(prevStart, prevInterval, minMs, maxMs) {
-        if (prevStart <= 0)
-            return prevInterval;
-        const gap = Date.now() - prevStart;
-        if (gap < minMs || gap > maxMs)
-            return prevInterval;
-        // EMA: 70% history + 30% new — absorbs single-sample jitter, still
-        // tracks a genuine cadence change within a few updates.
-        return prevInterval * 0.7 + gap * 0.3;
+    SampleClock {
+        id: pingClock
+        sampleInterval: 1000
+        minInterval: 200
+        maxInterval: 30000
+        smooth: plasmoid.configuration.smoothScroll
     }
+    readonly property real _pingPhaseStart: pingClock.phaseStart
+    readonly property real _pingInterval: pingClock.interval
+    readonly property int _pingSampleSerial: pingClock.generation
+
+    function pingScrollPhase() {
+        return pingClock.phase();
+    }
+
+    SampleClock {
+        id: netClock
+        sampleInterval: 1000
+        minInterval: 200
+        maxInterval: 8000
+        smooth: plasmoid.configuration.smoothScroll
+    }
+    readonly property real _netPhaseStart: netClock.phaseStart
+    readonly property real _netInterval: netClock.interval
+    readonly property int _netSampleSerial: netClock.generation
 
     function netScrollPhase() {
-        return _netPhaseStart > 0 ? (Date.now() - _netPhaseStart) / _netInterval : 0;
+        return netClock.phase();
     }
+
+    SampleClock {
+        id: cpuClock
+        sampleInterval: 1000
+        minInterval: 200
+        maxInterval: 8000
+        smooth: plasmoid.configuration.smoothScroll
+    }
+    readonly property real _cpuPhaseStart: cpuClock.phaseStart
+    readonly property real _cpuInterval: cpuClock.interval
+    readonly property int _cpuSampleSerial: cpuClock.generation
+
     function cpuScrollPhase() {
-        return _cpuPhaseStart > 0 ? (Date.now() - _cpuPhaseStart) / _cpuInterval : 0;
+        return cpuClock.phase();
     }
+
+    SampleClock {
+        id: memClock
+        sampleInterval: 2000
+        minInterval: 400
+        maxInterval: 16000
+        smooth: plasmoid.configuration.smoothScroll
+    }
+    readonly property real _memPhaseStart: memClock.phaseStart
+    readonly property real _memInterval: memClock.interval
+    readonly property int _memSampleSerial: memClock.generation
+
     function memScrollPhase() {
-        return _memPhaseStart > 0 ? (Date.now() - _memPhaseStart) / _memInterval : 0;
+        return memClock.phase();
     }
+
+    SampleClock {
+        id: diskClock
+        sampleInterval: 1000
+        minInterval: 200
+        maxInterval: 8000
+        smooth: plasmoid.configuration.smoothScroll
+    }
+    readonly property real _dskPhaseStart: diskClock.phaseStart
+    readonly property real _dskInterval: diskClock.interval
+    readonly property int _dskSampleSerial: diskClock.generation
+
     function diskScrollPhase() {
-        return _dskPhaseStart > 0 ? (Date.now() - _dskPhaseStart) / _dskInterval : 0;
+        return diskClock.phase();
     }
+
+    SampleClock {
+        id: custClock
+        sampleInterval: 2000
+        minInterval: 200
+        maxInterval: 120000
+        smooth: plasmoid.configuration.smoothScroll
+    }
+    readonly property real _custPhaseStart: custClock.phaseStart
+    readonly property real _custInterval: custClock.interval
+    readonly property int _custSampleSerial: custClock.generation
+
     function custScrollPhase() {
-        return _custPhaseStart > 0 ? (Date.now() - _custPhaseStart) / _custInterval : 0;
+        return custClock.phase();
     }
-    function pingScrollPhase() {
-        return _pingPhaseStart > 0 ? (Date.now() - _pingPhaseStart) / _pingInterval : 0;
+
+    SampleClock {
+        id: gpuClock
+        sampleInterval: 2000
+        minInterval: 400
+        maxInterval: 16000
+        smooth: plasmoid.configuration.smoothScroll
     }
+    readonly property real _gpuPhaseStart: gpuClock.phaseStart
+    readonly property real _gpuInterval: gpuClock.interval
+    readonly property int _gpuSampleSerial: gpuClock.generation
+
     function gpuScrollPhase() {
-        return _gpuPhaseStart > 0 ? (Date.now() - _gpuPhaseStart) / _gpuInterval : 0;
+        return gpuClock.phase();
     }
 
-    // ── late and early data ───────────────────────────────────────────────────
-    // The raw phase runs 0 → 1 over one data interval and the newest sample
-    // reaches the right edge exactly at 1. What happens on either side of that
-    // is the whole difference between a graph that glides and one that hitches,
-    // because data never lands on time: the daemon jitters, a ping takes an
-    // extra 40 ms, a poll is skipped entirely.
-    //
-    //   • Ran past 1 (data late). Drawing the raw phase keeps sliding the line
-    //     left and opens a gap on the right that snaps shut on arrival. Freezing
-    //     at 1 instead trades that snap for a dead stop, which reads worse — a
-    //     stopped line is far more visible than a slow one.
-    //     So neither: past 1 the scroll DECELERATES, easing toward a limit a
-    //     fraction of a step further on. It leaves at the same speed it arrived
-    //     (the curve is C¹ at 1, see tau below), never stops dead, and never
-    //     wanders more than a fraction of a sample past the newest one.
-    //
-    //   • Arrived before 1 (data early). Appending a sample shifts the series
-    //     one step right, so restarting the phase at 0 is only continuous if the
-    //     phase was at exactly 1. Anywhere else it is a jump. _phaseCarry hands
-    //     the difference to the next cycle instead, so the line keeps moving
-    //     through the update at the speed it already had.
-    //
-    // Together these mean nothing about the arrival of data is visible in the
-    // motion: the line slides at a near-constant rate whether the samples behind
-    // it are early, late, or missing.
-
-    // Time constant of the overshoot, in phase units. Its own value is also the
-    // limit the overshoot eases toward, which is what makes the curve C¹ at
-    // phase 1 — decelerating from exactly the speed the normal scroll had.
-    // 250 ms of easing regardless of cadence: enough that the slowdown reads as
-    // gliding to a halt, short enough that a chart whose data has genuinely
-    // stopped settles (and lets the ticker stop) within about a second.
     function _phaseTau(intervalMs) {
         return Math.min(0.5, 250 / Math.max(1, intervalMs));
     }
 
-    // The phase a chart should DRAW at, given its raw phase and cadence.
     function scrollDrawPhase(phase, intervalMs) {
-        if (isNaN(phase))
+        if (!isFinite(phase))
             return 0;
-        // Below zero is a chart carrying an early sample (see _phaseCarry): the
-        // newest point sits a little further off the right edge for a while.
-        // Clamping that to zero would be exactly the freeze this is all here to
-        // avoid, so it is allowed, with a floor no reading can reach.
-        if (phase < -1)
-            return -1;
         if (phase <= 1)
             return phase;
         const tau = root._phaseTau(intervalMs);
         return 1 + tau * (1 - Math.exp(-(phase - 1) / tau));
     }
 
-    // Phase to resume at after a sample lands: where the line was actually drawn
-    // last, minus the one step the new sample just added. Zero when the sample
-    // was exactly on time, positive when it was late, negative when early.
-    //
-    // Bounded to half a step in both directions. Above, that is where the
-    // overshoot ends anyway; below, it is what keeps the left edge honest — a
-    // negative phase holds the oldest sample that far short of the left edge,
-    // and half a step of that is a couple of pixels nobody reads as a gap, while
-    // a whole one would be. Damped by 0.9 as well, so a one-off hiccup fades
-    // over the next few updates instead of biasing the chart forever; that
-    // leaves a correction of at most 0.05 steps, well under a pixel.
-    function _phaseCarry(prevStart, prevInterval) {
-        // With smooth scrolling off there is no motion to be continuous with,
-        // and the charts want a phase of exactly 0 — that is the flag their
-        // static layout keys off.
-        if (prevStart <= 0 || !plasmoid.configuration.smoothScroll)
-            return 0;
-        const raw = (Date.now() - prevStart) / prevInterval;
-        const drawn = root.scrollDrawPhase(raw, prevInterval);
-        return Math.max(-0.5, Math.min(0.5, drawn - 1)) * 0.9;
-    }
-
-    // Is this channel still moving? True until the overshoot above has eased out
-    // — four time constants, by which point the remaining travel is a hundredth
-    // of a step and no repaint could show it.
     function _phaseActive(start, intervalMs) {
-        if (start <= 0)
-            return false;
-        return (Date.now() - start) / intervalMs < 1 + 4 * root._phaseTau(intervalMs);
+        return start > 0 && (Date.now() - start) / intervalMs < 1 + 4 * root._phaseTau(intervalMs);
     }
 
     // Latency band of a single sample: 0 = normal, 1 = warning, 2 = critical.
@@ -271,59 +246,10 @@ PlasmoidItem {
         return pingAlertActive ? pingCritColor : pingColor;
     }
 
-    // Scroll animation ticker. Only runs while a visible section is within its
-    // post-data scroll window, so it auto-pauses when idle — which matters a
-    // lot once several instances are spread over several screens.
     property int scrollTick: 0
-
-    // ── repaint budget ────────────────────────────────────────────────────────
-    // The ticker runs at the configured frame rate, full stop. Pacing it to the
-    // data instead — ticking only as often as the fastest chart needs to move
-    // some visible distance — sounds like the same picture for less work and is
-    // not: a Timer is not vsync-aligned, so its jitter is a fixed few
-    // milliseconds, and that is a tenth of the default 42 ms frame but a fifth
-    // of the ~70 ms the data-paced rate worked out to. Smooth motion is a matter
-    // of even spacing far more than of step size, and the tick rate whose
-    // spacing survives best is the one with the most room to absorb that jitter.
-    //
-    // What IS worth skipping is a chart moving so slowly that a frame cannot
-    // show it — a custom command polled every two minutes crawls at a thousandth
-    // of a pixel per frame. Charts repaint on every N-th tick, N being how many
-    // frames THEY need to travel this far (see BloomChart). At the defaults a
-    // line covers about five pixels a second, so a frame moves it further than
-    // this and N is 1: every chart on a normal setup paints every frame, exactly
-    // as it did before any of the pacing existed. The number only bites for
-    // charts whose motion is already invisible, which is why it is set an order
-    // of magnitude below the pixel where stepping starts to show.
-    readonly property real scrollPaintStepPx: 0.05
-
-    // targetFps is the animation rate, and the ticker holds it whatever the data
-    // is doing.
-    readonly property int _tickFloorMs: Math.max(8, Math.round(1000 / Math.max(15, plasmoid.configuration.targetFps || 60)))
-
-    // The one thing that changes it: while we are not being drawn at all there
-    // is no point pacing for the eye, so the ticker drops to the probe that
-    // notices when we are back (see _renderStalled).
-    readonly property int _tickInterval: root._renderStalled ? root._stalledProbeMs : root._tickFloorMs
-
-    // Whether the popup's charts are actually on screen. In a panel the full
-    // representation only exists while the popup is open, so without this the
-    // ticker kept repainting canvases nobody could see. On the desktop the full
-    // representation is the only representation and this stays true.
     property bool fullRepVisible: false
 
-    // ── render-stall detection ────────────────────────────────────────────────
-    // Being "visible" is not the same as being drawn. A maximised browser over
-    // the desktop leaves the widget visible by every property QML exposes, while
-    // the compositor quietly stops asking for frames — and nothing tells a
-    // plasmoid that happened. It does not have to: a Canvas only runs onPaint as
-    // part of a real render pass, so if we ask for a paint and none arrives, we
-    // are not being drawn. That is a signal readable without any platform API —
-    // charts stamp both sides of it, and when requests stop being answered the
-    // ticker drops to a slow probe until one lands again.
-    // Data collection is deliberately untouched by this — the histories keep
-    // filling while nothing is drawn, so coming back shows a complete chart
-    // rather than a gap where the window was covering it.
+    // Keep the first unanswered request so later data cannot reset the timeout.
     property real _lastPaintRequestMs: 0
     property real _lastPaintMs: 0
     property bool _renderStalled: false
@@ -335,7 +261,8 @@ PlasmoidItem {
 
     // Called by BloomChart on both sides of a paint.
     function notePaintRequested() {
-        _lastPaintRequestMs = Date.now();
+        if (_lastPaintRequestMs <= _lastPaintMs)
+            _lastPaintRequestMs = Date.now();
     }
     function notePainted() {
         _lastPaintMs = Date.now();
@@ -426,7 +353,7 @@ PlasmoidItem {
     }
 
     // Start the ticker whenever new data lands on any channel. The ticker
-    // then stops itself once all phases have expired (see onTriggered).
+    // then stops itself once all phases have expired.
     function _ensureScrollTicker() {
         if (plasmoid.configuration.smoothScroll && root._chartScrolls && root.fullRepVisible && !scrollTicker.running)
             scrollTicker.start();
@@ -558,70 +485,44 @@ PlasmoidItem {
             }
         }
     }
-    Timer {
+    ScrollTicker {
         id: scrollTicker
-        interval: root._tickInterval
-        repeat: true
-        running: false
-        onTriggered: {
-            // A request outstanding longer than the stall window means our paints
-            // are not being served — see the note on _renderStalled. The ticker
-            // keeps running at the probe rate so that one request per second
-            // still goes out; whichever of those is answered clears the stall.
+        targetFps: root._renderStalled ? 1000 / root._stalledProbeMs : Math.max(15, plasmoid.configuration.targetFps || 60)
+        onTick: {
             root._renderStalled = root._lastPaintRequestMs > root._lastPaintMs && Date.now() - root._lastPaintRequestMs > root._stallAfterMs;
-
             root.scrollTick = (root.scrollTick + 1) & 0x7fffffff;
-            // Self-disable: once no phase is still animating, stop the timer so
-            // we do not keep repainting canvases (and burning CPU) between updates.
             if (!root._anyAnimatingNow())
                 scrollTicker.stop();
         }
     }
 
-    // Each channel restarts its phase where the line was actually drawn rather
-    // than at zero, so the sample that just landed changes the data under the
-    // line without changing the line's speed — see _phaseCarry.
     onHistoriesChanged: {
-        const carry = _phaseCarry(_pingPhaseStart, _pingInterval);
-        _pingInterval = _measureInterval(_pingPhaseStart, _pingInterval, 200, 30000);
-        _pingPhaseStart = Date.now() - carry * _pingInterval;
+        pingClock.sample();
         _ensureScrollTicker();
     }
     onDlHistoryChanged: {
-        const carry = _phaseCarry(_netPhaseStart, _netInterval);
-        _netInterval = _measureInterval(_netPhaseStart, _netInterval, 200, 8000);
-        _netPhaseStart = Date.now() - carry * _netInterval;
+        netClock.sample();
         _ensureScrollTicker();
     }
     onCpuHistoryChanged: {
-        const carry = _phaseCarry(_cpuPhaseStart, _cpuInterval);
-        _cpuInterval = _measureInterval(_cpuPhaseStart, _cpuInterval, 200, 8000);
-        _cpuPhaseStart = Date.now() - carry * _cpuInterval;
+        cpuClock.sample();
         _ensureScrollTicker();
     }
     onMemHistoryChanged: {
-        const carry = _phaseCarry(_memPhaseStart, _memInterval);
-        _memInterval = _measureInterval(_memPhaseStart, _memInterval, 400, 16000);
-        _memPhaseStart = Date.now() - carry * _memInterval;
+        memClock.sample();
         _ensureScrollTicker();
     }
     onCustomHistoryChanged: {
-        const carry = _phaseCarry(_custPhaseStart, _custInterval);
-        _custInterval = _measureInterval(_custPhaseStart, _custInterval, 200, 120000);
-        _custPhaseStart = Date.now() - carry * _custInterval;
+        custClock.sample();
         _ensureScrollTicker();
     }
     onGpuHistoryChanged: {
-        const carry = _phaseCarry(_gpuPhaseStart, _gpuInterval);
-        _gpuInterval = _measureInterval(_gpuPhaseStart, _gpuInterval, 400, 16000);
-        _gpuPhaseStart = Date.now() - carry * _gpuInterval;
+        gpuClock.sample();
         _ensureScrollTicker();
     }
 
     function restartDiskScroll() {
-        const carry = _phaseCarry(_dskPhaseStart, _dskInterval);
-        _dskInterval = _measureInterval(_dskPhaseStart, _dskInterval, 200, 8000);
-        _dskPhaseStart = Date.now() - carry * _dskInterval;
+        diskClock.sample();
         _ensureScrollTicker();
     }
 

@@ -13,6 +13,10 @@ ColumnLayout {
         Layout.fillHeight: true
         visible: plasmoid.configuration.chartType !== 6
         dataIntervalMs: root._cpuInterval
+        sampleSerial: root._cpuSampleSerial
+        scrollPhase: function () {
+            return root.scrollDrawPhase(root.cpuScrollPhase(), root._cpuInterval);
+        }
 
         Connections {
             target: root
@@ -20,6 +24,12 @@ ColumnLayout {
                 cpuGraph.requestPaint();
             }
             function onCoreHistoriesChanged() {
+                cpuGraph.requestPaint();
+            }
+            function onHoveredLineChanged() {
+                cpuGraph.requestPaint();
+            }
+            function onHoveredCoreChanged() {
                 cpuGraph.requestPaint();
             }
             function onTextColorChanged() {
@@ -43,6 +53,12 @@ ColumnLayout {
                 cpuGraph.requestPaint();
             }
             function onShowCpuCoresChanged() {
+                cpuGraph.requestPaint();
+            }
+            function onDisabledLinesStrChanged() {
+                cpuGraph.requestPaint();
+            }
+            function onDisabledCoresStrChanged() {
                 cpuGraph.requestPaint();
             }
             function onShowYLabelsChanged() {
@@ -141,7 +157,7 @@ ColumnLayout {
 
             const tPad = height * 0.06, uH = height * 0.88;
             const step = gW / Math.max(1, maxH - 1);
-            const sf = root.scrollDrawPhase(root.cpuScrollPhase(), root._cpuInterval);
+            const sf = cpuGraph.paintPhase;
             function pToY(p) {
                 return height - tPad - (p / 100) * uH;
             }
@@ -208,18 +224,18 @@ ColumnLayout {
                         if (root.isCoreDisabled(ci) || root.coreHistories[ci].length < 1)
                             continue;
                         ctx.globalAlpha = root.hoveredCore === ci ? 1.0 : (root.hoveredCore !== -1 ? 0.18 : 0.55);
-                        cu.drawHistoryBars(ctx, root.coreHistories[ci], root.coreColors[ci % root.coreColors.length] || "#888888", yLW, gW, height, maxH, 100, sf);
+                        cu.drawHistoryBars(ctx, root.coreHistories[ci], root.coreColors[ci % root.coreColors.length] || "#888888", yLW, gW, height, maxH, 100, sf, cpuGraph.scrollPadding);
                     }
                     ctx.globalAlpha = 1.0;
                 } else if (!root.isLineDisabled("cpuTotal")) {
-                    cu.drawHistoryBars(ctx, h, root.cpuColor, yLW, gW, height, maxH, 100, sf);
+                    cu.drawHistoryBars(ctx, h, root.cpuColor, yLW, gW, height, maxH, 100, sf, cpuGraph.scrollPadding);
                 }
                 return;
             }
 
             ctx.save();
             ctx.beginPath();
-            ctx.rect(yLW, 0, gW, height);
+            ctx.rect(yLW - cpuGraph.scrollPadding, 0, gW + 2 * cpuGraph.scrollPadding, height);
             ctx.clip();
             // No area fill on the glow pass — only the strokes feed the bloom.
             const fillA = glowPass ? 0 : (ct === 2 ? 0.62 : 0.35);
