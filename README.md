@@ -18,6 +18,7 @@
   <a href="https://github.com/Muddyblack/kde-glassy-system-monitor/releases">
     <img src="https://img.shields.io/github/downloads/Muddyblack/kde-glassy-system-monitor/total?style=for-the-badge&logo=github&logoColor=white&label=GitHub%20Downloads&color=blue" alt="GitHub Downloads" />
   </a>
+  <img src="https://img.shields.io/badge/Started-May_2026-9c27b0?style=for-the-badge" alt="Project started May 2026" />
 </p>
 
 <p align="center">
