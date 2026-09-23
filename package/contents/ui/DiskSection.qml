@@ -1,450 +1,63 @@
 import QtQuick
 import QtQuick.Layouts
+import "SectionModels.js" as SectionModels
 
 ColumnLayout {
-    id: diskSection
-    spacing: 3
+    id: section
 
-    // ── state ─────────────────────────────────────────────────────────────────
-    property real readSpeed: 0
-    property real writeSpeed: 0
-    property var rdHistory: []
-    property var wrHistory: []
-    property var lastDiskStats: null
-    property string activeDisk: ""
+    required property var monitor
+    required property var cfg
+    readonly property string sectionId: "disk"
+    // Shared with the website studio; see SectionModels.js.
+    readonly property var model: SectionModels.disk(monitor, cfg)
+    readonly property real preferredHeight: header.implicitHeight + chart.wantedHeight + (legend.visible ? legend.implicitHeight : 0) + 12
+    readonly property real minimumHeight: preferredHeight - chart.slack
 
-    // cached Qt.color objects so we don't allocate on every paint
-    readonly property color rdColor: plasmoid.configuration.diskRdColor || "#22ddff"
-    readonly property color wrColor: plasmoid.configuration.diskWrColor || "#ffaa22"
+    spacing: 4
 
-    // ── data source ───────────────────────────────────────────────────────────
-    // /proc/diskstats is read by the root's combined poll, together with the
-    // other per-second /proc files, so this section costs no subprocess of its
-    // own. The root hands the block over as soon as it arrives.
-    Connections {
-        target: root
-        function onDiskStatsReady(text) {
-            diskSection.parseDiskStats(text);
+    SectionHeader {
+        id: header
+        fontFamily: section.monitor.fontFamily
+        Layout.fillWidth: true
+        title: section.model.title
+        reading: section.model.reading
+        readingColor: section.model.readingColor || section.monitor.textColor
+        textColor: section.monitor.textColor
+        Text {
+            font.family: section.monitor.fontFamily
+            anchors.verticalCenter: parent.verticalCenter
+            text: section.monitor.activeDisk
+            color: section.monitor.textColor
+            opacity: 0.38
+            font.pixelSize: 9
         }
     }
 
-    // Under the sensor backend the throughput arrives from the daemon instead,
-    // and the block above degrades to a slow device-enumeration pass.
-    Connections {
-        target: root.sensorBackend
-        ignoreUnknownSignals: true
-        enabled: root.sensorsActive
-        function onDiskSample(readBytesPerSec, writeBytesPerSec) {
-            diskSection.activeDisk = root.resolvedDisk;
-            diskSection.applyDiskSample(readBytesPerSec, writeBytesPerSec);
-        }
-    }
-
-    // Read/write throughput in bytes per second. The sensor backend reports this
-    // directly; the /proc/diskstats path derives it from a sector-count delta.
-    function applyDiskSample(readBytesPerSec, writeBytesPerSec) {
-        readSpeed = Math.max(0, readBytesPerSec);
-        writeSpeed = Math.max(0, writeBytesPerSec);
-        root.diskReadSpeed = readSpeed;
-        root.diskWriteSpeed = writeSpeed;
-        rdHistory = root.appendHistory(rdHistory, readSpeed);
-        wrHistory = root.appendHistory(wrHistory, writeSpeed);
-        root.restartDiskScroll();
-    }
-
-    function parseDiskStats(text) {
-        // /proc/diskstats columns (1-based): major minor name rd_ios rd_merges rd_sectors rd_ticks
-        //   wr_ios wr_merges wr_sectors wr_ticks ...
-        // We use rd_sectors(col6) and wr_sectors(col10); 1 sector = 512 bytes
-        const cfgDisk = plasmoid.configuration.diskDevice || "auto";
-        const diskData = {};
-        let bestDisk = "", bestActivity = -1;
-
-        for (const line of text.split("\n")) {
-            const p = line.trim().split(/\s+/);
-            if (p.length < 14)
-                continue;
-            const name = p[2];
-            // skip partitions (end in digit AND parent name exists) and loop/ram devices
-            if (/^(loop|ram|zram)/.test(name))
-                continue;
-            // only keep whole disks: no trailing digit after letters (sda, nvme0n1, vda, mmcblk0)
-            if (/[0-9]p[0-9]+$/.test(name))
-                // nvme0n1p1
-                continue;
-            if (/^sd[a-z]+[0-9]+$/.test(name))
-                // sda1
-                continue;
-            if (/^vd[a-z]+[0-9]+$/.test(name))
-                // vda1
-                continue;
-            if (/^mmcblk[0-9]+p[0-9]+$/.test(name))
-                continue;
-            const rd = parseInt(p[5]) * 512;  // sectors → bytes
-            const wr = parseInt(p[9]) * 512;
-            diskData[name] = {
-                rd,
-                wr
-            };
-            const activity = rd + wr;
-            if (activity > bestActivity) {
-                bestActivity = activity;
-                bestDisk = name;
-            }
-        }
-
-        root.autoDisk = bestDisk;
-
-        const disk = (cfgDisk !== "auto" && diskData[cfgDisk]) ? cfgDisk : bestDisk;
-        if (!disk || !diskData[disk])
-            return;
-        activeDisk = disk;
-        // Sensors own the throughput; this pass only refreshes the "auto" pick.
-        if (root.sensorsActive)
-            return;
-        const now = Date.now();
-        const {
-            rd,
-            wr
-        } = diskData[disk];
-
-        if (lastDiskStats && lastDiskStats.disk === disk) {
-            const dt = (now - lastDiskStats.time) / 1000;
-            if (dt > 0.1)
-                applyDiskSample((rd - lastDiskStats.rd) / dt, (wr - lastDiskStats.wr) / dt);
-        }
-        lastDiskStats = {
-            disk,
-            rd,
-            wr,
-            time: now
-        };
-    }
-
-    // ── disk name badge ───────────────────────────────────────────────────────
-    Text {
-        Layout.leftMargin: plasmoid.configuration.showYLabels ? 42 : 4
-        text: diskSection.activeDisk || ""
-        color: Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.38)
-        font.pixelSize: 9
-        visible: diskSection.activeDisk !== ""
-    }
-
-    // ── graph ─────────────────────────────────────────────────────────────────
-    BloomChart {
-        id: diskGraph
+    MetricChart {
+        id: chart
         Layout.fillWidth: true
         Layout.fillHeight: true
-        visible: plasmoid.configuration.chartType !== 6
-        dataIntervalMs: root._dskInterval
-        sampleSerial: root._dskSampleSerial
-        scrollPhase: function () {
-            return root.scrollDrawPhase(root.diskScrollPhase(), root._dskInterval);
-        }
-
-        Connections {
-            target: diskSection
-            function onRdHistoryChanged() {
-                diskGraph.requestPaint();
-            }
-            function onWrHistoryChanged() {
-                diskGraph.requestPaint();
-            }
-        }
-        Connections {
-            target: root
-            function onTextColorChanged() {
-                diskGraph.requestPaint();
-            }
-            function onHoveredLineChanged() {
-                diskGraph.requestPaint();
-            }
-            function onScrollTickChanged() {
-                if (root._phaseActive(root._dskPhaseStart, root._dskInterval))
-                    diskGraph.requestScrollPaint();
-            }
-            function onRepaintCharts() {
-                diskGraph.requestPaint();
-            }
-        }
-        Connections {
-            target: plasmoid.configuration
-            ignoreUnknownSignals: true
-            function onGlowLineChanged() {
-                diskGraph.requestPaint();
-            }
-            function onLineWidthChanged() {
-                diskGraph.requestPaint();
-            }
-            function onShowYLabelsChanged() {
-                diskGraph.requestPaint();
-            }
-            function onDiskRdColorChanged() {
-                diskGraph.requestPaint();
-            }
-            function onDiskWrColorChanged() {
-                diskGraph.requestPaint();
-            }
-            function onChartTypeChanged() {
-                diskGraph.requestPaint();
-            }
-            function onShowGridLinesChanged() {
-                diskGraph.requestPaint();
-            }
-            function onAutoYRangeChanged() {
-                diskGraph.requestPaint();
-            }
-            function onSmoothLinesChanged() {
-                diskGraph.requestPaint();
-            }
-            function onGpuBloomChanged() {
-                diskGraph.requestPaint();
-            }
-            function onBloomStrengthChanged() {
-                diskGraph.requestPaint();
-            }
-        }
-
-        // Axis and grid — the part of the chart that does not move. Painted on
-        // BloomChart's chrome canvas, which repaints on data rather than on every
-        // scroll frame; the range is recomputed here because an auto-ranged axis
-        // relabels itself whenever the data rescales.
-        paintChrome: function (ctx) {
-            const rd = diskSection.rdHistory, wr = diskSection.wrHistory;
-            if ((rd.length < 1 && wr.length < 1) || !plasmoid.configuration.showYLabels)
-                return;
-            // Bars and the gauges carry no axis, matching paint() below.
-            const ct = plasmoid.configuration.chartType || 0;
-            if (ct === 1 || ct >= 3)
-                return;
-            const height = diskGraph.height, yLW = 38;
-            const allVals = rd.concat(wr);
-            const dataMax = allVals.length > 0 ? Math.max.apply(null, allVals) : 0;
-            const maxBps = Math.max(1024, dataMax * (plasmoid.configuration.autoYRange ? 1.10 : 1.20));
-            const tPad = height * 0.06, uH = height * 0.88;
-            const bToY = b => height - tPad - (b / maxBps) * uH;
-            cu.drawYAxis(ctx, yLW, height, [
-                {
-                    y: bToY(maxBps),
-                    text: cu.formatSpeed(maxBps),
-                    grid: false
-                },
-                {
-                    y: bToY(maxBps * 0.5),
-                    text: cu.formatSpeed(maxBps * 0.5),
-                    grid: true
-                },
-                {
-                    y: bToY(0),
-                    text: "0",
-                    grid: false
-                }
-            ]);
-        }
-
-        paint: function (ctx, glowPass) {
-            const width = diskGraph.width, height = diskGraph.height;
-            const rd = diskSection.rdHistory, wr = diskSection.wrHistory;
-            const maxH = Math.max(10, plasmoid.configuration.historySize);
-            const yLW = plasmoid.configuration.showYLabels ? 38 : 0;
-            const gW = width - yLW;
-            const smooth = plasmoid.configuration.smoothLines;
-            const ct = plasmoid.configuration.chartType || 0;
-
-            if (rd.length < 1 && wr.length < 1) {
-                if (!glowPass)
-                    cu.drawIdleLine(ctx, yLW, gW, height);
-                return;
-            }
-            ctx.setLineDash([]);
-
-            if (glowPass && (ct === 3 || ct === 4 || ct === 5))
-                return;
-
-            const allVals = rd.concat(wr);
-            const dataMax = allVals.length > 0 ? Math.max.apply(null, allVals) : 0;
-            const maxBps = Math.max(1024, dataMax * (plasmoid.configuration.autoYRange ? 1.10 : 1.20));
-            const tPad = height * 0.06, uH = height * 0.88;
-            const step = gW / Math.max(1, maxH - 1);
-            const sf = diskGraph.paintPhase;
-            function bToY(b) {
-                return height - tPad - (b / maxBps) * uH;
-            }
-            function iToX(i, len) {
-                return yLW + gW - (len - 2 - i + sf) * step;
-            }
-
-            if (ct === 3) {
-                const cx = yLW + gW / 2, cy = height / 2;
-                const rad = Math.min(gW, height) * 0.33, lw = Math.max(6, rad * 0.22);
-                if (!root.isLineDisabled("diskRd"))
-                    cu.drawDonut(ctx, cx, cy, rad, lw, Math.min(100, (diskSection.readSpeed / maxBps) * 100), diskSection.rdColor, "R " + cu.formatSpeed(diskSection.readSpeed), "W " + cu.formatSpeed(diskSection.writeSpeed));
-                if (!root.isLineDisabled("diskWr"))
-                    cu.drawDonut(ctx, cx, cy, rad * 0.58, lw * 0.72, Math.min(100, (diskSection.writeSpeed / maxBps) * 100), diskSection.wrColor, null, null);
-                return;
-            }
-            if (ct === 4) {
-                const cx = yLW + gW / 2, cy = height / 2;
-                const rad = Math.min(gW, height) * 0.33;
-                if (!root.isLineDisabled("diskRd"))
-                    cu.drawPie(ctx, cx, cy, rad, Math.min(100, (diskSection.readSpeed / maxBps) * 100), diskSection.rdColor, "R " + cu.formatSpeed(diskSection.readSpeed), "W " + cu.formatSpeed(diskSection.writeSpeed));
-                if (!root.isLineDisabled("diskWr"))
-                    cu.drawPie(ctx, cx, cy, rad * 0.58, Math.min(100, (diskSection.writeSpeed / maxBps) * 100), diskSection.wrColor, null, null);
-                return;
-            }
-            if (ct === 5) {
-                const barH = 10, gap = 8, bx = yLW + 10, bw = gW - 20;
-                let activeCount = (!root.isLineDisabled("diskRd") ? 1 : 0) + (!root.isLineDisabled("diskWr") ? 1 : 0);
-                let y = height / 2 - (activeCount * barH + (activeCount - 1) * gap) / 2;
-                if (!root.isLineDisabled("diskRd")) {
-                    cu.drawHorizontalBar(ctx, "Read", (diskSection.readSpeed / maxBps) * 100, cu.formatSpeed(diskSection.readSpeed), diskSection.rdColor, bx, y, bw, barH);
-                    y += barH + gap;
-                }
-                if (!root.isLineDisabled("diskWr"))
-                    cu.drawHorizontalBar(ctx, "Write", (diskSection.writeSpeed / maxBps) * 100, cu.formatSpeed(diskSection.writeSpeed), diskSection.wrColor, bx, y, bw, barH);
-                return;
-            }
-            if (ct === 1) {
-                if (!root.isLineDisabled("diskRd"))
-                    cu.drawHistoryBars(ctx, rd, diskSection.rdColor, yLW, gW, height, maxH, maxBps, sf, diskGraph.scrollPadding);
-                if (!root.isLineDisabled("diskWr")) {
-                    ctx.globalAlpha = 0.65;
-                    cu.drawHistoryBars(ctx, wr, diskSection.wrColor, yLW, gW, height, maxH, maxBps, sf, diskGraph.scrollPadding);
-                    ctx.globalAlpha = 1.0;
-                }
-                return;
-            }
-
-            const fillA = glowPass ? 0 : (ct === 2 ? 0.60 : 0.35);
-            function drawLine(history, color, key) {
-                if (history.length < 2 || root.isLineDisabled(key))
-                    return;
-                const isHov = root.hoveredLine === key;
-                const dimOth = (root.hoveredLine === "diskRd" || root.hoveredLine === "diskWr") && !isHov;
-                ctx.save();
-                ctx.beginPath();
-                ctx.rect(yLW - diskGraph.scrollPadding, 0, gW + 2 * diskGraph.scrollPadding, height);
-                ctx.clip();
-                ctx.globalAlpha = dimOth ? 0.15 : 1.0;
-                ctx.lineWidth = plasmoid.configuration.lineWidth;
-                // Glow resolves to 0 on the GPU-bloom crisp pass (bloom owns it).
-                cu.drawLine(ctx, history, color, iToX, bToY, height, smooth, fillA, plasmoid.configuration.glowLine ? cu.glowFor(isHov ? 7 : 4) : 0);
-                ctx.restore();
-            }
-            drawLine(wr, diskSection.wrColor, "diskWr");
-            drawLine(rd, diskSection.rdColor, "diskRd");
-        }
+        Layout.minimumHeight: 40
+        monitor: section.monitor
+        cfg: section.cfg
+        sectionId: "disk"
+        clock: section.monitor.diskClock
+        maxValue: section.model.maxValue
+        ticks: section.model.ticks
+        markers: section.model.markers || []
+        bands: section.model.bands || []
+        gapColor: section.model.gapColor || "#ff4444"
+        centerText: section.model.centerText
+        centerSubText: section.model.centerSubText
+        series: section.model.series(style)
     }
 
-    // ── legend + live values ──────────────────────────────────────────────────
-    RowLayout {
+    Legend {
+        id: legend
         Layout.fillWidth: true
-        visible: plasmoid.configuration.showLegend
-        spacing: 6
-        Item {
-            width: plasmoid.configuration.showYLabels ? 38 : 0
-        }
-
-        Item {
-            implicitWidth: rdRow.implicitWidth
-            implicitHeight: rdRow.implicitHeight
-            Row {
-                id: rdRow
-                spacing: 5
-                Rectangle {
-                    width: 8
-                    height: 8
-                    radius: 2
-                    anchors.verticalCenter: parent.verticalCenter
-                    color: root.isLineDisabled("diskRd") ? "transparent" : diskSection.rdColor
-                    border.color: diskSection.rdColor
-                    border.width: 1
-                }
-                Text {
-                    text: "Read"
-                    color: root.isLineDisabled("diskRd") ? Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.3) : Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.7)
-                    font.pixelSize: 10
-                    font.strikeout: root.isLineDisabled("diskRd")
-                    anchors.verticalCenter: parent.verticalCenter
-                }
-                Text {
-                    text: cu.formatSpeed(diskSection.readSpeed)
-                    color: root.isLineDisabled("diskRd") ? Qt.rgba(diskSection.rdColor.r, diskSection.rdColor.g, diskSection.rdColor.b, 0.3) : diskSection.rdColor
-                    font.pixelSize: 12
-                    font.bold: true
-                    anchors.verticalCenter: parent.verticalCenter
-                }
-            }
-            MouseArea {
-                anchors.fill: parent
-                cursorShape: Qt.PointingHandCursor
-                hoverEnabled: true
-                onClicked: {
-                    root.toggleLineDisabled("diskRd");
-                    diskGraph.requestPaint();
-                }
-                onEntered: {
-                    root.hoveredLine = "diskRd";
-                    diskGraph.requestPaint();
-                }
-                onExited: {
-                    root.hoveredLine = "";
-                    diskGraph.requestPaint();
-                }
-            }
-        }
-
-        Item {
-            Layout.fillWidth: true
-        }
-
-        Item {
-            implicitWidth: wrRow.implicitWidth
-            implicitHeight: wrRow.implicitHeight
-            Row {
-                id: wrRow
-                spacing: 5
-                Rectangle {
-                    width: 8
-                    height: 8
-                    radius: 2
-                    anchors.verticalCenter: parent.verticalCenter
-                    color: root.isLineDisabled("diskWr") ? "transparent" : diskSection.wrColor
-                    border.color: diskSection.wrColor
-                    border.width: 1
-                }
-                Text {
-                    text: "Write"
-                    color: root.isLineDisabled("diskWr") ? Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.3) : Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.7)
-                    font.pixelSize: 10
-                    font.strikeout: root.isLineDisabled("diskWr")
-                    anchors.verticalCenter: parent.verticalCenter
-                }
-                Text {
-                    text: cu.formatSpeed(diskSection.writeSpeed)
-                    color: root.isLineDisabled("diskWr") ? Qt.rgba(diskSection.wrColor.r, diskSection.wrColor.g, diskSection.wrColor.b, 0.3) : diskSection.wrColor
-                    font.pixelSize: 12
-                    font.bold: true
-                    anchors.verticalCenter: parent.verticalCenter
-                }
-            }
-            MouseArea {
-                anchors.fill: parent
-                cursorShape: Qt.PointingHandCursor
-                hoverEnabled: true
-                onClicked: {
-                    root.toggleLineDisabled("diskWr");
-                    diskGraph.requestPaint();
-                }
-                onEntered: {
-                    root.hoveredLine = "diskWr";
-                    diskGraph.requestPaint();
-                }
-                onExited: {
-                    root.hoveredLine = "";
-                    diskGraph.requestPaint();
-                }
-            }
-        }
+        visible: !!section.cfg.showLegend && section.model.legend.length > 0
+        monitor: section.monitor
+        indent: chart.plotLeft
+        entries: section.model.legend
     }
 }

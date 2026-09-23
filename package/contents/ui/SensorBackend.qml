@@ -158,7 +158,7 @@ Item {
     KSysGuard.Sensor {
         id: coreCount
         sensorId: "cpu/all/coreCount"
-        enabled: backend.host.showCpuSection && plasmoid.configuration.showCpuCores
+        enabled: backend.host.showCpuSection && !!backend.host.cfg.showCpuCores
     }
 
     // Per-core usage as one model rather than N Sensor objects: a single
@@ -168,13 +168,13 @@ Item {
     KSysGuard.SensorDataModel {
         id: coreModel
         updateRateLimit: backend.rateLimit
-        enabled: backend.host.showCpuSection && plasmoid.configuration.showCpuCores
+        enabled: backend.host.showCpuSection && !!backend.host.cfg.showCpuCores
         // The section check is repeated here rather than left to `enabled` above,
         // because SensorDataModel subscribes the moment `sensors` is assigned and
         // does not consult `enabled` when it does so. An empty list is the only
         // thing that reliably means "subscribe to nothing".
         sensors: {
-            if (!backend.host.showCpuSection || !plasmoid.configuration.showCpuCores)
+            if (!backend.host.showCpuSection || !backend.host.cfg.showCpuCores)
                 return [];
             const n = parseInt(coreCount.value);
             if (!(n > 0))
@@ -274,7 +274,7 @@ Item {
     // Interface identity, which used to cost a shell pipeline through
     // iwgetid / iw / nmcli / ip. The daemon's aggregate object has no identity
     // of its own, so this only applies to a named device.
-    readonly property bool netIdentityUsable: backend.host.showNetworkSpeed && plasmoid.configuration.netShowInfo && backend.netObject !== "all"
+    readonly property bool netIdentityUsable: backend.host.showNetworkSpeed && !!backend.host.cfg.netShowInfo && backend.netObject !== "all"
 
     KSysGuard.Sensor {
         id: netSsid

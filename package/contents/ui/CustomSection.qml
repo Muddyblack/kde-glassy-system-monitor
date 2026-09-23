@@ -1,228 +1,46 @@
 import QtQuick
 import QtQuick.Layouts
+import "SectionModels.js" as SectionModels
 
 ColumnLayout {
-    id: customSection
-    spacing: 3
+    id: section
 
-    RowLayout {
+    required property var monitor
+    required property var cfg
+    readonly property string sectionId: "custom"
+    // Shared with the website studio; see SectionModels.js.
+    readonly property var model: SectionModels.custom(monitor, cfg)
+    readonly property real preferredHeight: header.implicitHeight + chart.wantedHeight + 12
+    readonly property real minimumHeight: preferredHeight - chart.slack
+
+    spacing: 4
+
+    SectionHeader {
+        id: header
+        fontFamily: section.monitor.fontFamily
         Layout.fillWidth: true
-        spacing: 6
-        Item {
-            width: plasmoid.configuration.showYLabels ? 38 : 0
-        }
-        Item {
-            Layout.fillWidth: true
-        }
-        Text {
-            text: root.customValue.toFixed(2) + " " + (plasmoid.configuration.customCmdUnit || "")
-            color: plasmoid.configuration.customCmdColor || "#ffaa00"
-            font.pixelSize: 15
-            font.bold: true
-            opacity: 0.95
-        }
+        title: section.model.title
+        reading: section.model.reading
+        readingColor: section.model.readingColor || section.monitor.textColor
+        textColor: section.monitor.textColor
     }
 
-    BloomChart {
-        id: customGraph
+    MetricChart {
+        id: chart
         Layout.fillWidth: true
         Layout.fillHeight: true
-        visible: plasmoid.configuration.chartType !== 6
-        dataIntervalMs: root._custInterval
-        sampleSerial: root._custSampleSerial
-        scrollPhase: function () {
-            return root.scrollDrawPhase(root.custScrollPhase(), root._custInterval);
-        }
-
-        Connections {
-            target: root
-            function onCustomHistoryChanged() {
-                customGraph.requestPaint();
-            }
-            function onTextColorChanged() {
-                customGraph.requestPaint();
-            }
-            function onScrollTickChanged() {
-                if (root._phaseActive(root._custPhaseStart, root._custInterval))
-                    customGraph.requestScrollPaint();
-            }
-            function onRepaintCharts() {
-                customGraph.requestPaint();
-            }
-        }
-        Connections {
-            target: plasmoid.configuration
-            ignoreUnknownSignals: true
-            function onCustomCmdMaxChanged() {
-                customGraph.requestPaint();
-            }
-            function onCustomCmdUnitChanged() {
-                customGraph.requestPaint();
-            }
-            function onCustomCmdTitleChanged() {
-                customGraph.requestPaint();
-            }
-            function onGlowLineChanged() {
-                customGraph.requestPaint();
-            }
-            function onLineWidthChanged() {
-                customGraph.requestPaint();
-            }
-            function onShowYLabelsChanged() {
-                customGraph.requestPaint();
-            }
-            function onCustomCmdColorChanged() {
-                customGraph.requestPaint();
-            }
-            function onChartTypeChanged() {
-                customGraph.requestPaint();
-            }
-            function onShowGridLinesChanged() {
-                customGraph.requestPaint();
-            }
-            function onAutoYRangeChanged() {
-                customGraph.requestPaint();
-            }
-            function onSmoothLinesChanged() {
-                customGraph.requestPaint();
-            }
-            function onGpuBloomChanged() {
-                customGraph.requestPaint();
-            }
-            function onBloomStrengthChanged() {
-                customGraph.requestPaint();
-            }
-        }
-
-        // Axis and grid — the part of the chart that does not move. Painted on
-        // BloomChart's chrome canvas, so it costs nothing per scroll frame.
-        paintChrome: function (ctx) {
-            if (root.customHistory.length < 1 || !plasmoid.configuration.showYLabels)
-                return;
-            // Bars and the gauges carry no axis, matching paint() below.
-            const ct = plasmoid.configuration.chartType || 0;
-            if (ct === 1 || ct >= 3)
-                return;
-            const height = customGraph.height, yLW = 38;
-            const maxVal = Math.max(0.1, plasmoid.configuration.customCmdMax);
-            const tPad = height * 0.06, uH = height * 0.88;
-            const valToY = v => height - tPad - (Math.min(maxVal, Math.max(0, v)) / maxVal) * uH;
-            cu.drawYAxis(ctx, yLW, height, [
-                {
-                    y: valToY(maxVal),
-                    text: maxVal.toFixed(1) + (plasmoid.configuration.customCmdUnit || ""),
-                    grid: false
-                },
-                {
-                    y: valToY(maxVal * 0.5),
-                    text: (maxVal * 0.5).toFixed(1),
-                    grid: true
-                },
-                {
-                    y: valToY(0),
-                    text: "0",
-                    grid: false
-                }
-            ]);
-        }
-
-        paint: function (ctx, glowPass) {
-            const width = customGraph.width, height = customGraph.height;
-            const h = root.customHistory, n = h.length;
-            const maxH = Math.max(10, plasmoid.configuration.historySize);
-            const yLW = plasmoid.configuration.showYLabels ? 38 : 0;
-            const gW = width - yLW;
-            const smooth = plasmoid.configuration.smoothLines;
-            const ct = plasmoid.configuration.chartType || 0;
-            const color = plasmoid.configuration.customCmdColor || "#ffaa00";
-            const maxVal = Math.max(0.1, plasmoid.configuration.customCmdMax);
-
-            if (n < 1) {
-                if (!glowPass)
-                    cu.drawIdleLine(ctx, yLW, gW, height);
-                return;
-            }
-            ctx.setLineDash([]);
-
-            if (glowPass && (ct === 3 || ct === 4 || ct === 5))
-                return;
-
-            const tPad = height * 0.06, uH = height * 0.88;
-            const step = gW / Math.max(1, maxH - 1);
-            const sf = customGraph.paintPhase;
-            function valToY(v) {
-                return height - tPad - (Math.min(maxVal, Math.max(0, v)) / maxVal) * uH;
-            }
-            function iToX(i, len) {
-                return yLW + gW - (len - 2 - i + sf) * step;
-            }
-
-            if (ct === 3) {
-                const cx = yLW + gW / 2, cy = height / 2, rad = Math.min(gW, height) * 0.36;
-                cu.drawDonut(ctx, cx, cy, rad, Math.max(6, rad * 0.22), Math.min(100, (root.customValue / maxVal) * 100), color, root.customValue.toFixed(1) + (plasmoid.configuration.customCmdUnit || ""), plasmoid.configuration.customCmdTitle || "value");
-                return;
-            }
-            if (ct === 4) {
-                const cx = yLW + gW / 2, cy = height / 2, rad = Math.min(gW, height) * 0.36;
-                cu.drawPie(ctx, cx, cy, rad, Math.min(100, (root.customValue / maxVal) * 100), color, root.customValue.toFixed(1) + (plasmoid.configuration.customCmdUnit || ""), plasmoid.configuration.customCmdTitle || "value");
-                return;
-            }
-            if (ct === 5) {
-                const barH = 14, bx = yLW + 10, bw = gW - 20;
-                cu.drawHorizontalBar(ctx, plasmoid.configuration.customCmdTitle || "Value", (root.customValue / maxVal) * 100, root.customValue.toFixed(2) + (plasmoid.configuration.customCmdUnit || ""), color, bx, height / 2 - barH / 2, bw, barH);
-                return;
-            }
-            if (ct === 1) {
-                cu.drawHistoryBars(ctx, h, color, yLW, gW, height, maxH, maxVal, sf, customGraph.scrollPadding);
-                return;
-            }
-
-            ctx.save();
-            ctx.beginPath();
-            ctx.rect(yLW - customGraph.scrollPadding, 0, gW + 2 * customGraph.scrollPadding, height);
-            ctx.clip();
-            ctx.lineWidth = plasmoid.configuration.lineWidth;
-            const fillA = glowPass ? 0 : (ct === 2 ? 0.65 : 0.38);
-            cu.drawLine(ctx, h, color, iToX, valToY, height, smooth, fillA, plasmoid.configuration.glowLine ? cu.glowFor(5) : 0);
-
-            // endpoint dot
-            if (n > 0) {
-                const lp = {
-                    x: iToX(n - 1, n),
-                    y: valToY(h[n - 1])
-                };
-                const ec = Qt.color(color);
-                // Manual soft halo only when GPU bloom isn't already adding one.
-                if (plasmoid.configuration.glowLine && !glowPass && !cu.gpuBloom) {
-                    ctx.beginPath();
-                    ctx.arc(lp.x, lp.y, 14, 0, Math.PI * 2);
-                    ctx.fillStyle = Qt.rgba(ec.r, ec.g, ec.b, 0.18);
-                    ctx.fill();
-                }
-                ctx.beginPath();
-                ctx.arc(lp.x, lp.y, 3.2, 0, Math.PI * 2);
-                ctx.fillStyle = color;
-                ctx.fill();
-            }
-            ctx.restore();
-        }
-    }
-
-    RowLayout {
-        Layout.fillWidth: true
-        visible: plasmoid.configuration.showLegend
-        spacing: 12
-        Item {
-            width: plasmoid.configuration.showYLabels ? 38 : 0
-        }
-        LegendItem {
-            text: plasmoid.configuration.customCmdTitle || "Value"
-            color: plasmoid.configuration.customCmdColor || "#ffaa00"
-            textColor: root.textColor
-            active: true
-        }
-        Item {
-            Layout.fillWidth: true
-        }
+        Layout.minimumHeight: 40
+        monitor: section.monitor
+        cfg: section.cfg
+        sectionId: "custom"
+        clock: section.monitor.customClock
+        maxValue: section.model.maxValue
+        ticks: section.model.ticks
+        markers: section.model.markers || []
+        bands: section.model.bands || []
+        gapColor: section.model.gapColor || "#ff4444"
+        centerText: section.model.centerText
+        centerSubText: section.model.centerSubText
+        series: section.model.series(style)
     }
 }

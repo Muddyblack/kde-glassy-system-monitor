@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000">
+<title>Midnight marina</title>
+<defs>
+ <linearGradient id="sky" x2="0" y2="1"><stop stop-color="#061221"/><stop offset=".62" stop-color="#143d51"/><stop offset="1" stop-color="#21717a"/></linearGradient>
+ <radialGradient id="haze" cx=".62" cy=".5" r=".65"><stop stop-color="#83e1cc" stop-opacity=".25"/><stop offset="1" stop-color="#83e1cc" stop-opacity="0"/></radialGradient>
+ <linearGradient id="water" x2="0" y2="1"><stop stop-color="#21717a"/><stop offset="1" stop-color="#061221"/></linearGradient>
+ <linearGradient id="veil" x2="0" y2="1"><stop stop-color="#7be2bf" stop-opacity="0"/><stop offset="1" stop-color="#9ae5c8"/></linearGradient>
+ <radialGradient id="reflection"><stop stop-color="#83e1cc" stop-opacity=".25"/><stop offset="1" stop-color="#83e1cc" stop-opacity="0"/></radialGradient>
+</defs>
+<path fill="url(#sky)" d="M0 0h1600v1000H0z"/>
+
+<path fill="url(#haze)" d="M0 0h1600v1000H0z"/>
+<circle cx="1130" cy="260" r="38" fill="#83e1cc" opacity=".7"/>
+<path d="M0 580C130 565 220 470 330 491S520 589 715 566 962 479 1160 515 1438 576 1600 459V1000H0Z" fill="#102d3b" opacity=".85"/>
+<path d="M0 650C206 602 407 677 584 620S923 583 1100 608 1455 640 1600 591V1000H0Z" fill="url(#water)"/>
+<ellipse cx="1060" cy="738" rx="410" ry="170" fill="url(#reflection)"/>
+<!-- A quiet distant marina, electric blue lights and aqua water reflections. -->
+<path d="M1020 620h378v5h-378zm36-26h3v28h-3zm118-9h3v37h-3zm126 11h3v26h-3z" fill="#071824"/>
+<g fill="#77ddff">
+ <circle cx="1058" cy="594" r="2.5"/><circle cx="1176" cy="585" r="3"/><circle cx="1302" cy="596" r="2.5"/>
+</g>
+<g stroke="#55ccee" stroke-linecap="round" opacity=".35">
+ <path d="M1058 639v12m118-10v18m126-20v10m-243 16v5m116 2v12m129-24v8"/>
+</g>
+<g fill="none" stroke="#83e1cc" opacity=".12" stroke-linecap="round">
+ <path d="M1060 654h130m-226 26h322m-403 37h210m-33 34h358m-535 57h300m-386 65h360" stroke-width="2"/>
+ <path d="M840 634h255m-403 148h65m275 63h160" stroke-width="1"/>
+</g>
+<path d="M0 557C200 582 270 683 539 743S578 828 302 853 161 926 0 932Z" fill="#09232e"/>
+<path d="M1600 627C1354 631 1395 711 1190 741S1246 806 1373 854 1400 959 1600 925Z" fill="#09232e"/>
+<path d="M0 858C143 812 288 867 455 913S700 936 772 1000H0Z" fill="#071824"/>
+<path d="M1600 875C1456 824 1398 916 1220 943S1000 964 906 1000H1600Z" fill="#071824"/>
+<g fill="#65edcf" opacity=".45">
+ <circle cx="410" cy="850" r="1.8"/><circle cx="472" cy="879" r="1.1"/>
+ <circle cx="524" cy="901" r="2"/><circle cx="591" cy="923" r="1.2"/>
+ <circle cx="1165" cy="918" r="1.6"/><circle cx="1100" cy="944" r="1"/>
+</g>
+</svg>

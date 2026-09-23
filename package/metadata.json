@@ -8,12 +8,12 @@
             }
         ],
         "Category": "System Information",
-        "Description": "Sleek glassmorphism real-time system monitor (CPU, Memory, Ping latency, and Network bandwidth).",
+        "Description": "Glass system monitor with GPU-rendered charts: CPU, memory, network, ping, disk, GPU, sensors, power and more in one widget, in any order, with a live settings studio. Plasma and Hyprland.",
         "Icon": "org.muddyblack.glassySystemMonitor",
         "Id": "org.muddyblack.glassySystemMonitor",
-        "License": "MIT",
+        "License": "GPL-3.0-or-later",
         "Name": "Glassy System Monitor",
-        "Version": "1.2.1",
+        "Version": "2.0.0",
         "Website": "https://github.com/Muddyblack/kde-glassy-system-monitor"
     },
     "X-Plasma-API-Minimum-Version": "6.0"

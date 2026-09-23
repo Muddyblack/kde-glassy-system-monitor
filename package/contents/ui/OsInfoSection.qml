@@ -1,10 +1,25 @@
 import QtQuick
 import QtQuick.Layouts
-import org.kde.kirigami as Kirigami
 
 ColumnLayout {
-    id: osSection
+    id: section
+
+    required property var monitor
+    required property var cfg
+    readonly property string sectionId: "system"
+    readonly property real preferredHeight: implicitHeight + 8
+    readonly property real minimumHeight: preferredHeight
+
     spacing: 0
+
+    SectionHeader {
+        fontFamily: section.monitor.fontFamily
+        Layout.fillWidth: true
+        Layout.bottomMargin: 4
+        title: section.monitor.sectionTitle("system")
+        reading: section.monitor.osUptime
+        textColor: section.monitor.textColor
+    }
 
     // Built-in fallback rows, used when no fetch tool is available (or the
     // integration is switched off). Kept in sync by the cheap /etc/os-release
@@ -12,26 +27,26 @@ ColumnLayout {
     readonly property var _builtinRows: [
         {
             lbl: "OS",
-            val: root.osDistro
+            val: section.monitor.osDistro
         },
         {
             lbl: "Kernel",
-            val: root.osKernel
+            val: section.monitor.osKernel
         },
         {
             lbl: "Host",
-            val: root.osHostname
+            val: section.monitor.osHostname
         },
         {
             lbl: "Uptime",
-            val: root.osUptime
+            val: section.monitor.osUptime
         }
     ]
 
-    readonly property bool _fetch: root.osFetchActive
-    readonly property bool _plain: _fetch && plasmoid.configuration.osPlainText
-    readonly property var _rows: _fetch ? root.osFetchVisibleRows : _builtinRows
-    readonly property bool _showLogo: plasmoid.configuration.osShowLogo && _fetch
+    readonly property bool _fetch: section.monitor.osFetchActive
+    readonly property bool _plain: _fetch && section.cfg.osPlainText
+    readonly property var _rows: _fetch ? section.monitor.osFetchVisibleRows : _builtinRows
+    readonly property bool _showLogo: section.cfg.osShowLogo === true && _fetch
 
     // Label column. Fetch tools emit far longer keys than the built-in four
     // ("Display (AUOE48D)", "Battery (L20L2PF0)"), so the column scales with the
@@ -42,12 +57,13 @@ ColumnLayout {
     RowLayout {
         Layout.fillWidth: true
         Layout.bottomMargin: 4
-        visible: osSection._showLogo
+        visible: section._showLogo
         spacing: 8
 
-        Kirigami.Icon {
-            source: root.osLogoIcon || "computer"
-            fallback: "computer"
+        // Distro logo from the icon theme.
+        Image {
+            source: section._showLogo ? "image://icon/" + (section.monitor.osLogoIcon || "computer") : ""
+            sourceSize: Qt.size(68, 68)
             Layout.preferredWidth: 34
             Layout.preferredHeight: 34
             Layout.alignment: Qt.AlignVCenter
@@ -58,17 +74,19 @@ ColumnLayout {
             spacing: 0
 
             Text {
+                font.family: section.monitor.fontFamily
                 Layout.fillWidth: true
-                text: root.osFetchTitle || root.osDistro
-                color: root.textColor
+                text: section.monitor.osFetchTitle || section.monitor.osDistro
+                color: section.monitor.textColor
                 font.pixelSize: 12
                 font.bold: true
                 elide: Text.ElideRight
             }
             Text {
+                font.family: section.monitor.fontFamily
                 Layout.fillWidth: true
-                text: root.osFetchTool
-                color: Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.40)
+                text: section.monitor.osFetchTool
+                color: Qt.rgba(section.monitor.textColor.r, section.monitor.textColor.g, section.monitor.textColor.b, 0.40)
                 font.pixelSize: 9
                 elide: Text.ElideRight
             }
@@ -77,19 +95,21 @@ ColumnLayout {
 
     // ── Plain-text mode ───────────────────────────────────────────────────────
     Flickable {
-        visible: osSection._plain
+        visible: section._plain
         Layout.fillWidth: true
         Layout.fillHeight: true
         contentWidth: rawText.implicitWidth
         contentHeight: rawText.implicitHeight
+        // Long fetch output scrolls instead of growing the card without end.
+        implicitHeight: Math.min(contentHeight, 320)
         clip: true
         boundsBehavior: Flickable.StopAtBounds
 
         Text {
             id: rawText
-            text: root.osFetchRaw
-            color: root.textColor
-            font.family: "monospace"
+            font.family: section.monitor.fontFamily
+            text: section.monitor.osFetchRaw
+            color: section.monitor.textColor
             font.pixelSize: 10
             textFormat: Text.PlainText
             lineHeight: 1.15
@@ -98,10 +118,11 @@ ColumnLayout {
 
     // ── Parsed rows ───────────────────────────────────────────────────────────
     Flickable {
-        visible: !osSection._plain
+        visible: !section._plain
         Layout.fillWidth: true
         Layout.fillHeight: true
         contentHeight: rowCol.implicitHeight
+        implicitHeight: contentHeight
         clip: true
         boundsBehavior: Flickable.StopAtBounds
 
@@ -111,7 +132,7 @@ ColumnLayout {
             spacing: 0
 
             Repeater {
-                model: osSection._rows
+                model: section._rows
 
                 Item {
                     Layout.fillWidth: true
@@ -119,29 +140,31 @@ ColumnLayout {
 
                     Rectangle {
                         anchors.fill: parent
-                        color: Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, index % 2 === 0 ? 0.0 : 0.04)
+                        color: Qt.rgba(section.monitor.textColor.r, section.monitor.textColor.g, section.monitor.textColor.b, index % 2 === 0 ? 0.0 : 0.04)
                         radius: 2
                     }
 
                     Text {
                         id: lblText
+                        font.family: section.monitor.fontFamily
                         anchors.left: parent.left
                         anchors.leftMargin: 2
                         anchors.verticalCenter: parent.verticalCenter
                         text: modelData.lbl
-                        color: Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.40)
+                        color: Qt.rgba(section.monitor.textColor.r, section.monitor.textColor.g, section.monitor.textColor.b, 0.40)
                         font.pixelSize: 10
-                        width: osSection._labelW
+                        width: section._labelW
                         elide: Text.ElideRight
                     }
                     Text {
+                        font.family: section.monitor.fontFamily
                         anchors.left: lblText.right
                         anchors.leftMargin: 4
                         anchors.right: parent.right
                         anchors.rightMargin: 2
                         anchors.verticalCenter: parent.verticalCenter
                         text: modelData.val || "…"
-                        color: root.textColor
+                        color: section.monitor.textColor
                         font.pixelSize: 11
                         font.bold: modelData.val !== ""
                         elide: Text.ElideRight

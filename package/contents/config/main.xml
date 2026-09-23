@@ -5,7 +5,35 @@
       http://www.kde.org/standards/kcfg/1.0/kcfg.xsd">
     <kcfgfile name=""/>
     <group name="General">
-        <!-- Active section (0=Ping, 1=Network, 2=CPU, 3=Memory, 4=Custom, 5=Disk) -->
+        <!-- Sections shown, in order: cpu,memory,network,ping,disk,gpu,sensors,power,system,custom.
+             Empty falls back to the single legacy activeSection below. -->
+        <entry name="sections" type="String">
+            <default></default>
+        </entry>
+        <!-- Columns the sections flow into; sections listed in sectionSpans take a full row. -->
+        <entry name="layoutColumns" type="Int">
+            <default>1</default>
+        </entry>
+        <entry name="sectionSpans" type="String">
+            <default></default>
+        </entry>
+        <!-- Per-section size: s, m or l, e.g. "cpu:l,memory:s". -->
+        <entry name="sectionSizes" type="String">
+            <default></default>
+        </entry>
+        <!-- Saved looks, a JSON list of { id, name, settings }. -->
+        <entry name="userPresets" type="String">
+            <default></default>
+        </entry>
+        <!-- Per-section chart style overrides, e.g. "memory:donut,cpu:line". -->
+        <entry name="sectionStyles" type="String">
+            <default></default>
+        </entry>
+        <!-- Chart renderer: "gpu" (fragment shader) or "canvas" (the pre-shader renderer). -->
+        <entry name="chartRenderer" type="String">
+            <default>gpu</default>
+        </entry>
+        <!-- Legacy single section (0=Ping, 1=Network, 2=CPU, 3=Memory, 4=Custom, 5=Disk, 6=GPU, 7=Sensors, 8=System, 9=Power) -->
         <entry name="activeSection" type="Int">
             <default>2</default>
         </entry>
@@ -140,6 +168,9 @@
         <entry name="bgColor" type="String">
             <default>#800d0f1a</default>
         </entry>
+        <entry name="fontFamily" type="String">
+            <default>system</default>
+        </entry>
         <entry name="bgRadiusTL" type="Double">
             <default>12.0</default>
         </entry>
@@ -151,6 +182,83 @@
         </entry>
         <entry name="bgRadiusBL" type="Double">
             <default>12.0</default>
+        </entry>
+        <!-- Card material: tint (classic fill + frost), glass, liquid, solid,
+             atmosphere. Glass blurs the desktop wallpaper behind the card. -->
+        <!-- Colour by load: CPU, RAM and GPU turn amber/red past these levels. -->
+        <entry name="loadColors" type="Bool">
+            <default>false</default>
+        </entry>
+        <entry name="loadWarn" type="Int">
+            <default>70</default>
+        </entry>
+        <entry name="loadCrit" type="Int">
+            <default>90</default>
+        </entry>
+        <entry name="loadWarnColor" type="String">
+            <default>#ffaa22</default>
+        </entry>
+        <entry name="loadCritColor" type="String">
+            <default>#ff4444</default>
+        </entry>
+        <!-- Spacing inside the card: compact, normal, roomy. -->
+        <entry name="density" type="String">
+            <default>normal</default>
+        </entry>
+        <!-- Storage section (df) and top processes (/proc). -->
+        <entry name="storageTitle" type="String">
+            <default></default>
+        </entry>
+        <entry name="storageMounts" type="String">
+            <default></default>
+        </entry>
+        <entry name="storageColor" type="String">
+            <default>#44ddaa</default>
+        </entry>
+        <entry name="processesTitle" type="String">
+            <default></default>
+        </entry>
+        <entry name="processSort" type="String">
+            <default>cpu</default>
+        </entry>
+        <entry name="processCount" type="Int">
+            <default>5</default>
+        </entry>
+        <entry name="processGroup" type="Bool">
+            <default>true</default>
+        </entry>
+        <entry name="processColor" type="String">
+            <default>#4aa8ff</default>
+        </entry>
+        <entry name="surfaceStyle" type="String">
+            <default>tint</default>
+        </entry>
+        <entry name="glassTint" type="String">
+            <default>clear</default>
+        </entry>
+        <entry name="glassTintColor" type="String">
+            <default>#3daee9</default>
+        </entry>
+        <entry name="glassBlur" type="Double">
+            <default>0.85</default>
+        </entry>
+        <entry name="glassRefraction" type="Double">
+            <default>0.5</default>
+        </entry>
+        <entry name="glassSpecular" type="Bool">
+            <default>true</default>
+        </entry>
+        <entry name="compositorGlass" type="Bool">
+            <default>false</default>
+        </entry>
+        <entry name="cardOpacity" type="Double">
+            <default>1.0</default>
+        </entry>
+        <entry name="cardShadow" type="String">
+            <default>none</default>
+        </entry>
+        <entry name="grain" type="Bool">
+            <default>false</default>
         </entry>
         <!-- Frosted-glass card: composite the card fill + tint through a GPU
              MultiEffect blur instead of a flat translucent fill, for a soft
@@ -271,6 +379,15 @@
             <default>false</default>
         </entry>
         <entry name="panelShowBg" type="Bool">
+            <default>true</default>
+        </entry>
+        <entry name="panelSections" type="String">
+            <default></default>
+        </entry>
+        <entry name="panelStyle" type="String">
+            <default>values</default>
+        </entry>
+        <entry name="panelHoverCard" type="Bool">
             <default>true</default>
         </entry>
 
