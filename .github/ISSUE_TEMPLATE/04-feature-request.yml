@@ -1,0 +1,38 @@
+name: Feature / preset idea
+description: Suggest a feature, studio improvement, network window enhancement, or desktop integration.
+title: "[Feature]: "
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Settings studio / live preview / preset sharing
+        - Network window (connections, ports, containers, apps, Wireshark)
+        - Section ordering & custom sections
+        - Custom commands / scripts execution
+        - Threshold alerts & warning notifications
+        - Desktop integration (Plasma panel, desktop containment, Hyprland)
+        - Performance & resource usage optimization
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like to do?
+      description: Describe the idea and how it would help your system monitoring workflow.
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: How should it work?
+      description: Describe the desired behavior, visual styling, or settings. Mention Plasma, Hyprland/Quickshell, or the browser studio if relevant.
+    validations:
+      required: true
+  - type: textarea
+    id: examples
+    attributes:
+      label: Examples, mockups, and alternatives
+      description: Share screenshots, sketches, related tools, or an exported preset JSON. If you have a workaround, describe it here.

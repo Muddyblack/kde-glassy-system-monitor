@@ -1,0 +1,70 @@
+name: Bug report
+description: Report something broken in the widget, settings studio, or network window.
+title: "[Bug]: "
+body:
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Where does it happen?
+      options:
+        - KDE Plasma widget
+        - Hyprland / Quickshell widget
+        - Browser studio
+        - Network window
+        - Multiple platforms (describe below)
+    validations:
+      required: true
+  - type: dropdown
+    id: section
+    attributes:
+      label: Which section or feature is affected?
+      options:
+        - General UI / Settings studio / Layout
+        - CPU / Cores / Clock speed
+        - Memory & Swap
+        - Disks / Storage / I/O
+        - GPU (NVIDIA / AMD / Intel)
+        - Network & Ping
+        - Network window (Connections / Ports / Containers / Wireshark)
+        - Processes / Top consumers
+        - Hardware sensors & Temperatures
+        - Power & Battery
+        - Custom commands / Scripts
+        - Looks / Presets / JSON import-export
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Version and environment
+      description: Include the widget version or commit and installation method (KDE Store, manual, Nix, etc.). For desktop issues, add your distro, Plasma or Quickshell version, GPU model and driver, Linux kernel, and whether you use Wayland or X11. For the browser studio, add your browser and version.
+      placeholder: "Widget version: …\nInstalled via: …\nDistro / desktop: …\nGPU / Driver: …\nWayland or X11: …"
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Include the look / preset, active sections, and any settings needed to reproduce the issue.
+      placeholder: "1. Select look …\n2. Enable section …\n3. The issue appears …"
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Screenshots or a short recording are helpful for visual, layout, and sensor issues.
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Extra context, logs, or preset JSON
+      description: Attach an exported preset JSON, relevant sensor output (e.g. `sensors`, `nvidia-smi`), or terminal logs if available. Remove private information before sharing.

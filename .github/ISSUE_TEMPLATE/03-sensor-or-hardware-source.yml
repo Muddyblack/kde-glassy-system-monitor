@@ -1,0 +1,45 @@
+name: Hardware sensor / metric source request
+description: Suggest support for new hardware, GPU architecture, thermal sensors, or system metric sources.
+title: "[Hardware / Sensor]: "
+body:
+  - type: input
+    id: hardware_name
+    attributes:
+      label: Hardware or component name
+      description: Specific hardware device, GPU, sensor chip, or metric source.
+      placeholder: e.g. AMD Ryzen 7000 / 9000 APU GPU, Apple Silicon M-series, Liquidctl AIO cooler
+    validations:
+      required: true
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category
+      options:
+        - GPU / VRAM / GPU temperature (NVIDIA, AMD, Intel, Apple Silicon)
+        - CPU / Package / Core temperatures & frequencies
+        - Disks / NVMe / SMART health & temperatures
+        - Fan speeds & pump RPM
+        - Battery / UPS / Power sensors
+        - Network interfaces / virtual adapters / VPNs
+        - Other sensor source
+    validations:
+      required: true
+  - type: textarea
+    id: source_details
+    attributes:
+      label: How can this sensor or metric be read?
+      description: Mention sysfs paths (e.g. `/sys/class/hwmon/hwmonX/...`), CLI utilities (e.g. `sensors`, `rocm-smi`, `smartctl`), or kernel drivers.
+    validations:
+      required: true
+  - type: textarea
+    id: sample_output
+    attributes:
+      label: Sample command output or sysfs readings
+      description: "Provide sample command output or file contents. ⚠️ Redact any private serial numbers or personal identifiers before posting."
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Contribution
+      options:
+        - label: I own this hardware and can help test changes
+        - label: I am interested in contributing code or submitting a pull request

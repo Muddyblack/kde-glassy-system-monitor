@@ -1,0 +1,41 @@
+name: Look / gauge style idea
+description: Suggest a new look, gauge design, chart style, or visual theme.
+title: "[Look / Style]: "
+body:
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What would you like to add or improve?
+      options:
+        - New overall Look / Theme preset
+        - Gauge style (circular, radial, arc, linear, segmented)
+        - Chart style (GPU sparkline, area chart, bar chart)
+        - Section card visual styling (glass, neon, paper, minimal)
+        - Other visual element
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: Describe the look and visual design
+      description: Name the existing look if this improves one, and describe the shapes, colors, blur, and styling.
+      placeholder: A dual circular gauge with layered concentric rings for CPU and RAM, with smooth glow gradients when approaching high thresholds.
+    validations:
+      required: true
+  - type: textarea
+    id: layout
+    attributes:
+      label: Layout and placement
+      description: Where does this fit best (compact panel widget, desktop dashboard, expanded popup, laptop view)? Mention Plasma, Hyprland/Quickshell, or the browser studio if relevant.
+    validations:
+      required: true
+  - type: textarea
+    id: references
+    attributes:
+      label: Visual references, mockups, or preset JSON
+      description: Share sketches, screenshots, GIFs, design references, or an exported preset JSON from the studio.
+  - type: textarea
+    id: controls
+    attributes:
+      label: Optional controls
+      description: Suggest customization settings such as colors, opacity, radius, glow intensity, or animations.
