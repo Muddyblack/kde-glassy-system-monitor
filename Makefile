@@ -1,4 +1,4 @@
-.PHONY: help view view-h view-hyprland settings-hyprland install shaders config test parity benchmark gallery docs lint pack tag
+.PHONY: help view view-h view-hyprland settings-hyprland install shaders config test parity benchmark soak gallery docs lint pack tag
 .DEFAULT_GOAL := help
 
 help: ## list targets
@@ -53,6 +53,13 @@ benchmark: ## CPU of GPU shader vs Canvas renderer (opens windows; keep them vis
 	  tools/benchmark.sh $(or $(SECONDS),20); \
 	else \
 	  nix develop --command tools/benchmark.sh $(or $(SECONDS),20); \
+	fi
+
+soak: ## studio edits in a real GPU window; fails if one stalls (EDITS=40; not offscreen/software)
+	@if command -v qml >/dev/null 2>&1; then \
+	  QML_XHR_ALLOW_FILE_READ=1 tools/qml.sh tools/soak.qml -- --edits $(or $(EDITS),40); \
+	else \
+	  nix develop --command env QML_XHR_ALLOW_FILE_READ=1 tools/qml.sh tools/soak.qml -- --edits $(or $(EDITS),40); \
 	fi
 
 gallery: ## capture the README screenshots into docs/readme (opens windows)

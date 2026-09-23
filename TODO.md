@@ -17,10 +17,14 @@ The log shows `CanvasChart.qml:64 requestScrollPaint ... invalid context`: chart
   - Stubbing `BackdropBlur.geometrySignature` → still stalls (not it)
   - Inside DiagramShader: `data` Canvas `onInputsChanged: {}` (no repaint) → fixed; `chrome` `visible: false` → fixed (max 130 ms); `content` `layer.enabled: false` → still stalls
   - So: repainting the `data` Canvas while the **visible `chrome` ShaderEffect** samples it (`dataTex: data`) → a synchronous JS cascade (gdb: GC + JIT'd `Array.push`, allocating nonstop)
-- [ ] **Next:** find the exact binding. Run `qmlprofiler --attach localhost -p 3768` against `tools/qml.sh -qmljsdebugger=port:3768,block ... tools/stress.qml -- ... --limit 8` (not run yet). Suspects: chrome's `grid`/`markers` (`normalised` `for…of` over `ticks`/`markers`), `plot` (`plotLeft`/`plotWidth`), and `onPaint` writing `gpu.encoded` (→ `data` width/height → repaint)
-- [ ] Then fix it in DiagramShader and add a regression that runs with a real GPU window (the headless test can't catch it)
-- [ ] Check whether the gallery guards (`LookGallery.qml` `savedJson` / `lookJson`) are still needed after the real fix; they only cut notifications
-- [ ] Fix the `ShaderEffect: Texture ... not a valid texture provider (Shape)` warning: in `GlassCard.qml`, put the frost `MultiEffect` in a Loader
+- [x] **Found it: not a binding, `ctx.createImageData()` in the `data` Canvas's `onPaint`** (2026-09-23, reproduced with Xvfb + Mesa llvmpipe over xcb: stalls from edit 12, 26–28 s each)
+  - Counted paints/`onInputsChanged`/`encode`: ~27 per edit before and during the stall, so no binding loop or repaint cascade
+  - gdb during the stall: the GUI thread sits in `QV4::MemoryManager::runGC()` on *every* allocation (`allocData`, `allocString`, `newObject` → `runGC` → `MarkStack::drain` / `ExecutableCompilationUnit::markObjects`). The engine thrashes: every allocation triggers a full collection
+  - Bisected `onPaint`: no `drawImage` → still stalls; `createImageData` alone (no pixel loop, no draw) → still stalls; skip `createImageData` → fixed. Why the engine then collects on every allocation is not confirmed (likely the image buffers, which live outside the JS heap, and how the GC accounts for them); reusing one ImageData avoids it
+- [x] Fix in DiagramShader: one `ImageData` per texture size (`data.image`), refilled each paint. 120 edits, max 42 ms
+- [x] GPU-window regression: `make soak` (`tools/soak.qml`): the studio in a real window, a look applied every 250 ms; exits 1 if one edit takes over 1 s. Fails with the old code (edit 12: 27.6 s), passes with the fix. Run it on a real display and the GPU; offscreen or software runs prove nothing. Headless: `Xvfb :99 & DISPLAY=:99 QT_QPA_PLATFORM=xcb make soak` (Mesa llvmpipe counts as GPU here and reproduces it)
+- [x] Gallery guards (`LookGallery.qml` `savedJson` / `lookJson`): not needed for the freeze. They aren't on `feature/studio-setup`, and `make soak` passes there with only the DiagramShader fix. Keep them only if you want the fewer notifications
+- [x] Fixed the `ShaderEffect: Texture ... not a valid texture provider (Shape)` warning: the frost sources and `MultiEffect` in `GlassCard.qml` are now in a Loader that is active only when frosted. It no longer appears in the soak log
 
 JS stack in gdb: `qt_v4StackTraceForEngine($rdi caught at QV4::ExecutionEngine::ExecutionEngine)` crashed (SIGSEGV, interrupted during GC). Use qmlprofiler instead.
 

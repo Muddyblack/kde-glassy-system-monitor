@@ -48,6 +48,11 @@ Item {
         readonly property var inputs: [gpu.diagram.normalized, gpu.diagram.maxValue, gpu.diagram.style]
         property int pendingSerial: gpu.diagram.sampleSerial
         property int paintedSerial: 0
+        // One ImageData per texture size, refilled on every paint. A fresh one
+        // per paint froze the GPU path: after a few dozen studio edits the JS
+        // engine ran a full garbage collection on every allocation, stalling
+        // the GUI thread for ~30 s per edit.
+        property var image: null
         width: gpu.encoded.width
         height: gpu.encoded.height
         visible: false
@@ -66,7 +71,8 @@ Item {
             }
             gpu.encoded = next;
             const ctx = getContext("2d");
-            const image = ctx.createImageData(next.width, next.height);
+            if (!image || image.width !== next.width || image.height !== next.height)
+                image = ctx.createImageData(next.width, next.height);
             const bytes = next.bytes;
             const pixels = image.data;
             for (let i = 0; i < bytes.length; i++)

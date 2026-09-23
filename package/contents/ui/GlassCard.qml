@@ -93,45 +93,52 @@ Item {
         }
         // Frost: blur the fill and a vertical sheen together, so the blur
         // smears the sheen into a soft glass gradient, then round it off.
-        Shape {
-            id: frostSource
-            visible: false
-            layer.enabled: card.tinted && card.frosted
-            color: card.fill
-            Shape {
-                color: "transparent"
-                gradient: Gradient {
-                    GradientStop {
-                        position: 0
-                        color: Qt.rgba(1, 1, 1, 0.10)
-                    }
-                    GradientStop {
-                        position: 0.35
-                        color: Qt.rgba(1, 1, 1, 0.025)
-                    }
-                    GradientStop {
-                        position: 1
-                        color: Qt.rgba(0, 0, 0, 0.06)
+        // Loaded only when frosted: an idle MultiEffect still samples its
+        // sources, and they are no texture providers without their layers.
+        Loader {
+            anchors.fill: parent
+            active: card.tinted && card.frosted
+            sourceComponent: Item {
+                Shape {
+                    id: frostSource
+                    visible: false
+                    layer.enabled: true
+                    color: card.fill
+                    Shape {
+                        color: "transparent"
+                        gradient: Gradient {
+                            GradientStop {
+                                position: 0
+                                color: Qt.rgba(1, 1, 1, 0.10)
+                            }
+                            GradientStop {
+                                position: 0.35
+                                color: Qt.rgba(1, 1, 1, 0.025)
+                            }
+                            GradientStop {
+                                position: 1
+                                color: Qt.rgba(0, 0, 0, 0.06)
+                            }
+                        }
                     }
                 }
+                Shape {
+                    id: frostMask
+                    visible: false
+                    layer.enabled: true
+                    color: "black"
+                }
+                MultiEffect {
+                    anchors.fill: parent
+                    source: frostSource
+                    blurEnabled: true
+                    blur: card.frostStrength
+                    blurMax: 40
+                    autoPaddingEnabled: false
+                    maskEnabled: true
+                    maskSource: frostMask
+                }
             }
-        }
-        Shape {
-            id: frostMask
-            visible: false
-            layer.enabled: card.tinted && card.frosted
-            color: "black"
-        }
-        MultiEffect {
-            anchors.fill: parent
-            visible: card.tinted && card.frosted
-            source: frostSource
-            blurEnabled: true
-            blur: card.frostStrength
-            blurMax: 40
-            autoPaddingEnabled: false
-            maskEnabled: true
-            maskSource: frostMask
         }
         Loader {
             anchors.fill: parent
