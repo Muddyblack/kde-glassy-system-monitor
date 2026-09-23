@@ -4,6 +4,7 @@ import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
 import "../package/contents/ui" as Shared
+import "../package/contents/ui/network" as Network
 import "Configuration.js" as Configuration
 
 // Quickshell host: the same MonitorCore, MonitorView and studio the Plasma
@@ -80,6 +81,74 @@ ShellRoot {
         target: "settings"
         function open(): void {
             root.configure();
+        }
+    }
+
+    // The network window: `qs ipc call network open`, or the network
+    // section's "window" link. Its probes run only while it is open.
+    property bool networkOpen: false
+    IpcHandler {
+        target: "network"
+        function open(): void {
+            root.networkOpen = true;
+        }
+        function close(): void {
+            root.networkOpen = false;
+        }
+        function toggle(): void {
+            root.networkOpen = !root.networkOpen;
+        }
+    }
+    Connections {
+        target: core
+        function onNetworkWindowRequested() {
+            root.networkOpen = true;
+        }
+    }
+    // Saved state and the traffic history live in files (NetStore), shared
+    // with the Plasma widget.
+    Network.NetworkService {
+        id: networkService
+        commandSourceComponent: Component {
+            CommandProcess {}
+        }
+        windowOpen: root.networkOpen
+        pillActive: core.showNetApps
+    }
+    Binding {
+        target: core
+        property: "netApps"
+        value: networkService.pillApps
+    }
+    LazyLoader {
+        active: root.networkOpen
+        FloatingWindow {
+            id: networkWindow
+            function saveSize() {
+                networkService.saveState({
+                    width: networkWindow.width,
+                    height: networkWindow.height
+                });
+            }
+            visible: true
+            title: "Network — Glassy System Monitor"
+            // Wayland leaves placement to the compositor; the size comes back.
+            implicitWidth: networkService.state.width > 0 ? networkService.state.width : 1180
+            implicitHeight: networkService.state.height > 0 ? networkService.state.height : 760
+            color: networkPage.theme.bg
+            onVisibleChanged: if (!visible) {
+                saveSize();
+                root.networkOpen = false;
+            }
+            Network.NetworkPage {
+                id: networkPage
+                anchors.fill: parent
+                service: networkService
+                onCloseRequested: {
+                    networkWindow.saveSize();
+                    root.networkOpen = false;
+                }
+            }
         }
     }
 

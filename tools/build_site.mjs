@@ -98,6 +98,14 @@ const html = `<!doctype html>
 
 <div class="sh" id="looks"><div><div class="eyebrow">01 · Start from a look</div><h2>Presets</h2></div><p>One click sets the studio. Every card is the widget itself, drawn live with demo data.</p></div>
 <section class="presets" id="presets" aria-label="Preset looks"></section>
+
+<div class="sh" id="network"><div><div class="eyebrow">Read-only · like Portmaster</div><h2>Network window</h2></div><p>The ⧉ link in the network section opens a normal window: which apps talk to whom, how fast, from where, and which ports are open. Glassy only watches; it never blocks anything, and nothing needs root.</p></div>
+<section class="netwin" aria-label="Network window screenshots">
+  <figure><img src="assets/network/network-overview.png" alt="Network window, Overview: live download and upload chart, connection and app counts, top apps, domains, countries and DNS" loading="lazy"><figcaption><b>Overview</b> — live traffic, top apps, domains and countries, DNS</figcaption></figure>
+  <figure><img src="assets/network/network-apps.png" alt="Network window, Apps: Firefox expanded into its connections with host, port, protocol, country, bytes and duration" loading="lazy"><figcaption><b>Apps</b> — helpers grouped under their app, the site behind each browser connection</figcaption></figure>
+  <figure><img src="assets/network/network-history.png" alt="Network window, History: traffic per day with top apps, domains and countries" loading="lazy"><figcaption><b>History</b> — per day and hour, kept across reboots and updates</figcaption></figure>
+  <figure><img src="assets/network/network-containers.png" alt="Network window, Containers: Docker and Podman containers with published ports, networks and live traffic" loading="lazy"><figcaption><b>Containers</b> — Docker and Podman: ports, networks, traffic</figcaption></figure>
+</section>
 </div>
 
 <div data-page="studio" hidden>
@@ -207,5 +215,10 @@ fs.writeFileSync(path.join(site, "assets/studio/wallpapers.css"), `/* Generated 
 for (const w of Catalog.StudioCatalog.wallpapers)
     fs.copyFileSync(path.join(ui, "studio/wallpapers", w.file), path.join(site, "assets/studio/wallpapers", w.file));
 fs.copyFileSync(path.join(root, "package/icon.png"), path.join(site, "assets/studio/icon.png"));
+// Network window shots from `make gallery` (tools/network.qml).
+fs.mkdirSync(path.join(site, "assets/network"), { recursive: true });
+for (const shot of ["network-overview.png", "network-apps.png", "network-history.png", "network-containers.png"])
+    if (fs.existsSync(path.join(root, "docs/readme", shot)))
+        fs.copyFileSync(path.join(root, "docs/readme", shot), path.join(site, "assets/network", shot));
 fs.writeFileSync(path.join(site, "index.html"), html);
 console.log("docs: wrote docs/website (index.html, studio/shared.js, studio/diagram.frag, wallpapers)");

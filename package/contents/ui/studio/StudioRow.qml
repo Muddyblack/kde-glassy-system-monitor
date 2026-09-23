@@ -90,6 +90,7 @@ Item {
                     number: numberComponent,
                     sections: sectionsComponent,
                     looks: looksComponent,
+                    ifaces: ifacesComponent,
                     projectInfo: projectInfoComponent
                 })[row.rowData.type] ?? null
         }
@@ -213,6 +214,14 @@ Item {
             numeric: true
             value: String(row.value ?? "")
             onCommitted: value => row.commit(value)
+        }
+    }
+    Component {
+        id: ifacesComponent
+        InterfaceCards {
+            studio: row.studio
+            value: row.value
+            onChosen: value => row.commit(value)
         }
     }
     Component {

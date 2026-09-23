@@ -23,7 +23,14 @@ shell's Qt fails to load), on the software backend and offscreen.
   parsing and grid placement, the shader's data-texture encoding, looks
   (commands and hosts are never imported), the studio schema against
   `main.xml`, the section models, and the shell-probe parsers (`Probes.js`:
-  interfaces, `df`, `/proc`) with the demo data that runs through them.
+  interfaces, `df`, `/proc`) with the demo data that runs through them. The
+  network window's parsers and session model too: real `ss -tunapiH` output,
+  listening ports and their exposure, address kinds, reverse DNS / GeoIP
+  lines, .desktop matching and helper grouping, live rates and ended
+  connections, filters, DNS counters and interface details; the traffic
+  history (recording, summaries, refusing foreign or newer files, pruning)
+  and the browser-tab matching (a real mozlz4 session, Chromium lists,
+  shell-safe commands).
 - `tst_SampleClock.qml`, `tst_ScrollTicker.qml` — sample timing and the
   frame-rate cap.
 

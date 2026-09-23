@@ -23,6 +23,16 @@ QtObject {
         if (i % 2 === 0)
             m.applyMemSample(r.mem / 100 * DemoData.MEM_TOTAL, DemoData.MEM_TOTAL, r.swap / 100 * DemoData.SWAP_TOTAL, DemoData.SWAP_TOTAL);
         m.applyNetSample(r.dl, r.ul, intervalMs / 1000);
+        m.ifaceRates = {
+            wlp2s0: {
+                rx: r.dl,
+                tx: r.ul
+            },
+            wg0: {
+                rx: r.dl * 0.01,
+                tx: r.ul * 0.05
+            }
+        };
         m.applyDiskSample(r.rd, r.wr);
         m.addPingResult(m.activeTarget, r.ping);
         m.gpuVendor = "amd";
@@ -74,8 +84,10 @@ QtObject {
         m.gpuHistory = list.map(r => r.gpu);
         m.customHistory = list.map(r => r.custom);
         m.batteryPowerHistory = list.map(r => r.watts);
-        m.activeIface = "wlan0";
-        m.availableIfaces = ["auto", "wlan0", "enp5s0"];
+        m.activeIface = "wlp2s0";
+        m.autoIface = "wlp2s0";
+        m.availableIfaces = ["auto", "wlp2s0", "enp5s0", "wg0", "docker0"];
+        m.interfaces = Probes.parseInterfaces(DemoData.NET_INTERFACES);
         m.activeDisk = "nvme0n1";
         m.availableDisks = ["auto", "nvme0n1", "sda"];
         m.sessionDlBytes = 3.4 * 1073741824;

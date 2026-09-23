@@ -74,6 +74,11 @@ ColumnLayout {
                 }
             }
         }
+        Link {
+            anchors.verticalCenter: parent.verticalCenter
+            text: "⧉ window"
+            onActivated: section.monitor.networkWindowRequested()
+        }
         Text {
             font.family: section.monitor.fontFamily
             anchors.verticalCenter: parent.verticalCenter

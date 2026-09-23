@@ -395,6 +395,14 @@ function pill(id, m, cfg) {
     case "system":
         out = { label: Sections.shortTitle(id, cfg), lines: [{ text: m.osUptime || "—", color: "" }], sample: "88d 88h", ratio: -1 };
         break;
+    case "netapps": {
+        // The host's NetworkService: { top: { name, rateIn, rateOut }, count, history }.
+        var apps = m.netApps, tint2 = color(cfg, "dlColor", "#22aaff");
+        out = apps && apps.top
+            ? { label: Sections.shortTitle(id, cfg), lines: [{ text: String(apps.top.name).slice(0, 12), color: tint2 }, { mark: "↓", text: Format.short(apps.top.rateIn, "/s") + " · " + apps.count, color: "" }], sample: "WWWWWWWWWWWW", ratio: -1, history: apps.history || [], max: DiagramData.autoMax([apps.history || []], 1024, 1.15), color: tint2 }
+            : { label: Sections.shortTitle(id, cfg), lines: [{ text: apps ? "idle" : "—", color: "" }], sample: "WWWWWWWWWWWW", ratio: -1 };
+        break;
+    }
     case "storage": {
         var disks = storage(m, cfg), full = disks.rows.reduce(function (a, r) { return !a || r.ratio > a.ratio ? r : a; }, null);
         out = { label: full ? (full.label.split("/").filter(Boolean).pop() || "/") : Sections.shortTitle(id, cfg), lines: [{ text: full ? full.value : "—", color: full ? full.color : "" }], sample: "100%", ratio: full ? full.ratio : -1, color: full ? full.color : "" };

@@ -119,7 +119,7 @@ var SECTIONS = [
     tab("layout", "In a panel", [
         { id: "panelNote", type: "note", full: true, note: "panel" },
         { k: "panelSections", type: "chips", full: true, label: "Sections in the pill", desc: "None picked: the card's first section.",
-          opts: Sections.ALL.map(function (x) { return [x.id, x.label]; }),
+          opts: Sections.ALL.concat(Sections.PILL_ONLY).map(function (x) { return [x.id, x.label]; }),
           set: function (v) { return { panelSections: v.join(",") }; } },
         { k: "panelStyle", type: "seg", label: "Pill style", opts: [["values", "Values"], ["spark", "Sparkline"], ["bars", "Mini bars"]] },
         { k: "panelHoverCard", type: "switch", label: "Card on hover", desc: "Hovering the pill shows the full card; a click keeps it open." },
@@ -220,7 +220,7 @@ var SECTIONS = [
     ]),
     tab("network", "Network", [
         title("networkTitle", "Network"),
-        { k: "networkInterface", type: "select", label: "Interface", desc: "Automatic follows the default route, falling back to an active link.", opts: "ifaces" },
+        { k: "networkInterface", type: "ifaces", label: "Interface", desc: "Automatic follows the default route, falling back to an active link. The network window (⧉ in the section header) shows every interface in detail.", full: true },
         { k: "netShowInfo", type: "switch", label: "Wi-Fi name and IP" },
         color("dlColor", "Download colour"),
         color("ulColor", "Upload colour"),

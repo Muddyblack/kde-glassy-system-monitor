@@ -280,7 +280,9 @@ function barLists(cfg) {
     return {
         ...m,
         storage: Probes.parseStorage(DemoData.DF, cfg.storageMounts),
-        processes: Probes.topProcesses(DemoData.procSnapshot(m.t - 1), DemoData.procSnapshot(m.t), cfg.processCount || 5, cfg.processSort || 'cpu', cfg.processGroup !== false)
+        processes: Probes.topProcesses(DemoData.procSnapshot(m.t - 1), DemoData.procSnapshot(m.t), cfg.processCount || 5, cfg.processSort || 'cpu', cfg.processGroup !== false),
+        // The "Network apps" pill reading: the demo's busiest app.
+        netApps: { top: { name: 'Firefox', rateIn: m.downloadSpeed * 0.7, rateOut: m.uploadSpeed * 0.3 }, count: 9, history: m.dlHistory.map(v => v * 0.7) }
     };
 }
 function barList(cfg, id) {
@@ -292,7 +294,7 @@ const SECTION = {
     cpu: cfg => modelSection(cfg, 'cpu', model => model.cores
         ? `<div class="gw-cores">${m.corePercents.map((p, i) => { const c = model.coreColors[i % model.coreColors.length]; return `<span><i style="background:${c}"></i>Core ${i + 1}<b style="color:${c}">${p.toFixed(0)}%</b></span>`; }).join('')}</div>` : ''),
     memory: cfg => modelSection(cfg, 'memory', () => ''),
-    network: cfg => modelSection(cfg, 'network', (model, left) => `<div class="gw-totals" style="padding-left:${left}px">${model.totals.map(t => `<span style="color:${t.color}">${esc(t.text)}</span>`).join('')}</div>`, '<span class="gw-dim">wlan0 ▾</span><span class="gw-dim">○ connections</span>'),
+    network: cfg => modelSection(cfg, 'network', (model, left) => `<div class="gw-totals" style="padding-left:${left}px">${model.totals.map(t => `<span style="color:${t.color}">${esc(t.text)}</span>`).join('')}</div>`, '<span class="gw-dim">wlp2s0 ▾</span><span class="gw-dim">○ connections</span><span class="gw-dim">⧉ window</span>'),
     ping: cfg => modelSection(cfg, 'ping', (model, left) => cfg.showStats ? `<div class="gw-stats" style="padding-left:${left}px">${model.stats.map(st => `<span><small>${st.label}</small><b style="color:${st.color || INK}">${esc(st.value)}</b></span>`).join('')}</div>` : '',
         m.targetList.map((h, i) => `<span class="gw-chip${i === 0 ? ' on' : ''}" style="--c:${colorOf(cfg, 'pingColor', '#39ff14')}">${esc(h)}</span>`).join('')),
     disk: cfg => modelSection(cfg, 'disk', () => '', '<span class="gw-dim">nvme0n1</span>'),
@@ -447,7 +449,7 @@ $('#envPicker').addEventListener('click', e => { const b = e.target.closest('[da
 
 /* ─── Studio: settings built from Schema.SECTIONS ──────────────── */
 const SWATCHES = Schema.SWATCHES;
-const DEMO_OPTIONS = { ifaces: [['auto', 'Automatic'], ['wlan0', 'wlan0'], ['enp5s0', 'enp5s0']], disks: [['auto', 'Automatic'], ['nvme0n1', 'nvme0n1'], ['sda', 'sda']], gpus: [['auto', 'Automatic'], ['0000:03:00.0', 'card1 · 0000:03:00.0']], screens: [['', 'First screen'], ['all', 'Every screen'], ['DP-1', 'DP-1'], ['HDMI-A-1', 'HDMI-A-1']] };
+const DEMO_OPTIONS = { ifaces: [['auto', 'Automatic'], ['wlp2s0', 'wlp2s0'], ['enp5s0', 'enp5s0'], ['wg0', 'wg0'], ['docker0', 'docker0']], disks: [['auto', 'Automatic'], ['nvme0n1', 'nvme0n1'], ['sda', 'sda']], gpus: [['auto', 'Automatic'], ['0000:03:00.0', 'card1 · 0000:03:00.0']], screens: [['', 'First screen'], ['all', 'Every screen'], ['DP-1', 'DP-1'], ['HDMI-A-1', 'HDMI-A-1']] };
 let rows = [];
 function tilePreview(style, value) {
     if (style === 'material') return `<span class="tpv-mat"><i class="sp sp-${value === 'tint' ? 'color' : esc(value)}"></i></span>`;
@@ -504,6 +506,15 @@ function buildRow(r) {
         const inp = $('input', el);
         inp.onchange = () => update(set(r.type === 'number' ? Number(inp.value) : inp.value.trim()));
         sync = s => { if (document.activeElement !== inp) inp.value = get(s) ?? ''; };
+    } else if (r.type === 'ifaces') {
+        // Network › Interface: the demo machine's interfaces as cards, like the widget's studio.
+        const list = Probes.parseInterfaces(DemoData.NET_INTERFACES);
+        const speed = i => i.speed > 0 ? (i.speed >= 1000 ? i.speed / 1000 + ' Gbit/s' : i.speed + ' Mbit/s') : '';
+        const cards = [{ name: 'auto', auto: true }].concat(list);
+        el.innerHTML = headHTML + `<div class="ifcs">${cards.map(i => `<button class="ifc" data-v="${esc(i.name)}"><b><i class="${i.auto ? 'auto' : i.up ? 'up' : ''}"></i>${esc(i.auto ? 'Automatic' : i.name)}</b><small>${esc(i.auto ? 'Default route · wlp2s0' : [Probes.KIND_LABELS[i.kind], i.up ? i.ip : 'down', speed(i)].filter(Boolean).join(' · '))}</small></button>`).join('')}</div>`;
+        const btns = $$('.ifc', el);
+        btns.forEach(b => b.onclick = () => update(set(b.dataset.v)));
+        sync = s => { const v = String(get(s) || 'auto'); btns.forEach(b => b.setAttribute('aria-pressed', b.dataset.v === v)); };
     } else if (r.type === 'note') {
         el.innerHTML = '<div class="nt"></div>';
         sync = () => { $('.nt', el).innerHTML = `<div class="note"><i>◇</i><div><b>${env === 'kde' ? 'On Plasma' : 'On Hyprland'}</b> — ${esc(Schema.NOTES[r.note][env] || '')}</div></div>`; };

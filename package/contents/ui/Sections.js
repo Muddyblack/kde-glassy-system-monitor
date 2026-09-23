@@ -21,15 +21,23 @@ var ALL = [
 
 var IDS = ALL.map(function (s) { return s.id; });
 
+// Readings only a panel pill shows (no card section of their own): the
+// network window's busiest app, from the host's NetworkService.
+var PILL_ONLY = [
+    { id: "netapps", short: "Apps", colorKey: "dlColor", label: "Network apps", icon: "M4 6h16v12H4zM4 10h16M8 14h3" }
+];
+var PILL_IDS = IDS.concat(PILL_ONLY.map(function (s) { return s.id; }));
+
 // Order of the legacy activeSection indices.
 var LEGACY = ["ping", "network", "cpu", "memory", "custom", "disk", "gpu", "sensors", "system", "power"];
 
-function parse(value, legacyIndex) {
+function parse(value, legacyIndex, known) {
+    var ids = known || IDS;
     var out = [];
     var list = Array.isArray(value) ? value : String(value || "").split(",");
     for (var i = 0; i < list.length; i++) {
         var id = String(list[i]).trim();
-        if (IDS.indexOf(id) !== -1 && out.indexOf(id) === -1)
+        if (ids.indexOf(id) !== -1 && out.indexOf(id) === -1)
             out.push(id);
     }
     if (out.length)
@@ -40,7 +48,7 @@ function parse(value, legacyIndex) {
 // What a panel pill shows: `panelSections` when set, else the card's first
 // section. The pill may show sections the card does not.
 function panelIds(cfg) {
-    var picked = String(cfg.panelSections || "").trim() ? parse(cfg.panelSections) : [];
+    var picked = String(cfg.panelSections || "").trim() ? parse(cfg.panelSections, undefined, PILL_IDS) : [];
     return picked.length ? picked : [parse(cfg.sections, cfg.activeSection)[0]];
 }
 
@@ -48,6 +56,9 @@ function info(id) {
     for (var i = 0; i < ALL.length; i++)
         if (ALL[i].id === id)
             return ALL[i];
+    for (var k = 0; k < PILL_ONLY.length; k++)
+        if (PILL_ONLY[k].id === id)
+            return PILL_ONLY[k];
     return ALL[0];
 }
 

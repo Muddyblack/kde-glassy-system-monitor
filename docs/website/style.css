@@ -133,6 +133,20 @@ h1 span{background:linear-gradient(100deg,var(--brand),#9fc3e6 70%);-webkit-back
 .chips button[aria-pressed=true]{border-color:var(--studio-chipPressedBorder);color:var(--text);background:var(--studio-chipPressed)}
 .chips button[aria-pressed=true]:before{content:"✓ ";color:var(--brand)}
 select.sel{background:var(--sunk);border:1px solid var(--line2);border-radius:8px;padding:7px 10px;font-size:12px;min-width:170px}
+.ifcs{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px}
+.ifc{display:flex;flex-direction:column;gap:3px;background:var(--sunk);border:1px solid var(--line2);border-radius:12px;padding:10px 12px;text-align:left;color:var(--muted);transition:border-color .15s,transform .15s}
+.ifc:hover{border-color:var(--studio-tileHoverBorder);transform:translateY(-1px)}
+.ifc[aria-pressed=true]{border-color:var(--studio-tileSelectedBorder);color:var(--text);background:linear-gradient(180deg,var(--studio-chipPressed),var(--studio-panelBottom));box-shadow:0 0 0 3px var(--studio-tileSelectedRing)}
+.ifc b{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text)}
+.ifc b i{width:7px;height:7px;border-radius:50%;background:var(--dim)}
+.ifc b i.up{background:var(--studio-ok)}
+.ifc b i.auto{background:var(--studio-brand)}
+.ifc small{font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.netwin{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,460px),1fr));gap:22px;margin-bottom:64px}
+.netwin figure{margin:0;border:1px solid var(--line2);border-radius:16px;overflow:hidden;background:var(--panel)}
+.netwin img{display:block;width:100%;height:auto}
+.netwin figcaption{padding:12px 16px;font-size:13px;color:var(--muted)}
+.netwin figcaption b{color:var(--text)}
 .tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(var(--tw,112px),1fr));gap:8px}
 .tile{position:relative;background:var(--sunk);border:1px solid var(--line2);border-radius:12px;padding:6px;text-align:left;color:var(--muted);transition:border-color .15s,transform .15s,background .15s}
 .tile:hover{border-color:var(--studio-tileHoverBorder);transform:translateY(-1px)}

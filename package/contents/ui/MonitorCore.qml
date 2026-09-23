@@ -262,6 +262,12 @@ Item {
     // scroll budget — currently when the popup comes back on screen, where the
     // canvases may still hold the frame from before it was hidden.
     signal repaintCharts
+    // The network section's "window" link; the host opens the network window.
+    signal networkWindowRequested
+    // The busiest network app for the "netapps" pill reading, set by the
+    // host from its NetworkService: { top: { name, rateIn, rateOut }, count, history }.
+    property var netApps: null
+    readonly property bool showNetApps: inPanel && Sections.panelIds(cfg).indexOf("netapps") !== -1
 
     // Chart types 3-5 are gauges and 6 is text-only: none of them scroll, so the
     // ticker has nothing to animate and never needs to start.
@@ -738,7 +744,7 @@ Item {
             // SSID: try each tool and emit the FIRST NON-EMPTY result. We can't use
             // `a || b` because some tools (e.g. `iw link` without privileges) exit 0
             // while printing nothing, which would wrongly short-circuit the chain.
-            netInfoSource.connectSource(core.shellCmd("s=$(iwgetid -r 2>/dev/null); [ -z \"$s\" ] && s=$(iw dev " + ifc + " link 2>/dev/null | sed -n 's/^[[:space:]]*SSID: //p'); [ -z \"$s\" ] && s=$(nmcli -t -f active,ssid dev wifi 2>/dev/null | sed -n 's/^yes://p' | head -1); echo \"$s\"; ip -o -4 addr show dev " + ifc + " scope global 2>/dev/null | awk '{print $4}' | head -1"));
+            netInfoSource.connectSource(core.shellCmd("s=$(iwgetid -r 2>/dev/null); [ -z \"$s\" ] && s=$(iw dev " + ifc + " link 2>/dev/null | sed -n 's/^[[:space:]]*SSID: //p'); [ -z \"$s\" ] && s=$(nmcli -t -f active,ssid dev wifi list --rescan no 2>/dev/null | sed -n 's/^yes://p' | head -1); echo \"$s\"; ip -o -4 addr show dev " + ifc + " scope global 2>/dev/null | awk '{print $4}' | head -1"));
         }
     }
     function parseNetInfo(text) {

@@ -1,4 +1,4 @@
-.PHONY: help view view-h view-hyprland settings-hyprland install shaders config test parity benchmark soak gallery docs lint pack tag
+.PHONY: help view view-h view-hyprland settings-hyprland network-hyprland network install shaders config test parity benchmark soak gallery docs lint pack tag
 .DEFAULT_GOAL := help
 
 help: ## list targets
@@ -30,6 +30,20 @@ settings-hyprland: ## open the studio of the running Quickshell widget
 	  bash "$(CURDIR)/hyprland/run.sh" ipc call settings open; \
 	else \
 	  nix run .#view-hyprland -- ipc call settings open; \
+	fi
+
+network-hyprland: ## open the network window of the running Quickshell widget
+	@if command -v qs >/dev/null 2>&1; then \
+	  bash "$(CURDIR)/hyprland/run.sh" ipc call network open; \
+	else \
+	  nix run .#view-hyprland -- ipc call network open; \
+	fi
+
+network: ## network window on demo data (SAVE=file.png TAB=apps to screenshot)
+	@if command -v qml >/dev/null 2>&1; then \
+	  tools/qml.sh tools/network.qml $(if $(SAVE),-- --save "$(abspath $(SAVE))" $(if $(TAB),--tab $(TAB))); \
+	else \
+	  nix develop --command tools/qml.sh tools/network.qml $(if $(SAVE),-- --save "$(abspath $(SAVE))" $(if $(TAB),--tab $(TAB))); \
 	fi
 
 install: ## install test copy to local Plasma session

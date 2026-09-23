@@ -78,6 +78,82 @@ Try the studio in your browser: **[muddyblack.github.io/kde-glassy-system-monito
 - **Jitter** — standard deviation over the rolling history window
 - **Packet loss** — lost pings shown as red dots on the graph; loss % in the stats bar
 - **Alert indicators** — line turns amber above the latency threshold, red at 1.5×; a pulsing border when alerting
+- **Network window** — the ⧉ link in the network section opens a separate, resizable window in
+  the spirit of Portmaster, read-only (Glassy never blocks anything) and without root:
+  - **Overview**: live download / upload chart, connection and app counts, top apps, domains and
+    countries, DNS servers and resolver counters
+  - **Apps**: every app with its icon and live rate; browser and Electron helpers are grouped
+    under their app; expand for each connection
+  - **Connections**: a sortable, filterable table (app, domain, IP, port, protocol, direction,
+    state, country, bytes, since); connections that ended stay greyed for the session
+  - **Listening**: open ports per app, with ports open to the network in the warning colour
+  - **Interfaces**: addresses, MAC, link speed, gateway, DNS, Wi-Fi SSID / signal / band, live rates
+  - **History**: traffic per day and per hour with the top apps, domains and countries, recorded
+    in the background (a slow poll) while the widget runs. It lives in
+    `~/.local/share/glassy-system-monitor/`, so reboots, plasmashell restarts,
+    `plasma-layout-rebuild` and updates keep it; saves are atomic with a `.bak` and daily copies,
+    and a damaged or newer file is never overwritten
+  - **Sites in the browser**: connections of Firefox (and Zen, LibreWolf, Floorp, Waterfox) and
+    Chromium-based browsers are matched to your open tabs by address, read from the browsers'
+    own session files (host names only, kept in memory; can be switched off)
+  - Sparklines per app and interface, and a chart for each expanded app
+  - **Containers**: Docker and Podman containers with their published ports (open to the network
+    or not), networks, addresses and live traffic; ports a container publishes are grouped under
+    it on the Listening page, and bridges are named on the Interfaces page
+  - The pill can show the busiest network app too (Layout › In a panel › Network apps)
+  - **History over time**: a day by hour, a week or month by day, a year or everything by month;
+    ◀ ▶ to step back and forth, a click on a bar to open it; per app, domain, country and
+    interface (usage per link, handy for metered connections). You choose whether it records
+    (always, only while the window is open, or not at all), whether it is saved or only kept in
+    memory, and for how long (30 / 90 days, 1 or 2 years, forever; one year by default)
+  - **Alerts** (each can be switched off, as desktop notifications and in the window's bell): a new
+    app goes online, a port opens to the network, a VPN drops, an app reaches its **daily limit**.
+    **Trusted apps** get a ✓ and stay quiet; apps first seen lately are marked NEW
+  - **VPN**: NordVPN, Proton VPN, Mullvad, Tailscale, WireGuard, OpenVPN, Cloudflare WARP, ZeroTier,
+    NetBird and more are recognised; the window shows which connections and apps go through the
+    tunnel and which leave directly
+  - **Firewall, read-only**: firewalld's zone and the NixOS firewall's open ports are read (no
+    password), and each open port says whether the firewall lets it in; ufw and plain nftables
+    keep their rules for root, and Glassy says so instead of asking
+  - **Latency and route**: every TCP connection's round-trip time as a chart, and a trace route
+    (tracepath, traceroute or mtr) from its menu
+  - **Export**: connections as CSV, the history as CSV or JSON, into Downloads
+  - **Optional password** for the window (a salted hash is kept, never the password; it locks the
+    window, the files stay private to your user)
+  - Every chart shows the values under the pointer
+  - Private and light: the files are `700` / `600`, today's history (a few KB) is saved every five
+    minutes and the older days once a day; the process table is read only when a new process
+    appears; nothing asks for a password (`resolvectl --no-ask-password`, no NetworkManager calls)
+
+#### Countries and owners (GeoIP)
+
+All local: Glassy reads a `.mmdb` database with `mmdblookup`. The window's **🌍 Show countries…**
+button shows what is installed, downloads db-ip's free Lite databases (CC BY 4.0) into
+`~/.local/share/GeoIP` on a click, and lists the install command for `mmdblookup`
+(`pacman -S libmaxminddb`, `apt install mmdb-bin`, `dnf install libmaxminddb`). On NixOS the flake
+does all of it:
+
+```nix
+# flake inputs: glassy.url = "github:Muddyblack/kde-glassy-system-monitor";
+imports = [ glassy.nixosModules.default ];          # or glassy.homeManagerModules.default
+programs.glassy-system-monitor = { enable = true; geoip = true; };
+```
+
+It installs the widget, `mmdblookup` and nixpkgs' `dbip-country-lite` / `dbip-asn-lite`, and sets
+`GLASSY_GEOIP_COUNTRY` / `GLASSY_GEOIP_ASN` so Glassy finds them. `nix run .#view-hyprland` has
+them built in.
+  - Search, filters, pause, light / dark, keyboard navigation (Ctrl+1–5, `/`, arrows, Menu);
+    per row: copy IP or domain, whois / map (opened only on click), end the process (asks first)
+  - Countries and owners come from a local GeoIP database (MaxMind GeoLite2 or db-ip lite
+    `.mmdb`, read with `mmdblookup`) when one is installed; nothing is looked up online.
+    Without root, `ss` cannot name other users' processes: they show as "System / other users"
+
+<p align="center">
+  <img src="./docs/readme/network-overview.png" alt="Network window, Overview" width="45%"/>
+  <img src="./docs/readme/network-apps.png" alt="Network window, Apps with Firefox expanded" width="45%"/>
+  <img src="./docs/readme/network-history.png" alt="Network window, History per day" width="45%"/>
+  <img src="./docs/readme/network-containers.png" alt="Network window, Containers" width="45%"/>
+</p>
 
 ### Look & feel
 
@@ -220,6 +296,7 @@ through [Quickshell](https://quickshell.outfoxxed.me/), with the same studio:
 ```bash
 make view-hyprland      # run it (Ctrl+C stops)
 make settings-hyprland  # open the studio of the running widget
+make network-hyprland   # open the network window (qs ipc call network open)
 ```
 
 Defaults go in [`shell.qml`](shell.qml) under their Plasma names; the studio's Apply saves your
@@ -321,6 +398,7 @@ make parity            # GPU shader vs canvas, every chart style
 make benchmark         # CPU of both renderers (keep the windows visible)
 make shaders           # rebuild diagram.frag.qsb after editing the shader
 make gallery           # README screenshots into docs/readme
+make network           # the network window on demo data
 make docs              # website into docs/website
 ```
 
