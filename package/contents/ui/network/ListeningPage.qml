@@ -128,7 +128,11 @@ Flickable {
                                 anchors.fill: parent
                                 hoverEnabled: true
                                 acceptedButtons: Qt.LeftButton | Qt.RightButton
-                                onClicked: page.showActions(null, port.modelData.pid, port.modelData.name || group.modelData.name, port)
+                                onClicked: page.showActions(null, port.modelData.pid, port.modelData.name || group.modelData.name, port, null, {
+                                    proto: port.modelData.proto,
+                                    port: port.modelData.port,
+                                    name: group.modelData.name
+                                })
                             }
                             RowLayout {
                                 anchors.fill: parent

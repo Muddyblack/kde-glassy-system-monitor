@@ -12,6 +12,7 @@ import "../package/contents/ui/network/NetModel.js" as NetModel
 import "../package/contents/ui/network/NetHistory.js" as NetHistory
 import "../package/contents/ui/network/BrowserTabs.mjs" as BrowserTabs
 import "../package/contents/ui/network/NetLock.js" as NetLock
+import "../package/contents/ui/network/Wireshark.js" as Wireshark
 
 // The JavaScript shared by the widget, both studios and the website.
 TestCase {
@@ -1130,5 +1131,88 @@ TestCase {
         const h = NetModel.historyCsv(NetHistory.migrate(DemoData.netHistory(new Date(2026, 8, 23).getTime())).history);
         verify(h.split("\n")[0] === "day,app,bytes_in,bytes_out,connections");
         verify(h.indexOf("2026-09-23,(total),") !== -1);
+    }
+
+    function test_wiresharkFiltersAndLaunch() {
+        compare(Wireshark.parseTools("wireshark\ntshark\n"), {
+            wireshark: true,
+            tshark: true,
+            flatpak: false
+        });
+        compare(Wireshark.parseTools("flatpak\n"), {
+            wireshark: true,
+            tshark: false,
+            flatpak: true
+        }, "the Flatpak opens Wireshark; it brings no tshark to the host");
+        const c = {
+            proto: "tcp",
+            ip: "2a00:1450:4001:82b::200e",
+            port: "443",
+            localIp: "2a02:8108:1c0:3e00::23",
+            localPort: "40310",
+            via: "wlp2s0",
+            kind: "internet"
+        };
+        compare(Wireshark.connFilter(c), "tcp and host 2a00:1450:4001:82b::200e and port 443 and host 2a02:8108:1c0:3e00::23 and port 40310");
+        compare(Wireshark.ifaceOf(c), "wlp2s0");
+        compare(Wireshark.ifaceOf({
+            kind: "loopback",
+            via: ""
+        }), "lo");
+        compare(Wireshark.connFilter(Object.assign({}, c, {
+            ip: "1.2.3.4; rm -rf ~"
+        })), "", "nothing unsafe reaches the shell");
+        const conns = [c, Object.assign({}, c, {
+                localPort: "40311"
+            }), Object.assign({}, c, {
+                proto: "udp",
+                ip: "1.1.1.1",
+                port: "53",
+                via: "wg0"
+            }), Object.assign({}, c, {
+                ip: "9.9.9.9",
+                ended: true
+            })];
+        compare(Wireshark.connectionsFilter(conns), "(tcp and host 2a00:1450:4001:82b::200e and port 443) or (udp and host 1.1.1.1 and port 53)");
+        compare(Wireshark.commonIface(conns.slice(0, 2)), "wlp2s0");
+        compare(Wireshark.commonIface(conns), "any");
+        compare(Wireshark.connectionsFilter(conns.concat([Object.assign({}, c, {
+                ip: "1.1.1.1",
+                port: "443"
+            })]), 2), "host 2a00:1450:4001:82b::200e or host 1.1.1.1", "too many ends: the addresses alone");
+        compare(Wireshark.portFilter("udp", "5353"), "udp port 5353");
+        compare(Wireshark.hostsFilter(["172.17.0.2", "bad host"]), "host 172.17.0.2");
+        const cmd = Wireshark.launchCmd({
+            flatpak: false
+        }, "wlp2s0", "tcp port 22");
+        verify(cmd.indexOf("wireshark -k -i wlp2s0 -f \"tcp port 22\"") !== -1, cmd);
+        verify(/&\)$/.test(cmd), "Wireshark is detached");
+        verify(Wireshark.launchCmd({
+            flatpak: true
+        }, "eth0; x", "").indexOf("flatpak run org.wireshark.Wireshark -k -i any") !== -1);
+    }
+
+    function test_wiresharkLearnsNames() {
+        // tshark's fields for a DNS answer from the local resolver and a TLS
+        // client hello (as tshark 4 prints them from a capture).
+        const r = Wireshark.parseSniff("127.0.0.1\t\twww.example.org\t93.184.215.14,93.184.215.15\t\t\n140.82.121.6\t\t\t\t\tapi.github.com\n");
+        compare(r.dns, 1);
+        compare(r.tls, 1);
+        compare(r.names["93.184.215.15"], {
+            name: "www.example.org",
+            source: "dns"
+        });
+        compare(r.names["140.82.121.6"].name, "api.github.com");
+        const demo = Wireshark.parseSniff(DemoData.NET_CAPTURE);
+        compare(demo.names["104.16.132.229"], {
+            name: "cdn.jsdelivr.net",
+            source: "tls"
+        }, "a server name beats a DNS answer");
+        compare(demo.names["2a00:1450:4001:82b::200e"].name, "www.youtube.com");
+        compare(Wireshark.sniffError("tshark: You do not have permission to capture on device \"any\".\n(Attempt to create packet socket failed - CAP_NET_RAW may be required)", 0), "permission");
+        compare(Wireshark.sniffError("missing: tshark", 127), "missing");
+        compare(Wireshark.sniffError("Capturing on 'any'\n12 packets captured", 0), "");
+        compare(Wireshark.sniffError("Capturing on 'any'", 124), "", "the timeout is not an error");
+        verify(Wireshark.sniffCmd(999).indexOf("duration:60") !== -1);
     }
 }

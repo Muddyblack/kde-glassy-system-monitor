@@ -3,6 +3,7 @@ import QtQuick.Layouts
 import QtQuick.Controls.Basic as Controls
 import "../Format.js" as Format
 import "../Probes.js" as Probes
+import "Wireshark.js" as Wireshark
 
 // Docker and Podman: every running container with its published ports
 // (open to the network or not), networks, addresses and live traffic.
@@ -101,6 +102,12 @@ Flickable {
                     required property var modelData
                     readonly property var c: modelData
                     readonly property string key: c.engine + ":" + c.name
+                    readonly property var addresses: Object.values(c.ips)
+                    // The bridge of its only network, else every interface.
+                    readonly property string iface: {
+                        const ifs = c.networks.map(n => (view.networks.find(x => x.engine === c.engine && x.name === n) || {}).iface || "");
+                        return ifs.length === 1 && ifs[0] ? ifs[0] : "any";
+                    }
                     readonly property var rate: view.net.containerRates[key] || null
                     readonly property var series: view.net.containerSeries[key] || ({
                             "in": [],
@@ -198,13 +205,25 @@ Flickable {
                                 }
                             }
                         }
-                        Text {
+                        RowLayout {
                             Layout.fillWidth: true
-                            wrapMode: Text.WrapAnywhere
-                            text: card.c.networks.map(n => card.c.ips[n] ? n + " " + card.c.ips[n] : n).join("   ·   ") + "   ·   " + card.c.status
-                            color: view.theme.dim
-                            font.family: view.theme.fontFamily
-                            font.pixelSize: 10
+                            spacing: 8
+                            Text {
+                                Layout.fillWidth: true
+                                wrapMode: Text.WrapAnywhere
+                                text: card.c.networks.map(n => card.c.ips[n] ? n + " " + card.c.ips[n] : n).join("   ·   ") + "   ·   " + card.c.status
+                                color: view.theme.dim
+                                font.family: view.theme.fontFamily
+                                font.pixelSize: 10
+                            }
+                            NetButton {
+                                visible: view.net.captureTools.wireshark && card.c.state === "running" && card.addresses.length > 0
+                                implicitHeight: 22
+                                theme: view.theme
+                                text: "🦈 Wireshark"
+                                tooltip: "Capture this container's traffic (" + card.addresses.join(", ") + ")"
+                                onClicked: view.page.wireshark(card.iface, Wireshark.hostsFilter(card.addresses), card.c.name)
+                            }
                         }
                     }
                 }

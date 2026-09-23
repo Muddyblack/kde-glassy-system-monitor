@@ -215,6 +215,19 @@ var NET_HOSTS = {
     "146.75.121.140": { name: "", country: "SE", asn: 54113, org: "FASTLY" }
 };
 
+// What Wireshark.sniffCmd() prints for ten seconds of traffic: DNS answers
+// (from the local resolver on lo) and TLS / QUIC server names.
+var NET_CAPTURE = [
+    "127.0.0.1\t\tdiscord.com\t162.159.130.234,162.159.135.232\t\t",
+    "127.0.0.1\t\twww.youtube.com\t142.250.185.78\t2a00:1450:4001:82b::200e\t",
+    "162.159.135.232\t\t\t\t\tgateway.discord.gg",
+    "104.16.132.229\t\t\t\t\tcdn.jsdelivr.net",
+    "127.0.0.1\t\tcdn.jsdelivr.net\t104.16.132.229\t\t",
+    "20.189.173.10\t\t\t\t\tmobile.events.data.microsoft.com",
+    "127.0.0.1\t\tsteamcdn-a.akamaihd.net\t\t\t",
+    "146.75.121.140\t\t\t\t\ti.redd.it"
+].join("\n");
+
 // What Probes.INTERFACES_CMD and IFACE_DETAILS_CMD print.
 var NET_INTERFACES = [
     "if wlp2s0 up wifi 3c:a6:2f:9a:10:42 -",

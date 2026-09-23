@@ -4,6 +4,7 @@ import "../DemoData.js" as DemoData
 import "../OsFetch.js" as OsFetch
 import "NetModel.js" as NetModel
 import "BrowserTabs.mjs" as BrowserTabs
+import "Wireshark.js" as Wireshark
 import ".." as Ui
 
 // Everything the network window shows, read without root: `ss` for sockets,
@@ -81,6 +82,15 @@ Item {
     readonly property var vpns: Probes.vpnInfo(interfaces, ifaceDetails, tree, connections)
     property var firewall: null
     property bool firewallShown: false
+    // Wireshark / tshark on this machine (Wireshark.parseTools).
+    property var captureTools: ({
+            wireshark: false,
+            tshark: false,
+            flatpak: false
+        })
+    // Address → { name, source } learned from a tshark capture; these
+    // names win over reverse DNS for the rest of the session.
+    property var learned: ({})
     property var _containerBytes: null
     property real _containerBytesAt: 0
     property real updatedAt: 0
@@ -223,13 +233,14 @@ Item {
         if (Object.keys(hosts).length > 3000)
             hosts = {};
         const fresh = [];
+        const known = ip => hosts[ip] && !hosts[ip].lookup;
         for (const ip of _extraIps)
-            if (fresh.length < 24 && !hosts[ip] && !_pending[ip] && fresh.indexOf(ip) === -1)
+            if (fresh.length < 24 && !known(ip) && !_pending[ip] && fresh.indexOf(ip) === -1)
                 fresh.push(ip);
         for (const c of connections) {
             if (fresh.length >= 24)
                 break;
-            if (hosts[c.ip] || _pending[c.ip] || fresh.indexOf(c.ip) !== -1)
+            if (known(c.ip) || _pending[c.ip] || fresh.indexOf(c.ip) !== -1)
                 continue;
             if (c.kind === "loopback" || c.kind === "multicast" || !Probes.safeIp(c.ip))
                 continue;
@@ -275,6 +286,7 @@ Item {
                 asn: true
             };
             containers = Probes.parseContainers(DemoData.NET_CONTAINERS);
+            captureTools = Wireshark.parseTools("wireshark\ntshark");
             firewall = Probes.parseFirewall(DemoData.NET_FIREWALL);
             tabs = DemoData.NET_TABS;
             tabAddresses = DemoData.NET_TAB_ADDRESSES;
@@ -299,6 +311,32 @@ Item {
             return;
         }
         killSource.connectSource("kill -TERM " + Math.round(pid));
+    }
+
+    // Wireshark on an interface with a capture filter; it runs on its own.
+    function openWireshark(iface, filter) {
+        if (demo || !captureTools.wireshark)
+            return false;
+        launcher.connectSource(OsFetch.shellCmd(Wireshark.launchCmd(captureTools, iface, filter)));
+        return true;
+    }
+    // Addresses not looked up yet keep `lookup` so resolveNew() still
+    // fetches their country and owner.
+    function learnNames(names) {
+        learned = Object.assign(Object.keys(learned).length > 3000 ? {} : Object.assign({}, learned), names);
+        const h = Object.assign({}, hosts);
+        for (const ip in names)
+            h[ip] = h[ip] ? Object.assign({}, h[ip], {
+                name: names[ip].name
+            }) : {
+                name: names[ip].name,
+                country: "",
+                asn: 0,
+                org: "",
+                lookup: true
+            };
+        hosts = h;
+        resolveNew();
     }
 
     Ui.ShellProbe {
@@ -408,6 +446,18 @@ Item {
     }
     Ui.ShellProbe {
         sourceComponent: net.commandSourceComponent
+        command: Wireshark.TOOLS_CMD
+        interval: 300000
+        running: net.running && !net.demo && !net.background
+        onResult: text => net.captureTools = Wireshark.parseTools(text)
+    }
+    Ui.CommandSource {
+        id: launcher
+        sourceComponent: net.commandSourceComponent
+        onNewData: sourceName => launcher.disconnectSource(sourceName)
+    }
+    Ui.ShellProbe {
+        sourceComponent: net.commandSourceComponent
         command: Probes.CONTAINERS_CMD
         interval: 10000
         running: net.running && !net.paused && !net.demo && !net.background
@@ -455,14 +505,16 @@ Item {
             const next = Object.assign({}, net.hosts);
             const pending = Object.assign({}, net._pending);
             for (const ip in r.hosts) {
-                next[ip] = r.hosts[ip];
+                next[ip] = net.learned[ip] ? Object.assign({}, r.hosts[ip], {
+                    name: net.learned[ip].name
+                }) : r.hosts[ip];
                 delete pending[ip];
             }
             // Addresses that timed out get an empty entry, not another try.
             for (const ip in pending)
                 if (sourceName.indexOf("q " + ip + " ") !== -1) {
                     next[ip] = {
-                        name: "",
+                        name: net.learned[ip] ? net.learned[ip].name : "",
                         country: "",
                         asn: 0,
                         org: ""

@@ -145,6 +145,14 @@ Flickable {
                             text: "DEFAULT ROUTE"
                             tint: view.theme.brand
                         }
+                        NetButton {
+                            visible: view.net.captureTools.wireshark && card.i.up
+                            implicitHeight: 22
+                            theme: view.theme
+                            text: "🦈"
+                            tooltip: "Capture " + card.i.name + " in Wireshark"
+                            onClicked: view.page.wireshark(card.i.name, "", "")
+                        }
                         NetBadge {
                             theme: view.theme
                             text: card.i.up ? "UP" : "DOWN"

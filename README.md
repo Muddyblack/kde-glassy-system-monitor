@@ -117,6 +117,12 @@ Try the studio in your browser: **[muddyblack.github.io/kde-glassy-system-monito
     keep their rules for root, and Glassy says so instead of asking
   - **Latency and route**: every TCP connection's round-trip time as a chart, and a trace route
     (tracepath, traceroute or mtr) from its menu
+  - **Wireshark, when installed**: open it straight on a connection, all of an app's connections,
+    a listening port, an interface or a container, with the capture filter already set (🦈 in the
+    row menu and on the cards; the Flatpak works too). **🦈 Capture** runs `tshark` for 5–30
+    seconds, on request only, to learn the names behind bare addresses from DNS answers and
+    TLS / QUIC server names; the names fill the Domain column for the session, nothing is saved.
+    Capturing needs the `wireshark` group; Glassy never asks for a password and says how instead
   - **Export**: connections as CSV, the history as CSV or JSON, into Downloads
   - **Optional password** for the window (a salted hash is kept, never the password; it locks the
     window, the files stay private to your user)
@@ -186,6 +192,7 @@ Optional, for richer data when present (the widget degrades gracefully without t
 | `nvidia-smi` | NVIDIA GPU utilization, encode/decode, VRAM |
 | `sensors` (lm-sensors) | Hardware temperature sensors |
 | `iwgetid` / `iw` / `nmcli` | Network SSID readout on the `/proc` fallback path (ksystemstats reports it directly) |
+| `wireshark` / `tshark` | Network window: open Wireshark on a connection, app, port, interface or container; learn host names from a short capture (needs the `wireshark` group) |
 
 ---
 

@@ -3,6 +3,7 @@ import QtQuick.Layouts
 import QtQuick.Controls.Basic as Controls
 import "NetTheme.js" as NetTheme
 import "NetModel.js" as NetModel
+import "Wireshark.js" as Wireshark
 import "../Probes.js" as Probes
 import "../Format.js" as Format
 
@@ -130,10 +131,12 @@ Rectangle {
         clipboard.copy();
         toast.show("Copied " + text);
     }
-    // Actions for a connection (or, with conn null, just the process).
-    function showActions(conn, pid, name, item, app) {
+    // Actions for a connection (or, with conn null, just the process; with
+    // `listen`, a listening socket).
+    function showActions(conn, pid, name, item, app, listen) {
         actions.app = app || (conn ? conn.app : null);
         actions.conn = conn;
+        actions.listen = listen || null;
         actions.pid = pid || 0;
         actions.procName = name || "";
         if (item) {
@@ -143,8 +146,18 @@ Rectangle {
             actions.popup();
         }
     }
+    // Wireshark on `iface` with a capture filter; `what` names it in the toast.
+    function wireshark(iface, filter, what) {
+        if (net.demo)
+            toast.show("Demo data: Wireshark opens on a real system");
+        else if (net.openWireshark(iface, filter))
+            toast.show("Opening Wireshark on " + (iface === "any" ? "all interfaces" : iface) + (what ? " · " + what : ""));
+        else
+            toast.show("Wireshark is not installed");
+    }
     // The dialogs, for tools/network.qml and tests.
     readonly property var dialogs: ({
+            capture: capturePopup,
             settings: settingsPopup,
             alerts: alertsPopup,
             limit: limitPopup,
@@ -403,6 +416,12 @@ Rectangle {
                     onClicked: alertsPopup.open()
                 }
                 NetButton {
+                    theme: page.theme
+                    text: "🦈 Capture"
+                    tooltip: "Learn names from traffic with tshark, or open Wireshark"
+                    onClicked: capturePopup.open()
+                }
+                NetButton {
                     id: exportButton
                     theme: page.theme
                     text: "Export ▾"
@@ -637,6 +656,7 @@ Rectangle {
     // ── Row actions ──────────────────────────────────────────────────────────
     component ActionSeparator: Controls.MenuSeparator {
         padding: 4
+        height: visible ? implicitHeight : 0
         contentItem: Rectangle {
             implicitHeight: 1
             color: page.theme.line2
@@ -645,6 +665,7 @@ Rectangle {
     component ActionItem: Controls.MenuItem {
         id: mi
         implicitHeight: 30
+        height: visible ? implicitHeight : 0
         padding: 4
         contentItem: Text {
             text: mi.text
@@ -664,6 +685,13 @@ Rectangle {
         id: actions
         property var app: null
         property var conn: null
+        // { proto, port, name } of a listening socket.
+        property var listen: null
+        // The app's live connections, whichever page opened the menu.
+        readonly property var liveConns: {
+            const a = app ? page.allApps.find(x => x.key === app.key) : null;
+            return a ? a.conns.filter(c => !c.ended) : [];
+        }
         property int pid: 0
         property string procName: ""
         readonly property var info: conn ? page.hostOf(conn) : null
@@ -708,6 +736,26 @@ Rectangle {
                 routePopup.open();
             }
         }
+        ActionSeparator {
+            visible: net.captureTools.wireshark
+        }
+        ActionItem {
+            text: "Wireshark: this connection ↗"
+            visible: net.captureTools.wireshark && !!actions.conn
+            enabled: !!actions.conn && !actions.conn.ended && Wireshark.connFilter(actions.conn) !== ""
+            onTriggered: page.wireshark(Wireshark.ifaceOf(actions.conn), Wireshark.connFilter(actions.conn), actions.conn.app.name + " → " + actions.conn.ip + ":" + actions.conn.port)
+        }
+        ActionItem {
+            text: "Wireshark: " + (actions.app ? actions.app.name : "") + "'s " + actions.liveConns.length + " connections ↗"
+            visible: net.captureTools.wireshark && !!actions.app && !actions.listen
+            enabled: actions.liveConns.length > 0
+            onTriggered: page.wireshark(Wireshark.commonIface(actions.liveConns), Wireshark.connectionsFilter(actions.liveConns), actions.app.name)
+        }
+        ActionItem {
+            text: actions.listen ? "Wireshark: port " + actions.listen.port + "/" + actions.listen.proto + " ↗" : ""
+            visible: net.captureTools.wireshark && !!actions.listen
+            onTriggered: page.wireshark("any", Wireshark.portFilter(actions.listen.proto, actions.listen.port), actions.listen.name || "port " + actions.listen.port)
+        }
         ActionSeparator {}
         ActionItem {
             text: actions.app && page.service.trusted[actions.app.key] ? "Stop trusting " + actions.app.name : "Trust " + (actions.app ? actions.app.name : "this app")
@@ -748,6 +796,10 @@ Rectangle {
     }
     RoutePopup {
         id: routePopup
+        page: page
+    }
+    CapturePopup {
+        id: capturePopup
         page: page
     }
     Controls.Menu {
