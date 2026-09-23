@@ -1,28 +1,28 @@
 import QtQuick
 import QtQuick.Layouts
-import org.kde.plasma.plasmoid
-import org.kde.kirigami as Kirigami
+import "Sections.js" as Sections
 
 Item {
     id: compact
 
-    implicitWidth: (_valid && _root.isInPanel && mainLoader.item) ? mainLoader.item.implicitWidth : 0
-    implicitHeight: (_valid && _root.isInPanel && mainLoader.item) ? mainLoader.item.implicitHeight : 0
+    implicitWidth: (_valid && inPanel && mainLoader.item) ? mainLoader.item.implicitWidth : 0
+    implicitHeight: (_valid && inPanel && mainLoader.item) ? mainLoader.item.implicitHeight : 0
 
-    readonly property var _root: {
-        let p = compact.parent;
-        while (p && !p.hasOwnProperty("showPingSection"))
-            p = p.parent;
-        return p;
-    }
-    readonly property bool _valid: _root !== null && _root !== undefined
+    required property var monitor
+    required property var cfg
+    property bool inPanel: true
+    // The panel shows the first section in the list.
+    readonly property string primary: Sections.parse(cfg.sections, cfg.activeSection)[0]
+    readonly property bool _valid: !!monitor
+    // Clicked: the host opens or closes the full view.
+    signal activated
 
     // ── helpers ──────────────────────────────────────────────────────────────
     function panelColor(c) {
-        return plasmoid.configuration.panelPlainText ? compact._root.textColor : Qt.color(c);
+        return compact.cfg.panelPlainText ? compact.monitor.textColor : Qt.color(c);
     }
     function panelAlphaColor(c, alpha) {
-        const pc = plasmoid.configuration.panelPlainText ? compact._root.textColor : Qt.color(c);
+        const pc = compact.cfg.panelPlainText ? compact.monitor.textColor : Qt.color(c);
         return Qt.rgba(pc.r, pc.g, pc.b, alpha);
     }
     function hwTempColor(value, crit) {
@@ -67,14 +67,14 @@ Item {
 
     MouseArea {
         anchors.fill: parent
-        onClicked: plasmoid.expanded = !plasmoid.expanded
+        onClicked: compact.activated()
     }
 
     // ── Panel mode: rich stacked layout ──────────────────────────────────────
     Loader {
         id: mainLoader
         anchors.fill: parent
-        sourceComponent: (_valid && _root.isInPanel) ? panelComp : sparkComp
+        sourceComponent: (_valid && inPanel) ? panelComp : sparkComp
     }
 
     // ── Sparkline fallback (original compact view) ────────────────────────────
@@ -98,43 +98,43 @@ Item {
                 readonly property var _h: {
                     if (!compact._valid)
                         return [];
-                    if (compact._root.showPingSection)
-                        return compact._root.histories[compact._root.activeTarget] || [];
-                    if (compact._root.showNetworkSpeed)
-                        return compact._root.dlHistory;
-                    if (compact._root.showCpuSection)
-                        return compact._root.cpuHistory;
-                    if (compact._root.showMemorySection)
-                        return compact._root.memHistory;
-                    if (compact._root.showDiskSection)
+                    if ((compact.primary === "ping"))
+                        return compact.monitor.histories[compact.monitor.activeTarget] || [];
+                    if ((compact.primary === "network"))
+                        return compact.monitor.dlHistory;
+                    if ((compact.primary === "cpu"))
+                        return compact.monitor.cpuHistory;
+                    if ((compact.primary === "memory"))
+                        return compact.monitor.memHistory;
+                    if ((compact.primary === "disk"))
                         return [];
-                    return compact._root.customHistory;
+                    return compact.monitor.customHistory;
                 }
                 readonly property real _max: {
                     if (!compact._valid)
                         return 100;
-                    if (compact._root.showPingSection)
+                    if ((compact.primary === "ping"))
                         return 200;
-                    if (compact._root.showNetworkSpeed)
-                        return Math.max(1024, Math.max.apply(null, [1024].concat(compact._root.dlHistory).concat(compact._root.ulHistory))) * 1.2;
-                    if (compact._root.showCpuSection)
+                    if ((compact.primary === "network"))
+                        return Math.max(1024, Math.max.apply(null, [1024].concat(compact.monitor.dlHistory).concat(compact.monitor.ulHistory))) * 1.2;
+                    if ((compact.primary === "cpu"))
                         return 100;
-                    if (compact._root.showMemorySection)
+                    if ((compact.primary === "memory"))
                         return 100;
-                    return Math.max(0.1, plasmoid.configuration.customCmdMax);
+                    return Math.max(0.1, compact.cfg.customCmdMax);
                 }
                 readonly property color _c: {
                     if (!compact._valid)
-                        return Kirigami.Theme.highlightColor;
-                    if (compact._root.showPingSection)
-                        return compact._root.pingAlertColor();
-                    if (compact._root.showNetworkSpeed)
-                        return compact._root.dlColor;
-                    if (compact._root.showCpuSection)
-                        return compact._root.cpuColor;
-                    if (compact._root.showMemorySection)
-                        return compact._root.memColor;
-                    return Qt.color(plasmoid.configuration.customCmdColor || "#ffaa00");
+                        return compact.monitor.accentColor;
+                    if ((compact.primary === "ping"))
+                        return compact.monitor.pingAlertColor();
+                    if ((compact.primary === "network"))
+                        return compact.monitor.dlColor;
+                    if ((compact.primary === "cpu"))
+                        return compact.monitor.cpuColor;
+                    if ((compact.primary === "memory"))
+                        return compact.monitor.memColor;
+                    return Qt.color(compact.cfg.customCmdColor || "#ffaa00");
                 }
 
                 onPaint: {
@@ -169,7 +169,7 @@ Item {
                         const cx = (iToX(i - 1) + iToX(i)) / 2;
                         ctx.bezierCurveTo(cx, vToY(h[i - 1]), cx, vToY(h[i]), iToX(i), vToY(h[i]));
                     }
-                    if (plasmoid.configuration.glowLine) {
+                    if (compact.cfg.glowLine) {
                         ctx.lineWidth = 5.5;
                         ctx.strokeStyle = Qt.rgba(cc.r, cc.g, cc.b, 0.22);
                         ctx.stroke();
@@ -207,28 +207,28 @@ Item {
                 text: {
                     if (!compact._valid)
                         return "…";
-                    if (compact._root.showPingSection)
-                        return compact._root.lastPing >= 0 ? compact._root.lastPing.toFixed(0) + "ms" : "—";
-                    if (compact._root.showNetworkSpeed)
-                        return compact._fmtSpeed(compact._root.downloadSpeed);
-                    if (compact._root.showCpuSection)
-                        return compact._root.cpuPercent.toFixed(0) + "%";
-                    if (compact._root.showMemorySection)
-                        return compact._root.memPercent.toFixed(0) + "%";
-                    return compact._root.customValue.toFixed(1);
+                    if ((compact.primary === "ping"))
+                        return compact.monitor.lastPing >= 0 ? compact.monitor.lastPing.toFixed(0) + "ms" : "—";
+                    if ((compact.primary === "network"))
+                        return compact._fmtSpeed(compact.monitor.downloadSpeed);
+                    if ((compact.primary === "cpu"))
+                        return compact.monitor.cpuPercent.toFixed(0) + "%";
+                    if ((compact.primary === "memory"))
+                        return compact.monitor.memPercent.toFixed(0) + "%";
+                    return compact.monitor.customValue.toFixed(1);
                 }
                 color: {
                     if (!compact._valid)
-                        return Kirigami.Theme.highlightColor;
-                    if (compact._root.showPingSection)
-                        return compact._root.pingAlertColor();
-                    if (compact._root.showNetworkSpeed)
-                        return compact._root.dlColor;
-                    if (compact._root.showCpuSection)
-                        return compact._root.cpuColor;
-                    if (compact._root.showMemorySection)
-                        return compact._root.memColor;
-                    return Qt.color(plasmoid.configuration.customCmdColor || "#ffaa00");
+                        return compact.monitor.accentColor;
+                    if ((compact.primary === "ping"))
+                        return compact.monitor.pingAlertColor();
+                    if ((compact.primary === "network"))
+                        return compact.monitor.dlColor;
+                    if ((compact.primary === "cpu"))
+                        return compact.monitor.cpuColor;
+                    if ((compact.primary === "memory"))
+                        return compact.monitor.memColor;
+                    return Qt.color(compact.cfg.customCmdColor || "#ffaa00");
                 }
                 font.pixelSize: Math.max(9, Math.min(14, compact.height * 0.45))
                 font.bold: true
@@ -282,7 +282,7 @@ Item {
             // slot around applets; do not paint that slack as empty pill space.
             Rectangle {
                 id: pill
-                visible: plasmoid.configuration.panelShowBg
+                visible: !!compact.cfg.panelShowBg
                 anchors {
                     horizontalCenter: parent.horizontalCenter
                     verticalCenter: parent.verticalCenter
@@ -290,9 +290,9 @@ Item {
                 width: Math.max(16, panelRoot.contentW + panelRoot.hPad * 2)
                 height: Math.min(parent.height - 2, Math.max(16, panelRoot.contentH + panelRoot.vPad * 2))
                 radius: height / 2
-                color: plasmoid.configuration.bgColor || "#800d0f1a"
+                color: compact.cfg.bgColor || "#800d0f1a"
                 border.color: Qt.rgba(1, 1, 1, 0.13)
-                border.width: plasmoid.configuration.cardBorder ? 1 : 0
+                border.width: compact.cfg.cardBorder ? 1 : 0
                 // inner highlight line
                 Rectangle {
                     anchors {
@@ -306,7 +306,7 @@ Item {
                     height: 1
                     radius: 0.5
                     color: Qt.rgba(1, 1, 1, 0.22)
-                    visible: plasmoid.configuration.cardBorder
+                    visible: !!compact.cfg.cardBorder
                 }
             }
 
@@ -315,7 +315,7 @@ Item {
                 id: netLoader
                 anchors.centerIn: pill
                 width: pill.width - panelRoot.hPad * 2
-                active: compact._valid && compact._root.showNetworkSpeed
+                active: compact._valid && (compact.primary === "network")
                 sourceComponent: Component {
                     // Two stacked rows share the panel height, so each row gets
                     // half of what is left inside the pill's vertical padding.
@@ -359,14 +359,14 @@ Item {
                             spacing: 3
                             Text {
                                 text: "↓"
-                                color: compact.panelAlphaColor(compact._root.dlColor, 0.65)
+                                color: compact.panelAlphaColor(compact.monitor.dlColor, 0.65)
                                 font.pixelSize: netRows.rowPx
                                 font.bold: true
                                 Layout.alignment: Qt.AlignVCenter
                             }
                             Text {
-                                text: compact._fmtSpeed(compact._root.downloadSpeed)
-                                color: compact.panelColor(compact._root.dlColor)
+                                text: compact._fmtSpeed(compact.monitor.downloadSpeed)
+                                color: compact.panelColor(compact.monitor.dlColor)
                                 font.pixelSize: netRows.rowPx
                                 font.bold: true
                                 font.features: netRows.digitFeatures
@@ -376,9 +376,9 @@ Item {
                             }
                             // session total
                             Text {
-                                visible: compact._root.panelSessionTotalsVisible
-                                text: compact._fmtBytes(compact._root.sessionDlBytes)
-                                color: compact.panelAlphaColor(compact._root.dlColor, 0.5)
+                                visible: compact.cfg.panelShowSessionTotals === true
+                                text: compact._fmtBytes(compact.monitor.sessionDlBytes)
+                                color: compact.panelAlphaColor(compact.monitor.dlColor, 0.5)
                                 font.pixelSize: netRows.totalPx
                                 font.features: netRows.digitFeatures
                                 horizontalAlignment: Text.AlignRight
@@ -393,14 +393,14 @@ Item {
                             spacing: 3
                             Text {
                                 text: "↑"
-                                color: compact.panelAlphaColor(compact._root.ulColor, 0.65)
+                                color: compact.panelAlphaColor(compact.monitor.ulColor, 0.65)
                                 font.pixelSize: netRows.rowPx
                                 font.bold: true
                                 Layout.alignment: Qt.AlignVCenter
                             }
                             Text {
-                                text: compact._fmtSpeed(compact._root.uploadSpeed)
-                                color: compact.panelColor(compact._root.ulColor)
+                                text: compact._fmtSpeed(compact.monitor.uploadSpeed)
+                                color: compact.panelColor(compact.monitor.ulColor)
                                 font.pixelSize: netRows.rowPx
                                 font.bold: true
                                 font.features: netRows.digitFeatures
@@ -409,9 +409,9 @@ Item {
                                 Layout.alignment: Qt.AlignVCenter
                             }
                             Text {
-                                visible: compact._root.panelSessionTotalsVisible
-                                text: compact._fmtBytes(compact._root.sessionUlBytes)
-                                color: compact.panelAlphaColor(compact._root.ulColor, 0.5)
+                                visible: compact.cfg.panelShowSessionTotals === true
+                                text: compact._fmtBytes(compact.monitor.sessionUlBytes)
+                                color: compact.panelAlphaColor(compact.monitor.ulColor, 0.5)
                                 font.pixelSize: netRows.totalPx
                                 font.features: netRows.digitFeatures
                                 horizontalAlignment: Text.AlignRight
@@ -428,21 +428,21 @@ Item {
                 id: cpuLoader
                 anchors.centerIn: pill
                 width: pill.width - panelRoot.hPad * 2
-                active: compact._valid && compact._root.showCpuSection
+                active: compact._valid && (compact.primary === "cpu")
                 sourceComponent: Component {
                     ColumnLayout {
                         spacing: 1
                         implicitWidth: Math.max(44, compact.height * 1.6)
                         Text {
-                            text: plasmoid.configuration.cpuTitle || "CPU"
-                            color: Qt.rgba(compact._root.textColor.r, compact._root.textColor.g, compact._root.textColor.b, 0.50)
+                            text: compact.cfg.cpuTitle || "CPU"
+                            color: Qt.rgba(compact.monitor.textColor.r, compact.monitor.textColor.g, compact.monitor.textColor.b, 0.50)
                             font.pixelSize: Math.max(7, compact.height * 0.22)
                             Layout.fillWidth: true
                             horizontalAlignment: Text.AlignHCenter
                         }
                         Text {
-                            text: compact._root.cpuPercent.toFixed(1) + "%"
-                            color: compact.panelColor(compact._root.cpuColor)
+                            text: compact.monitor.cpuPercent.toFixed(1) + "%"
+                            color: compact.panelColor(compact.monitor.cpuColor)
                             font.pixelSize: Math.max(10, compact.height * 0.38)
                             font.bold: true
                             Layout.fillWidth: true
@@ -451,14 +451,14 @@ Item {
                         // thin bar
                         Rectangle {
                             Layout.fillWidth: true
-                            height: 3
+                            implicitHeight: 3
                             radius: 1.5
-                            color: compact.panelAlphaColor(compact._root.cpuColor, 0.20)
+                            color: compact.panelAlphaColor(compact.monitor.cpuColor, 0.20)
                             Rectangle {
-                                width: parent.width * Math.min(1, compact._root.cpuPercent / 100)
+                                width: parent.width * Math.min(1, compact.monitor.cpuPercent / 100)
                                 height: parent.height
                                 radius: parent.radius
-                                color: compact.panelColor(compact._root.cpuColor)
+                                color: compact.panelColor(compact.monitor.cpuColor)
                                 Behavior on width {
                                     NumberAnimation {
                                         duration: 400
@@ -476,21 +476,21 @@ Item {
                 id: memLoader
                 anchors.centerIn: pill
                 width: pill.width - panelRoot.hPad * 2
-                active: compact._valid && compact._root.showMemorySection
+                active: compact._valid && (compact.primary === "memory")
                 sourceComponent: Component {
                     ColumnLayout {
                         spacing: 1
                         implicitWidth: Math.max(44, compact.height * 1.6)
                         Text {
-                            text: plasmoid.configuration.memoryTitle || "RAM"
-                            color: Qt.rgba(compact._root.textColor.r, compact._root.textColor.g, compact._root.textColor.b, 0.50)
+                            text: compact.cfg.memoryTitle || "RAM"
+                            color: Qt.rgba(compact.monitor.textColor.r, compact.monitor.textColor.g, compact.monitor.textColor.b, 0.50)
                             font.pixelSize: Math.max(7, compact.height * 0.22)
                             Layout.fillWidth: true
                             horizontalAlignment: Text.AlignHCenter
                         }
                         Text {
-                            text: compact._root.memPercent.toFixed(1) + "%"
-                            color: compact.panelColor(compact._root.memColor)
+                            text: compact.monitor.memPercent.toFixed(1) + "%"
+                            color: compact.panelColor(compact.monitor.memColor)
                             font.pixelSize: Math.max(10, compact.height * 0.38)
                             font.bold: true
                             Layout.fillWidth: true
@@ -498,14 +498,14 @@ Item {
                         }
                         Rectangle {
                             Layout.fillWidth: true
-                            height: 3
+                            implicitHeight: 3
                             radius: 1.5
-                            color: compact.panelAlphaColor(compact._root.memColor, 0.20)
+                            color: compact.panelAlphaColor(compact.monitor.memColor, 0.20)
                             Rectangle {
-                                width: parent.width * Math.min(1, compact._root.memPercent / 100)
+                                width: parent.width * Math.min(1, compact.monitor.memPercent / 100)
                                 height: parent.height
                                 radius: parent.radius
-                                color: compact.panelColor(compact._root.memColor)
+                                color: compact.panelColor(compact.monitor.memColor)
                                 Behavior on width {
                                     NumberAnimation {
                                         duration: 400
@@ -523,21 +523,21 @@ Item {
                 id: pingLoader
                 anchors.centerIn: pill
                 width: pill.width - panelRoot.hPad * 2
-                active: compact._valid && compact._root.showPingSection
+                active: compact._valid && (compact.primary === "ping")
                 sourceComponent: Component {
                     ColumnLayout {
                         spacing: 1
                         implicitWidth: Math.max(44, compact.height * 1.6)
                         Text {
-                            text: plasmoid.configuration.pingTitle || "Ping"
-                            color: compact._root.pingAlertActive ? compact.panelColor(compact._root.pingCritColor) : Qt.rgba(compact._root.textColor.r, compact._root.textColor.g, compact._root.textColor.b, 0.50)
+                            text: compact.cfg.pingTitle || "Ping"
+                            color: compact.monitor.pingAlertActive ? compact.panelColor(compact.monitor.pingCritColor) : Qt.rgba(compact.monitor.textColor.r, compact.monitor.textColor.g, compact.monitor.textColor.b, 0.50)
                             font.pixelSize: Math.max(7, compact.height * 0.22)
                             Layout.fillWidth: true
                             horizontalAlignment: Text.AlignHCenter
                         }
                         Text {
-                            text: compact._root.lastPing >= 0 ? compact._root.lastPing.toFixed(0) + "ms" : "—"
-                            color: compact.panelColor(compact._root.pingAlertColor())
+                            text: compact.monitor.lastPing >= 0 ? compact.monitor.lastPing.toFixed(0) + "ms" : "—"
+                            color: compact.panelColor(compact.monitor.pingAlertColor())
                             font.pixelSize: Math.max(10, compact.height * 0.38)
                             font.bold: true
                             Layout.fillWidth: true
@@ -552,21 +552,21 @@ Item {
                 id: gpuLoader
                 anchors.centerIn: pill
                 width: pill.width - panelRoot.hPad * 2
-                active: compact._valid && compact._root.showGpuSection
+                active: compact._valid && (compact.primary === "gpu")
                 sourceComponent: Component {
                     ColumnLayout {
                         spacing: 1
                         implicitWidth: Math.max(44, compact.height * 1.6)
                         Text {
-                            text: plasmoid.configuration.gpuTitle || "GPU"
-                            color: Qt.rgba(compact._root.textColor.r, compact._root.textColor.g, compact._root.textColor.b, 0.50)
+                            text: compact.cfg.gpuTitle || "GPU"
+                            color: Qt.rgba(compact.monitor.textColor.r, compact.monitor.textColor.g, compact.monitor.textColor.b, 0.50)
                             font.pixelSize: Math.max(7, compact.height * 0.22)
                             Layout.fillWidth: true
                             horizontalAlignment: Text.AlignHCenter
                         }
                         Text {
-                            text: compact._root.gpuPercent.toFixed(1) + "%"
-                            color: compact.panelColor(compact._root.gpuColor)
+                            text: compact.monitor.gpuPercent.toFixed(1) + "%"
+                            color: compact.panelColor(compact.monitor.gpuColor)
                             font.pixelSize: Math.max(10, compact.height * 0.38)
                             font.bold: true
                             Layout.fillWidth: true
@@ -574,14 +574,14 @@ Item {
                         }
                         Rectangle {
                             Layout.fillWidth: true
-                            height: 3
+                            implicitHeight: 3
                             radius: 1.5
-                            color: compact.panelAlphaColor(compact._root.gpuColor, 0.20)
+                            color: compact.panelAlphaColor(compact.monitor.gpuColor, 0.20)
                             Rectangle {
-                                width: parent.width * Math.min(1, compact._root.gpuPercent / 100)
+                                width: parent.width * Math.min(1, compact.monitor.gpuPercent / 100)
                                 height: parent.height
                                 radius: parent.radius
-                                color: compact.panelColor(compact._root.gpuColor)
+                                color: compact.panelColor(compact.monitor.gpuColor)
                                 Behavior on width {
                                     NumberAnimation {
                                         duration: 400
@@ -599,7 +599,7 @@ Item {
                 id: diskLoader
                 anchors.centerIn: pill
                 width: pill.width - panelRoot.hPad * 2
-                active: compact._valid && compact._root.showDiskSection
+                active: compact._valid && (compact.primary === "disk")
                 sourceComponent: Component {
                     // Two stacked rows (R / W) — size each off ~half the height
                     // so they fit the pill instead of overflowing.
@@ -611,14 +611,14 @@ Item {
                             spacing: 3
                             Text {
                                 text: "R"
-                                color: compact.panelAlphaColor(compact._root.diskRdColor, 0.65)
+                                color: compact.panelAlphaColor(compact.monitor.diskRdColor, 0.65)
                                 font.pixelSize: Math.max(7, compact.height * 0.21)
                                 font.bold: true
                                 Layout.alignment: Qt.AlignVCenter
                             }
                             Text {
-                                text: compact._fmtSpeed(compact._root.diskReadSpeed)
-                                color: compact.panelColor(compact._root.diskRdColor)
+                                text: compact._fmtSpeed(compact.monitor.diskReadSpeed)
+                                color: compact.panelColor(compact.monitor.diskRdColor)
                                 font.pixelSize: Math.max(8, compact.height * 0.24)
                                 font.bold: true
                                 Layout.alignment: Qt.AlignVCenter
@@ -630,14 +630,14 @@ Item {
                             spacing: 3
                             Text {
                                 text: "W"
-                                color: compact.panelAlphaColor(compact._root.diskWrColor, 0.65)
+                                color: compact.panelAlphaColor(compact.monitor.diskWrColor, 0.65)
                                 font.pixelSize: Math.max(7, compact.height * 0.21)
                                 font.bold: true
                                 Layout.alignment: Qt.AlignVCenter
                             }
                             Text {
-                                text: compact._fmtSpeed(compact._root.diskWriteSpeed)
-                                color: compact.panelColor(compact._root.diskWrColor)
+                                text: compact._fmtSpeed(compact.monitor.diskWriteSpeed)
+                                color: compact.panelColor(compact.monitor.diskWrColor)
                                 font.pixelSize: Math.max(8, compact.height * 0.24)
                                 font.bold: true
                                 Layout.alignment: Qt.AlignVCenter
@@ -653,21 +653,21 @@ Item {
                 id: customLoader
                 anchors.centerIn: pill
                 width: pill.width - panelRoot.hPad * 2
-                active: compact._valid && compact._root.showCustomSection
+                active: compact._valid && (compact.primary === "custom")
                 sourceComponent: Component {
                     ColumnLayout {
                         spacing: 1
                         implicitWidth: Math.max(44, compact.height * 1.6)
                         Text {
-                            text: plasmoid.configuration.customCmdTitle || "Sensor"
-                            color: Qt.rgba(compact._root.textColor.r, compact._root.textColor.g, compact._root.textColor.b, 0.50)
+                            text: compact.cfg.customCmdTitle || "Sensor"
+                            color: Qt.rgba(compact.monitor.textColor.r, compact.monitor.textColor.g, compact.monitor.textColor.b, 0.50)
                             font.pixelSize: Math.max(7, compact.height * 0.22)
                             Layout.fillWidth: true
                             horizontalAlignment: Text.AlignHCenter
                         }
                         Text {
-                            text: compact._root.customValue.toFixed(1) + (plasmoid.configuration.customCmdUnit || "")
-                            color: compact.panelColor(Qt.color(plasmoid.configuration.customCmdColor || "#ffaa00"))
+                            text: compact.monitor.customValue.toFixed(1) + (compact.cfg.customCmdUnit || "")
+                            color: compact.panelColor(Qt.color(compact.cfg.customCmdColor || "#ffaa00"))
                             font.pixelSize: Math.max(10, compact.height * 0.38)
                             font.bold: true
                             Layout.fillWidth: true
@@ -682,21 +682,21 @@ Item {
                 id: hwSensorsLoader
                 anchors.centerIn: pill
                 width: pill.width - panelRoot.hPad * 2
-                active: compact._valid && compact._root.showHwSensors
+                active: compact._valid && (compact.primary === "sensors")
                 sourceComponent: Component {
                     ColumnLayout {
                         spacing: 1
                         implicitWidth: Math.max(44, compact.height * 1.6)
                         Text {
-                            text: plasmoid.configuration.hwSensorsTitle || "Temp"
-                            color: Qt.rgba(compact._root.textColor.r, compact._root.textColor.g, compact._root.textColor.b, 0.50)
+                            text: compact.cfg.hwSensorsTitle || "Temp"
+                            color: Qt.rgba(compact.monitor.textColor.r, compact.monitor.textColor.g, compact.monitor.textColor.b, 0.50)
                             font.pixelSize: Math.max(7, compact.height * 0.22)
                             Layout.fillWidth: true
                             horizontalAlignment: Text.AlignHCenter
                         }
                         Text {
-                            text: compact._root.hwMaxTemp.toFixed(1) + "°C"
-                            color: compact.panelColor(compact.hwTempColor(compact._root.hwMaxTemp, compact._root.hwMaxTempCrit))
+                            text: compact.monitor.hwMaxTemp.toFixed(1) + "°C"
+                            color: compact.panelColor(compact.hwTempColor(compact.monitor.hwMaxTemp, compact.monitor.hwMaxTempCrit))
                             font.pixelSize: Math.max(10, compact.height * 0.38)
                             font.bold: true
                             Layout.fillWidth: true
@@ -704,14 +704,14 @@ Item {
                         }
                         Rectangle {
                             Layout.fillWidth: true
-                            height: 3
+                            implicitHeight: 3
                             radius: 1.5
-                            color: compact.panelAlphaColor(compact.hwTempColor(compact._root.hwMaxTemp, compact._root.hwMaxTempCrit), 0.20)
+                            color: compact.panelAlphaColor(compact.hwTempColor(compact.monitor.hwMaxTemp, compact.monitor.hwMaxTempCrit), 0.20)
                             Rectangle {
-                                width: parent.width * Math.max(0.05, Math.min(1, compact._root.hwMaxTemp / (compact._root.hwMaxTempCrit > 0 ? compact._root.hwMaxTempCrit : 90)))
+                                width: parent.width * Math.max(0.05, Math.min(1, compact.monitor.hwMaxTemp / (compact.monitor.hwMaxTempCrit > 0 ? compact.monitor.hwMaxTempCrit : 90)))
                                 height: parent.height
                                 radius: parent.radius
-                                color: compact.panelColor(compact.hwTempColor(compact._root.hwMaxTemp, compact._root.hwMaxTempCrit))
+                                color: compact.panelColor(compact.hwTempColor(compact.monitor.hwMaxTemp, compact.monitor.hwMaxTempCrit))
                             }
                         }
                     }
@@ -723,21 +723,21 @@ Item {
                 id: osInfoLoader
                 anchors.centerIn: pill
                 width: pill.width - panelRoot.hPad * 2
-                active: compact._valid && compact._root.showOsInfo
+                active: compact._valid && (compact.primary === "system")
                 sourceComponent: Component {
                     ColumnLayout {
                         spacing: 1
                         implicitWidth: Math.max(48, compact.height * 1.8)
                         Text {
-                            text: plasmoid.configuration.osInfoTitle || "Uptime"
-                            color: Qt.rgba(compact._root.textColor.r, compact._root.textColor.g, compact._root.textColor.b, 0.50)
+                            text: compact.cfg.osInfoTitle || "Uptime"
+                            color: Qt.rgba(compact.monitor.textColor.r, compact.monitor.textColor.g, compact.monitor.textColor.b, 0.50)
                             font.pixelSize: Math.max(7, compact.height * 0.22)
                             Layout.fillWidth: true
                             horizontalAlignment: Text.AlignHCenter
                         }
                         Text {
-                            text: compact._root.osUptime || "—"
-                            color: compact.panelColor(compact._root.lineColor)
+                            text: compact.monitor.osUptime || "—"
+                            color: compact.panelColor(compact.monitor.lineColor)
                             font.pixelSize: Math.max(8, compact.height * 0.33)
                             font.bold: true
                             Layout.fillWidth: true
@@ -752,26 +752,26 @@ Item {
                 id: powerLoader
                 anchors.centerIn: pill
                 width: pill.width - panelRoot.hPad * 2
-                active: compact._valid && compact._root.showPowerSection
+                active: compact._valid && (compact.primary === "power")
                 sourceComponent: Component {
                     ColumnLayout {
                         spacing: 1
                         implicitWidth: Math.max(44, compact.height * 1.6)
                         Text {
-                            text: plasmoid.configuration.powerTitle || "BAT"
-                            color: Qt.rgba(compact._root.textColor.r, compact._root.textColor.g, compact._root.textColor.b, 0.50)
+                            text: compact.cfg.powerTitle || "BAT"
+                            color: Qt.rgba(compact.monitor.textColor.r, compact.monitor.textColor.g, compact.monitor.textColor.b, 0.50)
                             font.pixelSize: Math.max(7, compact.height * 0.22)
                             Layout.fillWidth: true
                             horizontalAlignment: Text.AlignHCenter
                         }
                         Text {
                             text: {
-                                if (!compact._root.batteryPresent)
+                                if (!compact.monitor.batteryPresent)
                                     return "No Bat";
-                                let isChg = compact._root.batteryStatus === "Charging";
-                                return (isChg ? "⚡ " : "") + compact._root.batteryPercent + "%";
+                                let isChg = compact.monitor.batteryStatus === "Charging";
+                                return (isChg ? "⚡ " : "") + compact.monitor.batteryPercent + "%";
                             }
-                            color: compact.panelColor(compact.powerBatColor(compact._root.batteryPercent))
+                            color: compact.panelColor(compact.powerBatColor(compact.monitor.batteryPercent))
                             font.pixelSize: Math.max(10, compact.height * 0.38)
                             font.bold: true
                             Layout.fillWidth: true
@@ -779,14 +779,14 @@ Item {
                         }
                         Rectangle {
                             Layout.fillWidth: true
-                            height: 3
+                            implicitHeight: 3
                             radius: 1.5
-                            color: compact.panelAlphaColor(compact.powerBatColor(compact._root.batteryPercent), 0.20)
+                            color: compact.panelAlphaColor(compact.powerBatColor(compact.monitor.batteryPercent), 0.20)
                             Rectangle {
-                                width: parent.width * Math.min(1, compact._root.batteryPercent / 100)
+                                width: parent.width * Math.min(1, compact.monitor.batteryPercent / 100)
                                 height: parent.height
                                 radius: parent.radius
-                                color: compact.panelColor(compact.powerBatColor(compact._root.batteryPercent))
+                                color: compact.panelColor(compact.powerBatColor(compact.monitor.batteryPercent))
                             }
                         }
                     }

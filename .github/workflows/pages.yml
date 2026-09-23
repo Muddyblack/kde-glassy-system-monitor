@@ -1,0 +1,56 @@
+name: Deploy Pages
+
+# The site is built from the widget's own sources (tools/build_site.mjs):
+# any change to the studio, settings, looks, sections or shader redeploys it.
+on:
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - docs/website/**
+      - package/icon.png
+      - package/metadata.json
+      - package/contents/config/main.xml
+      - package/contents/shaders/**
+      - package/contents/ui/*.js
+      - package/contents/ui/diagram/*.js
+      - package/contents/ui/studio/*.js
+      - package/contents/ui/studio/wallpapers/**
+      - package/contents/ui/studio/icons/**
+      - tools/build_site.mjs
+      - .github/workflows/pages.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: cachix/install-nix-action@v27
+
+      # The dev shell provides qsb, which exports the shader's GLSL ES build.
+      - name: Build the site
+        run: nix develop --command bash -c 'nix shell nixpkgs#nodejs --command node tools/build_site.mjs'
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/website
+
+      - id: deployment
+        uses: actions/deploy-pages@v4

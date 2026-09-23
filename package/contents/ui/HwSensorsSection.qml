@@ -2,15 +2,30 @@ import QtQuick
 import QtQuick.Layouts
 
 ColumnLayout {
-    id: hwSection
+    id: section
+
+    required property var monitor
+    required property var cfg
+    readonly property string sectionId: "sensors"
+    readonly property real preferredHeight: implicitHeight + 8
+    readonly property real minimumHeight: preferredHeight
+
     spacing: 1
 
-    readonly property bool _empty: root.hwSensorRows.count === 0
+    SectionHeader {
+        Layout.fillWidth: true
+        Layout.bottomMargin: 4
+        title: section.monitor.sectionTitle("sensors")
+        reading: section.monitor.hwMaxTemp > 0 ? section.monitor.hwMaxTemp.toFixed(0) + "°C" : ""
+        textColor: section.monitor.textColor
+    }
+
+    readonly property bool _empty: section.monitor.hwSensorRows.count === 0
 
     // Per-sensor crit-based color. (value - 30) / (crit - 30) ratio keeps
     // colors meaningful across different crit thresholds (CPU 100, NVMe 85).
     function tempColor(value, crit) {
-        const c = crit > 0 ? crit : (plasmoid.configuration.hwTempCrit || 90);
+        const c = crit > 0 ? crit : (section.cfg.hwTempCrit || 90);
         const r = Math.max(0, (value - 30) / Math.max(20, c - 30));
         if (r >= 0.85)
             return Qt.color("#ff4444");
@@ -24,17 +39,17 @@ ColumnLayout {
     // Linear bar fill: value / crit, with a small minimum so cold sensors
     // remain visible.
     function barRatio(value, crit) {
-        const c = crit > 0 ? crit : (plasmoid.configuration.hwTempCrit || 90);
+        const c = crit > 0 ? crit : (section.cfg.hwTempCrit || 90);
         return Math.max(0.05, Math.min(1, value / c));
     }
 
     // Empty-state hint
     Text {
-        visible: hwSection._empty
+        visible: section._empty
         Layout.fillWidth: true
         Layout.fillHeight: true
         text: "No sensor data.\nRun: sudo sensors-detect\nor install lm-sensors."
-        color: Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.40)
+        color: Qt.rgba(section.monitor.textColor.r, section.monitor.textColor.g, section.monitor.textColor.b, 0.40)
         font.pixelSize: 11
         horizontalAlignment: Text.AlignHCenter
         verticalAlignment: Text.AlignVCenter
@@ -43,10 +58,11 @@ ColumnLayout {
 
     // Flat list of rows — headers and sensors mixed, dispatched by rowType.
     Flickable {
-        visible: !hwSection._empty
+        visible: !section._empty
         Layout.fillWidth: true
         Layout.fillHeight: true
         contentHeight: rowCol.implicitHeight
+        implicitHeight: contentHeight
         clip: true
         boundsBehavior: Flickable.StopAtBounds
 
@@ -56,7 +72,7 @@ ColumnLayout {
             spacing: 1
 
             Repeater {
-                model: root.hwSensorRows
+                model: section.monitor.hwSensorRows
 
                 Item {
                     Layout.fillWidth: true
@@ -71,7 +87,7 @@ ColumnLayout {
 
                         Text {
                             text: chipDisplay
-                            color: Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.85)
+                            color: Qt.rgba(section.monitor.textColor.r, section.monitor.textColor.g, section.monitor.textColor.b, 0.85)
                             font.pixelSize: 10
                             font.bold: true
                             font.letterSpacing: 0.4
@@ -79,13 +95,13 @@ ColumnLayout {
                         Rectangle {
                             Layout.fillWidth: true
                             Layout.alignment: Qt.AlignVCenter
-                            height: 1
-                            color: Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.10)
+                            implicitHeight: 1
+                            color: Qt.rgba(section.monitor.textColor.r, section.monitor.textColor.g, section.monitor.textColor.b, 0.10)
                         }
                         Text {
                             visible: maxTemp > 0
                             text: "max " + maxTemp.toFixed(0) + "°C"
-                            color: hwSection.tempColor(maxTemp, maxTempCrit)
+                            color: section.tempColor(maxTemp, maxTempCrit)
                             font.pixelSize: 9
                             font.bold: true
                             Behavior on color {
@@ -102,7 +118,7 @@ ColumnLayout {
                         visible: rowType === 'sensor'
                         anchors.fill: parent
 
-                        readonly property color _vc: sensorKind === 'fan' ? Qt.color("#22aaff") : hwSection.tempColor(value, crit)
+                        readonly property color _vc: sensorKind === 'fan' ? Qt.color("#22aaff") : section.tempColor(value, crit)
 
                         // Label (left, capped width)
                         Text {
@@ -112,7 +128,7 @@ ColumnLayout {
                             anchors.verticalCenter: parent.verticalCenter
                             width: Math.min(90, parent.width * 0.30)
                             text: label
-                            color: Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.62)
+                            color: Qt.rgba(section.monitor.textColor.r, section.monitor.textColor.g, section.monitor.textColor.b, 0.62)
                             font.pixelSize: 11
                             elide: Text.ElideRight
                         }
@@ -135,9 +151,9 @@ ColumnLayout {
                                 anchors.verticalCenter: parent.verticalCenter
                                 height: 5
                                 radius: 2.5
-                                color: Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.10)
+                                color: Qt.rgba(section.monitor.textColor.r, section.monitor.textColor.g, section.monitor.textColor.b, 0.10)
                                 Rectangle {
-                                    width: Math.max(parent.radius * 2, parent.width * hwSection.barRatio(value, crit))
+                                    width: Math.max(parent.radius * 2, parent.width * section.barRatio(value, crit))
                                     height: parent.height
                                     radius: parent.radius
                                     color: sensorRowItem._vc
@@ -186,14 +202,14 @@ ColumnLayout {
                                             width: parent.width
                                             height: 2
                                             radius: 1
-                                            color: Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.10)
+                                            color: Qt.rgba(section.monitor.textColor.r, section.monitor.textColor.g, section.monitor.textColor.b, 0.10)
                                         }
                                         Rectangle {
                                             anchors.bottom: parent.bottom
                                             width: parent.width
-                                            height: Math.max(2, 12 * hwSection.barRatio(_v, _critRef))
+                                            height: Math.max(2, 12 * section.barRatio(_v, _critRef))
                                             radius: 1
-                                            color: hwSection.tempColor(_v, _critRef)
+                                            color: section.tempColor(_v, _critRef)
                                             opacity: 0.92
                                             Behavior on height {
                                                 NumberAnimation {

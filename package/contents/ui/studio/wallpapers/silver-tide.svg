@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000">
+<title>Silver tide</title>
+<defs>
+ <linearGradient id="sky" x2="0" y2="1"><stop stop-color="#9eb9ce"/><stop offset=".62" stop-color="#d7e1e4"/><stop offset="1" stop-color="#edf0e8"/></linearGradient>
+ <radialGradient id="haze" cx=".62" cy=".5" r=".65"><stop stop-color="#fff1d4" stop-opacity=".25"/><stop offset="1" stop-color="#fff1d4" stop-opacity="0"/></radialGradient>
+ <linearGradient id="water" x2="0" y2="1"><stop stop-color="#edf0e8"/><stop offset="1" stop-color="#9eb9ce"/></linearGradient>
+ <linearGradient id="veil" x2="0" y2="1"><stop stop-color="#7be2bf" stop-opacity="0"/><stop offset="1" stop-color="#9ae5c8"/></linearGradient>
+ <radialGradient id="reflection"><stop stop-color="#fff1d4" stop-opacity=".25"/><stop offset="1" stop-color="#fff1d4" stop-opacity="0"/></radialGradient>
+</defs>
+<path fill="url(#sky)" d="M0 0h1600v1000H0z"/>
+
+<path fill="url(#haze)" d="M0 0h1600v1000H0z"/>
+<circle cx="1130" cy="260" r="38" fill="#fff1d4" opacity=".7"/>
+<path d="M0 580C130 565 220 470 330 491S520 589 715 566 962 479 1160 515 1438 576 1600 459V1000H0Z" fill="#a3bec7" opacity=".85"/>
+<path d="M0 650C206 602 407 677 584 620S923 583 1100 608 1455 640 1600 591V1000H0Z" fill="url(#water)"/>
+<ellipse cx="1060" cy="738" rx="410" ry="170" fill="url(#reflection)"/>
+<g fill="none" stroke="#fff1d4" opacity=".12" stroke-linecap="round">
+ <path d="M1060 654h130m-226 26h322m-403 37h210m-33 34h358m-535 57h300m-386 65h360" stroke-width="2"/>
+ <path d="M840 634h255m-403 148h65m275 63h160" stroke-width="1"/>
+</g>
+<path d="M0 557C200 582 270 683 539 743S578 828 302 853 161 926 0 932Z" fill="#7599ac"/>
+<path d="M1600 627C1354 631 1395 711 1190 741S1246 806 1373 854 1400 959 1600 925Z" fill="#7599ac"/>
+<path d="M0 858C143 812 288 867 455 913S700 936 772 1000H0Z" fill="#4e718a"/>
+<path d="M1600 875C1456 824 1398 916 1220 943S1000 964 906 1000H1600Z" fill="#4e718a"/>
+</svg>

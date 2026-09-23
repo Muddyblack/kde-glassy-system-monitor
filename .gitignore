@@ -17,3 +17,9 @@ result
 .claude
 .kilo
 .codex
+
+# Website build outputs: `make docs` (and the Pages workflow) regenerate these
+# from package/contents; only app.js, glassy.css and style.css are sources.
+docs/website/index.html
+docs/website/studio/
+docs/website/assets/

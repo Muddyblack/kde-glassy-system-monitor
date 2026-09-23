@@ -1,5 +1,5 @@
 {
-  description = "KDE Plasma 6 glassy real-time system performance and network monitor widget";
+  description = "Glassy system monitor for KDE Plasma 6 and Hyprland (Quickshell)";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
@@ -36,7 +36,7 @@
 
             meta = with pkgs.lib; {
               description = "KDE Plasma 6 glassy real-time system performance and network monitor widget";
-              license = licenses.mit;
+              license = licenses.gpl3Plus;
               platforms = platforms.linux;
               homepage = "https://github.com/Muddyblack/kde-glassy-system-monitor";
             };
@@ -52,6 +52,13 @@
               export PATH=${pkgs.lib.makeBinPath [ pkgs.kdePackages.plasma-sdk pkgs.kdePackages.plasma-desktop ]}:"$PATH"
               exec plasmoidviewer \
                 -a "$PWD/package" -f "''${1:-planar}"
+            '');
+          };
+          view-hyprland = {
+            type = "app";
+            program = toString (pkgs.writeShellScript "view-hyprland" ''
+              export PATH=${pkgs.lib.makeBinPath [ pkgs.quickshell pkgs.lm_sensors pkgs.iputils pkgs.iproute2 ]}:"$PATH"
+              exec bash "$PWD/hyprland/run.sh" "$@"
             '');
           };
           pack = {
@@ -76,6 +83,8 @@
             name = "glassy-system-monitor-dev";
             packages = with pkgs; [
               qt6.qtdeclarative
+              qt6.qtshadertools
+              qt6.qtsvg
               kdePackages.kpackage
               kdePackages.plasma-sdk
               kdePackages.plasma-desktop
@@ -90,7 +99,7 @@
               if [ -z "$PRE_COMMIT" ]; then
                 pre-commit install -f --install-hooks
                 echo "glassy-system-monitor dev shell ready"
-                echo "  make help        — list targets (view, install, pack, tag)"
+                echo "  make help        — list targets (view, view-hyprland, parity, benchmark, test, docs, pack, tag)"
               fi
             '';
           };

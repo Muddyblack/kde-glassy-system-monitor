@@ -8,9 +8,10 @@
   <a href="https://www.opendesktop.org/p/2360341">
     <img src="https://img.shields.io/badge/KDE_Store-Download-1d99f3?style=for-the-badge&logo=kde&logoColor=white" alt="KDE Store" />
   </a>
-  <img src="https://img.shields.io/badge/KDE_Plasma-6.0%2B-1d99f3?style=for-the-badge&logo=kde&logoColor=white" alt="KDE Plasma 6.0+" />
+  <img src="https://img.shields.io/badge/KDE_Plasma-6.2%2B-1d99f3?style=for-the-badge&logo=kde&logoColor=white" alt="KDE Plasma 6.2+" />
+  <img src="https://img.shields.io/badge/Hyprland-Quickshell-58e1ff?style=for-the-badge" alt="Hyprland via Quickshell" />
   <a href="LICENSE">
-    <img src="https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge" alt="License: MIT" />
+    <img src="https://img.shields.io/badge/License-GPL--3.0--or--later-blue?style=for-the-badge" alt="License: GPL-3.0-or-later" />
   </a>
   <a href="https://www.opendesktop.org/p/2360341">
     <img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fapi.pling.com%2Focs%2Fv1%2Fcontent%2Fdata%3Fsearch%3Dglassy%2Bsystem%2Bmonitor%26format%3Djson&query=%24.data%5B0%5D.downloads&label=Downloads&style=for-the-badge&color=1d99f3&logo=kde&logoColor=white" alt="KDE Store Downloads" />
@@ -22,22 +23,38 @@
 </p>
 
 <p align="center">
-  <img src="./readme/demo.svg" alt="Widget demo" width="680"/>
+  <img src="./docs/readme/look-dashboard.png" alt="The Dashboard look: CPU, memory, network, disk and GPU in one card" width="640"/>
 </p>
 
 <p align="center">
   <a href="#features">Features</a> ·
   <a href="#requirements">Requirements</a> ·
   <a href="#install">Install</a> ·
-  <a href="#configuration">Configuration</a> ·
+  <a href="#the-studio">Studio</a> ·
+  <a href="#hyprland">Hyprland</a> ·
   <a href="#how-it-works">How it works</a>
 </p>
 
 ---
 
-A glassy real-time system monitor for KDE Plasma 6. Tracks **ping · CPU · memory · network** in one place. The main thing that makes it different from built-in widgets is the ping section — you get live RTT graphs, jitter, and packet loss, not just bandwidth.
+A glassy real-time system monitor for KDE Plasma 6 and Hyprland. **One widget shows any of ten sections** — CPU, memory, network, ping, disk, GPU, sensors, power, system info and a custom command — in the order you choose, stacked or side by side. Charts are drawn by a fragment shader on the GPU, and every setting lives in a settings studio with a live preview, in the style of the [Plasma Audio Visualizer](https://github.com/Muddyblack/audio-wave-visualizer).
+
+Try the studio in your browser: **[muddyblack.github.io/kde-glassy-system-monitor](https://muddyblack.github.io/kde-glassy-system-monitor/)**.
+
+<p align="center">
+  <img src="./docs/readme/look-gauges.png" alt="Gauges look: CPU, memory and GPU donuts side by side" width="45%"/>
+  <img src="./docs/readme/look-laptop.png" alt="Laptop look: battery, CPU and sensors" width="45%"/>
+</p>
 
 ## Features
+
+### One widget, your layout
+
+- **Any sections, any order** — switch sections on in the studio and drag them into order; no more one widget per metric
+- **Side by side** — one to three columns; any section can take a full row of its own
+- **Per-section size and style** — e.g. CPU as a tall line chart next to memory as a small donut
+- **Never cut off** — every section reports the height its content needs; the card cannot be sized below it, and only charts give way (never below 40 px)
+- **Looks** — seven built-in looks, your own saved looks, and sharing as a JSON snippet. A look never carries commands, hosts or devices, so an imported one cannot run anything
 
 ### Monitoring sections
 
@@ -62,11 +79,11 @@ A glassy real-time system monitor for KDE Plasma 6. Tracks **ping · CPU · memo
 ### Look & feel
 
 - **Glassy look** — semi-transparent dark card with neon glow, same aesthetic as the [Plasma Audio Visualizer](https://github.com/muddyblack/plasma-audio-visualizer)
-- **GPU bloom** — optional GPU-accelerated halo on graph lines, drawn under crisp axis/text so labels stay sharp
+- **GPU charts** — line, area, history bars, donut and pie are drawn by one fragment shader with an analytic glow; the original canvas renderer stays available as a switch and is used automatically where there is no GPU
 - **Frosted glass** — blurred card with adjustable strength (on by default; turn it off for a flat translucent card)
-- **Multiple chart styles** — line, bars, donut, pie, horizontal bar
+- **Chart styles** — line, filled area, history bars, donut, pie, meters, or numbers only
 - **Theming** — honors the active Plasma accent color (or set custom colors per section), system text color, configurable background color, and each of the four card corners rounded independently
-- **Copyable color codes** — every color picker shows an editable `#rrggbb` hex field with a copy button; the card color shows `#aarrggbb` so the exact transparency can be reused across stacked widgets
+- **Palettes** — recolour every section at once (Glassy, Aurora, Ember, Ice, Monochrome)
 - **Tunable poll rate** — one base interval drives every sensor, so you can trade update smoothness for CPU
 - **Compact panel mode** — condensed representation for panel placement
 
@@ -76,7 +93,7 @@ A glassy real-time system monitor for KDE Plasma 6. Tracks **ping · CPU · memo
 
 | Dependency | Notes |
 |---|---|
-| KDE Plasma 6.0+ | `X-Plasma-API-Minimum-Version: 6.0` |
+| KDE Plasma 6.2+ (Qt 6.7+) | Per-corner card radii use Qt 6.7's `Rectangle` corners |
 | `plasma5support` | Provides the `executable` DataEngine used for ping and the fallback stats |
 | `ping` (iputils) | Standard on all Linux distros |
 
@@ -165,30 +182,45 @@ kpackagetool6 -t Plasma/Applet -r org.muddyblack.glassySystemMonitorTest
 
 ---
 
-## Configuration
+## The studio
 
-Right-click the widget → *Configure*:
+Right-click the widget → *Configure* opens the studio: every setting with a description,
+search (<kbd>/</kbd>), undo (<kbd>Ctrl</kbd>+<kbd>Z</kbd>), and the real widget previewed on
+the right — on this machine's live data or on demo data, as a desktop card or a panel pill,
+over a choice of wallpapers.
 
-| Setting | Default | Description |
-|---|---|---|
-| **Hosts** | `8.8.8.8,1.1.1.1,192.168.1.1` | Comma-separated ping targets (max 4) |
-| **Ping interval** | `2 s` | Time between pings |
-| **Timeout** | `2 s` | Per-ping timeout, counts as packet loss |
-| **History points** | `60` | Rolling sample count per target |
-| **Latency warning** | `100 ms` | Line turns amber above this |
-| **Loss warning** | `5 %` | Alert border activates above this loss rate |
-| **GPU engines** | on | Per-engine breakdown (VRAM, compute, decode, encode) — shows only what your GPU exposes |
-| **Network info** | off | Show current SSID / IP address |
-| **Line color** | system accent | Or pick a custom color |
-| **Glow** | on | Neon shadow on graph lines |
-| **GPU bloom** | on | GPU-accelerated halo on graph lines |
-| **Stats bar** | on | Jitter, loss, min/max below the graph |
-| **Update interval** | `1000 ms` | Base update rate, floored at 500 ms — the daemon's own tick, so nothing below it would produce another reading. With ksystemstats available CPU/memory/network/disk arrive pushed from the daemon; without it they are polled from `/proc` at this rate in one shared process. GPU 2×, hardware sensors 3×, power 5×, network info 8×, OS info 30× |
-| **Card color** | `#800d0f1a` | `#aarrggbb`; the first byte is transparency. Editable and copyable next to the picker |
-| **Corner radius** | `12 px` | Set per corner (top-left, top-right, bottom-right, bottom-left) |
-| **Card edge** | on | Hairline border and top highlight — the line that reads as glass |
-| **Frosted glass** | on | GPU blur of the card's own fill. Off gives a flat translucent card |
-| **Frost amount** | `55 %` | Blur strength when frosted glass is on |
+<p align="center">
+  <img src="./docs/readme/studio-layout.png" alt="Studio, Layout tab: sections with drag handles, sizes and chart styles, live preview" width="820"/>
+</p>
+
+| Tab | What is there |
+|---|---|
+| **Presets** | Built-in looks, your saved looks, copy and import looks as JSON |
+| **Layout** | Sections on/off, drag to reorder, size S/M/L, chart style and full width per section; columns; panel pill; placement on Hyprland |
+| **Appearance** | Charts (style, history, curves, glow, labels), Card (tint, frost, edge, corners), Colours (palettes, text) |
+| **Sections** | One tab per section: title, colours, hosts, devices, thresholds, commands |
+| **Performance** | GPU shader or canvas renderer, update interval, smooth scrolling, frame-rate cap |
+| **Info** | Version and update check, project stats, licence, links |
+
+Every setting and its description is also listed on the [website](https://muddyblack.github.io/kde-glassy-system-monitor/),
+generated from the studio itself.
+
+---
+
+## Hyprland
+
+The same widget runs as a desktop layer on Hyprland (or any compositor with wlr-layer-shell)
+through [Quickshell](https://quickshell.outfoxxed.me/), with the same studio:
+
+```bash
+make view-hyprland      # run it (Ctrl+C stops)
+make settings-hyprland  # open the studio of the running widget
+```
+
+Defaults go in [`shell.qml`](shell.qml) under their Plasma names; the studio's Apply saves your
+changes to `~/.config/glassy-system-monitor/hyprland.json`. Placement (screen, side, height,
+margin, width, layer) is set in the studio's Layout tab. For a bar, put
+[`hyprland/MonitorPill.qml`](hyprland/MonitorPill.qml) in your Quickshell bar.
 
 ---
 
@@ -222,9 +254,26 @@ the charts draw.
   per-engine breakdown is switched on, or when it is the card's only source of utilization.
 - **Sensors** parse `sensors -j`.
 
-Charts use a split-layer renderer: the glowing data lines are drawn to a separate canvas
-and blurred on the GPU, then composited *under* the crisp axis, grid, and labels so text
-never blurs.
+### Chart rendering
+
+All charts go through one `Diagram` component with two renderers:
+
+- **GPU (default)** — [`shaders/diagram.frag`](package/contents/shaders/diagram.frag) draws
+  lines, areas, bars, donuts and pies with analytic anti-aliasing and glow. Samples reach
+  the shader in a small data texture (16-bit values, any number of lines — a 32-thread CPU
+  costs the same as one line), so a new sample is one texture upload and one pass into a
+  cached layer; scrolling only slides that layer. Grid and threshold lines are a separate,
+  unscrolled pass. Text never goes through the shader.
+- **Canvas** — the original Context2D renderer with its GPU bloom, kept as a switch under
+  Performance and used automatically on software rendering.
+
+Measured with `make benchmark` (four cards, twelve core lines, 60 fps smooth scrolling, on
+the author's machine): the shader path used **about 20–25 % less CPU per rendered frame**
+(0.28–0.30 % vs 0.35–0.40 %); without animation the two are within noise. Most of what a
+scrolling widget costs is Qt redrawing the window every frame, which no renderer avoids —
+the frame-rate cap and turning smooth scrolling off remain the big levers.
+
+`make parity` shows every chart style from both renderers side by side.
 
 Between data updates the charts scroll, and they do it at the frame rate — a line that is
 visibly moving is redrawn every frame, which is the only thing that reads as smooth. The
@@ -253,3 +302,28 @@ and picks up from exactly there when the data lands. The upshot is that no updat
 looks different from any other: the line glides at a near-constant rate whether the samples
 behind it are early, late, or missing.
 
+---
+
+## Development
+
+```bash
+nix develop            # Qt, qsb, plasmoidviewer, Quickshell tools
+make view              # the widget in plasmoidviewer
+make view-hyprland     # the widget on Quickshell
+make test              # 77 tests: charts, layout, studio, shared logic
+make lint              # qmllint
+make parity            # GPU shader vs canvas, every chart style
+make benchmark         # CPU of both renderers (keep the windows visible)
+make shaders           # rebuild diagram.frag.qsb after editing the shader
+make gallery           # README screenshots into docs/readme
+make docs              # website into docs/website
+```
+
+Most of what defines the widget is plain JavaScript shared by the QML widget, both studios
+and the website: settings ([`studio/Schema.js`](package/contents/ui/studio/Schema.js)),
+looks ([`studio/Looks.js`](package/contents/ui/studio/Looks.js)), sections
+([`Sections.js`](package/contents/ui/Sections.js),
+[`SectionModels.js`](package/contents/ui/SectionModels.js)) and chart data
+([`diagram/DiagramData.js`](package/contents/ui/diagram/DiagramData.js)). `make docs` bundles
+them for the browser together with the shader, so a change there reaches the website with no
+website edit; the Pages workflow rebuilds it on every push.
