@@ -11,10 +11,8 @@ import ".." as Ui
 // seconds, on request, to DNS answers and TLS / QUIC server names. Only
 // names and addresses leave tshark; nothing is saved. Wireshark itself
 // opens from here and from the row menus for everything else.
-Controls.Popup {
+NetDialog {
     id: popup
-    required property var page
-    readonly property var theme: page.theme
     readonly property var net: page.net
     readonly property var tools: net.captureTools
     property int seconds: 10
@@ -28,17 +26,7 @@ Controls.Popup {
     // A capture has finished (the "nothing heard" note).
     property bool done: false
 
-    parent: page
-    anchors.centerIn: parent
-    modal: true
-    focus: true
-    padding: 20
     width: Math.min(620, page.width - 40)
-    background: Rectangle {
-        radius: 14
-        color: popup.theme.popup
-        border.color: popup.theme.line2
-    }
 
     function start() {
         error = "";
@@ -150,24 +138,11 @@ Controls.Popup {
             }
         }
         // Not installed, no permission, or tshark's own complaint.
-        Rectangle {
+        NetNote {
             Layout.fillWidth: true
-            visible: helpText.text !== ""
-            implicitHeight: helpText.implicitHeight + 20
-            radius: 10
-            color: Qt.rgba(popup.theme.warn.r, popup.theme.warn.g, popup.theme.warn.b, 0.08)
-            border.color: Qt.rgba(popup.theme.warn.r, popup.theme.warn.g, popup.theme.warn.b, 0.3)
-            Text {
-                id: helpText
-                x: 12
-                y: 10
-                width: parent.width - 24
-                wrapMode: Text.WordWrap
-                text: !popup.tools.tshark && !popup.net.demo ? "tshark is not installed. " + Wireshark.INSTALL_HELP : popup.error
-                color: popup.theme.muted
-                font.family: popup.theme.fontFamily
-                font.pixelSize: 11
-            }
+            visible: text !== ""
+            theme: popup.theme
+            text: !popup.tools.tshark && !popup.net.demo ? "tshark is not installed. " + Wireshark.INSTALL_HELP : popup.error
         }
         Text {
             visible: !popup.running && popup.error === "" && (popup.dnsCount + popup.tlsCount > 0 || popup.found.length > 0)

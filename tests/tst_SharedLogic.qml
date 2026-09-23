@@ -1215,4 +1215,14 @@ TestCase {
         compare(Wireshark.sniffError("Capturing on 'any'", 124), "", "the timeout is not an error");
         verify(Wireshark.sniffCmd(999).indexOf("duration:60") !== -1);
     }
+
+    function test_historyDaysAreCalendarDays() {
+        // Near midnight, 24 h steps miss a date across a clock change (in a
+        // zone with DST): back over the spring one, forward over the autumn one.
+        const spring = new Date(2026, 2, 30, 0, 30).getTime();
+        compare(NetHistory.summary(NetHistory.empty(), spring, 3).days.map(d => d.day), ["2026-03-28", "2026-03-29", "2026-03-30"]);
+        compare(NetHistory.dayKeyAdd(spring, -1), "2026-03-29");
+        const autumnWeek = NetHistory.period(NetHistory.empty(), "week", new Date(2025, 9, 20, 0, 30).getTime(), spring);
+        compare(autumnWeek.keys, ["2025-10-20", "2025-10-21", "2025-10-22", "2025-10-23", "2025-10-24", "2025-10-25", "2025-10-26"]);
+    }
 }

@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import "SectionModels.js" as SectionModels
 
 ColumnLayout {
     id: section
@@ -23,18 +24,10 @@ ColumnLayout {
 
     readonly property bool _empty: section.monitor.hwSensorRows.count === 0
 
-    // Per-sensor crit-based color. (value - 30) / (crit - 30) ratio keeps
-    // colors meaningful across different crit thresholds (CPU 100, NVMe 85).
+    // Per-sensor crit-based colour (SectionModels.tempColor), with the
+    // section's own critical temperature where a sensor reports none.
     function tempColor(value, crit) {
-        const c = crit > 0 ? crit : (section.cfg.hwTempCrit || 90);
-        const r = Math.max(0, (value - 30) / Math.max(20, c - 30));
-        if (r >= 0.85)
-            return Qt.color("#ff4444");
-        if (r >= 0.72)
-            return Qt.color("#ff8844");
-        if (r >= 0.55)
-            return Qt.color("#ffaa22");
-        return Qt.color("#44ddaa");
+        return Qt.color(SectionModels.tempColor(value, crit > 0 ? crit : (section.cfg.hwTempCrit || 90)));
     }
 
     // Linear bar fill: value / crit, with a small minimum so cold sensors

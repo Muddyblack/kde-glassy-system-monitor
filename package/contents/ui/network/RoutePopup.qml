@@ -8,10 +8,8 @@ import ".." as Ui
 // One connection's latency (the kernel's RTT, from ss) over the session, and
 // a trace route to its address on a click (tracepath / traceroute / mtr,
 // no root). Hop names come from the reverse DNS cache as they resolve.
-Controls.Popup {
+NetDialog {
     id: popup
-    required property var page
-    readonly property var theme: page.theme
     property var conn: null
     readonly property var live: conn ? (page.net.connections.find(c => c.key === conn.key) || conn) : null
     readonly property var series: conn ? page.net.rttSeries[conn.key] || [] : []
@@ -19,17 +17,7 @@ Controls.Popup {
     property bool tracing: false
     property string traceNote: ""
 
-    parent: page
-    anchors.centerIn: parent
-    modal: true
-    focus: true
-    padding: 20
     width: Math.min(640, page.width - 40)
-    background: Rectangle {
-        radius: 14
-        color: popup.theme.popup
-        border.color: popup.theme.line2
-    }
     onOpened: {
         hops = [];
         traceNote = "";

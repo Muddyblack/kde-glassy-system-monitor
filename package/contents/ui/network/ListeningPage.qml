@@ -49,23 +49,10 @@ Flickable {
         width: view.width - 36
         spacing: 12
 
-        Rectangle {
+        NetNote {
             Layout.fillWidth: true
-            implicitHeight: note.implicitHeight + 20
-            radius: 10
-            color: Qt.rgba(view.theme.warn.r, view.theme.warn.g, view.theme.warn.b, 0.08)
-            border.color: Qt.rgba(view.theme.warn.r, view.theme.warn.g, view.theme.warn.b, 0.3)
-            Text {
-                id: note
-                x: 12
-                y: 10
-                width: parent.width - 24
-                wrapMode: Text.WordWrap
-                text: view.openCount + " of " + page.net.listening.length + " listening sockets accept connections from the network (0.0.0.0, :: or a real address). Loopback ones (127.0.0.1, ::1) only take connections from this machine.\n🛡 " + view.fwText
-                color: view.theme.muted
-                font.family: view.theme.fontFamily
-                font.pixelSize: 11
-            }
+            theme: view.theme
+            text: view.openCount + " of " + page.net.listening.length + " listening sockets accept connections from the network (0.0.0.0, :: or a real address). Loopback ones (127.0.0.1, ::1) only take connections from this machine.\n🛡 " + view.fwText
         }
 
         Text {

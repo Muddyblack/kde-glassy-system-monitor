@@ -37,6 +37,12 @@ function dayStart(key) {
     var p = String(key).split("-").map(Number);
     return new Date(p[0], p[1] - 1, p[2], 12).getTime();
 }
+// The day key `n` calendar days from `ms`: not n × 24 h, which lands on
+// the same date twice (or skips one) across a DST change near midnight.
+function dayKeyAdd(ms, n) {
+    var d = new Date(ms);
+    return dayKey(new Date(d.getFullYear(), d.getMonth(), d.getDate() + n, 12).getTime());
+}
 
 function blankHours() {
     var h = [];
@@ -222,9 +228,9 @@ var DEFAULT_RETENTION = "1y";
 // → { changed: { month: true }, removed: { month: true } } (months whose
 // file must be rewritten, and months with no day left to delete).
 function prune(history, now, retention) {
-    var cutoff = dayKey(now - FULL_DAYS * DAY), changed = {}, removed = {};
+    var cutoff = dayKeyAdd(now, -FULL_DAYS), changed = {}, removed = {};
     var keep = RETENTION[retention === undefined ? DEFAULT_RETENTION : retention] || 0;
-    var oldest = keep ? dayKey(now - (keep - 1) * DAY) : "";
+    var oldest = keep ? dayKeyAdd(now, -(keep - 1)) : "";
     for (var k in history.days) {
         if (oldest && k < oldest) {
             delete history.days[k];
@@ -330,7 +336,7 @@ function period(history, kind, anchor, now) {
         if (kind === "week") {
             start = new Date(a);
             start.setDate(a.getDate() - (a.getDay() + 6) % 7);
-            keys = daysBetween(dayKey(start.getTime()), dayKey(start.getTime() + 6 * DAY));
+            keys = daysBetween(dayKey(start.getTime()), dayKeyAdd(start.getTime(), 6));
             title = "Week of " + start.getDate() + " " + MONTHS[start.getMonth()] + " " + start.getFullYear();
         } else {
             start = new Date(a.getFullYear(), a.getMonth(), 1, 12);
@@ -415,7 +421,7 @@ function summarize(history, keys) {
 function summary(history, now, count) {
     var keys = [];
     for (var k = count - 1; k >= 0; k--)
-        keys.push(dayKey(now - k * DAY));
+        keys.push(dayKeyAdd(now, -k));
     var s = summarize(history, keys);
     var today = history.days[dayKey(now)];
     s.days = keys.map(function (key) { var d = history.days[key]; return { day: key, "in": d ? d["in"] : 0, out: d ? d.out : 0 }; });

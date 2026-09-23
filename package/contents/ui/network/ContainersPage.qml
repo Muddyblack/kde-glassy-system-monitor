@@ -51,26 +51,13 @@ Flickable {
         // Engines that are missing or refuse this user.
         Repeater {
             model: Object.keys(view.engines).filter(e => view.engines[e].error !== "")
-            Rectangle {
+            NetNote {
                 id: problem
                 required property string modelData
+                readonly property string message: view.engines[modelData].error
                 Layout.fillWidth: true
-                implicitHeight: problemText.implicitHeight + 20
-                radius: 10
-                color: Qt.rgba(view.theme.warn.r, view.theme.warn.g, view.theme.warn.b, 0.08)
-                border.color: Qt.rgba(view.theme.warn.r, view.theme.warn.g, view.theme.warn.b, 0.3)
-                Text {
-                    id: problemText
-                    x: 12
-                    y: 10
-                    width: parent.width - 24
-                    wrapMode: Text.WordWrap
-                    readonly property string message: view.engines[problem.modelData].error
-                    text: (problem.modelData === "docker" ? "Docker" : "Podman") + ": " + message + (/permission denied/i.test(message) ? "\nGlassy runs without root: add yourself to the docker group (sudo usermod -aG docker $USER, then log in again), or use rootless Podman." : "")
-                    color: view.theme.muted
-                    font.family: view.theme.fontFamily
-                    font.pixelSize: 11
-                }
+                theme: view.theme
+                text: (modelData === "docker" ? "Docker" : "Podman") + ": " + message + (/permission denied/i.test(message) ? "\nGlassy runs without root: add yourself to the docker group (sudo usermod -aG docker $USER, then log in again), or use rootless Podman." : "")
             }
         }
         Text {

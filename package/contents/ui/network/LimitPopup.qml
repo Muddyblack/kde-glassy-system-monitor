@@ -4,23 +4,11 @@ import QtQuick.Controls.Basic as Controls
 import "../Format.js" as Format
 
 // A daily data limit for one app: presets or any number of GiB.
-Controls.Popup {
+NetDialog {
     id: popup
-    required property var page
-    readonly property var theme: page.theme
     property var app: null
     readonly property var current: app ? page.service.limits[app.key] : null
-    parent: page
-    anchors.centerIn: parent
-    modal: true
-    focus: true
-    padding: 20
     width: 380
-    background: Rectangle {
-        radius: 14
-        color: popup.theme.popup
-        border.color: popup.theme.line2
-    }
     function set(bytes) {
         page.service.setLimit(app, bytes);
         close();

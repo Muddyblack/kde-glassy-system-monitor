@@ -836,20 +836,12 @@ Rectangle {
         geoSetup.open();
     }
 
-    Controls.Popup {
+    NetDialog {
         id: confirm
+        page: page
         property int pid: 0
         property string procName: ""
-        anchors.centerIn: parent
-        modal: true
-        focus: true
-        padding: 20
         width: 380
-        background: Rectangle {
-            radius: 14
-            color: page.theme.popup
-            border.color: page.theme.line2
-        }
         onOpened: cancelButton.forceActiveFocus()
         contentItem: ColumnLayout {
             spacing: 12

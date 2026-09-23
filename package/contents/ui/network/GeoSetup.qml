@@ -9,10 +9,8 @@ import ".." as Ui
 // .mmdb database. This shows what is there, installs db-ip's free Lite
 // databases on a click (the only download Glassy ever makes, and only
 // here), and says how to get mmdblookup on each distribution and on NixOS.
-Controls.Popup {
+NetDialog {
     id: setup
-    required property var page
-    readonly property var theme: page.theme
     property var status: null
     property string result: ""
     property bool downloading: false
@@ -27,18 +25,9 @@ Controls.Popup {
         source.connectSource(OsFetch.shellCmd(Probes.GEO_DOWNLOAD_CMD));
     }
 
-    parent: page
-    anchors.centerIn: parent
-    modal: true
-    focus: true
     padding: 22
     width: Math.min(620, page.width - 40)
     onOpened: check()
-    background: Rectangle {
-        radius: 14
-        color: setup.theme.popup
-        border.color: setup.theme.line2
-    }
 
     component Line: RowLayout {
         id: line

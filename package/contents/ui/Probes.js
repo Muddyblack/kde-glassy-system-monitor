@@ -408,10 +408,6 @@ function addressKind(ip) {
     return "internet";
 }
 
-function isPublic(ip) {
-    return addressKind(ip) === "internet";
-}
-
 // Only plain addresses ever reach a shell command.
 function safeIp(ip) {
     return /^[0-9a-fA-F:.]{2,45}$/.test(String(ip || ""));

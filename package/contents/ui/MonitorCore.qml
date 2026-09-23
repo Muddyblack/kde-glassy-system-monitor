@@ -432,14 +432,6 @@ Item {
         histories = h;
     }
 
-    // The "executable" engine does NOT run its source through a shell — it splits
-    // the string into argv and execs directly. Any command using pipes, redirection,
-    // `;`, `||`, `$(...)`, globs or loops must therefore be handed to an explicit
-    // shell, or the metacharacters arrive as literal arguments.
-    function shellCmd(cmd) {
-        return OsFetch.shellCmd(cmd);
-    }
-
     CommandSource {
         id: pingSource
         sourceComponent: core.commandSourceComponent
@@ -471,7 +463,7 @@ Item {
         // Detect IPv6 address or bracketed IPv6 and use ping6 if available, else ping with -6
         const isIPv6 = host.indexOf(":") !== -1;
         const cmd = isIPv6 ? "ping6 -c 1 -W " + cfg.pingTimeout + " " + host + " 2>/dev/null || ping -6 -c 1 -W " + cfg.pingTimeout + " " + host : "ping -c 1 -W " + cfg.pingTimeout + " " + host;
-        pingSource.connectSource(isIPv6 ? core.shellCmd(cmd) : cmd);
+        pingSource.connectSource(isIPv6 ? OsFetch.shellCmd(cmd) : cmd);
     }
 
     function addPingResult(idx, ms) {
@@ -744,7 +736,7 @@ Item {
             // SSID: try each tool and emit the FIRST NON-EMPTY result. We can't use
             // `a || b` because some tools (e.g. `iw link` without privileges) exit 0
             // while printing nothing, which would wrongly short-circuit the chain.
-            netInfoSource.connectSource(core.shellCmd("s=$(iwgetid -r 2>/dev/null); [ -z \"$s\" ] && s=$(iw dev " + ifc + " link 2>/dev/null | sed -n 's/^[[:space:]]*SSID: //p'); [ -z \"$s\" ] && s=$(nmcli -t -f active,ssid dev wifi list --rescan no 2>/dev/null | sed -n 's/^yes://p' | head -1); echo \"$s\"; ip -o -4 addr show dev " + ifc + " scope global 2>/dev/null | awk '{print $4}' | head -1"));
+            netInfoSource.connectSource(OsFetch.shellCmd("s=$(iwgetid -r 2>/dev/null); [ -z \"$s\" ] && s=$(iw dev " + ifc + " link 2>/dev/null | sed -n 's/^[[:space:]]*SSID: //p'); [ -z \"$s\" ] && s=$(nmcli -t -f active,ssid dev wifi list --rescan no 2>/dev/null | sed -n 's/^yes://p' | head -1); echo \"$s\"; ip -o -4 addr show dev " + ifc + " scope global 2>/dev/null | awk '{print $4}' | head -1"));
         }
     }
     function parseNetInfo(text) {
@@ -1533,7 +1525,7 @@ Item {
         onTriggered: {
             if (!core.isReadingHwSensors) {
                 core.isReadingHwSensors = true;
-                hwSensorsSource.connectSource(core.shellCmd("sensors -j 2>/dev/null"));
+                hwSensorsSource.connectSource(OsFetch.shellCmd("sensors -j 2>/dev/null"));
             }
         }
     }
@@ -1795,7 +1787,7 @@ Item {
         triggeredOnStart: true
         onTriggered: {
             const cmd = "grep -m1 PRETTY_NAME /etc/os-release 2>/dev/null | cut -d= -f2 | tr -d '\"'; " + "uname -r 2>/dev/null; " + "cat /etc/hostname 2>/dev/null || hostname 2>/dev/null; " + "awk '{d=int($1/86400);h=int(($1%86400)/3600);m=int(($1%3600)/60);" + "if(d>0)printf \"%dd %dh %dm\\n\",d,h,m;" + "else if(h>0)printf \"%dh %dm\\n\",h,m;" + "else printf \"%dm\\n\",m}' /proc/uptime 2>/dev/null";
-            osInfoSource.connectSource(core.shellCmd(cmd));
+            osInfoSource.connectSource(OsFetch.shellCmd(cmd));
         }
     }
 
@@ -1884,7 +1876,7 @@ Item {
             if (!core.isReadingPower) {
                 core.isReadingPower = true;
                 const cmd = "for p in /sys/class/power_supply/BAT0 /sys/class/power_supply/BAT1 " + "/sys/class/power_supply/battery /sys/class/power_supply/BATT; do " + "[ -f $p/capacity ] || continue; " + "echo bat=$(cat $p/capacity 2>/dev/null); " + "echo status=$(cat $p/status 2>/dev/null); " + "[ -f $p/cycle_count ] && echo cycles=$(cat $p/cycle_count 2>/dev/null); " + "[ -f $p/temp ] && echo temp=$(cat $p/temp 2>/dev/null); " + "en=$(cat $p/energy_now 2>/dev/null); " + "ef=$(cat $p/energy_full 2>/dev/null); " + "ed=$(cat $p/energy_full_design 2>/dev/null); " + "if [ -n \"$en\" ]; then echo useEnergy=1; else en=$(cat $p/charge_now 2>/dev/null); ef=$(cat $p/charge_full 2>/dev/null); ed=$(cat $p/charge_full_design 2>/dev/null); echo useEnergy=0; fi; " + "echo enow=${en:-0}; echo efull=${ef:-0}; echo edesign=${ed:-0}; " + "pw=$(cat $p/power_now 2>/dev/null); " + "if [ -z \"$pw\" ]; then v=$(cat $p/voltage_now 2>/dev/null); c=$(cat $p/current_now 2>/dev/null); " + "[ -n \"$v\" ] && [ -n \"$c\" ] && pw=$(awk -v v=\"$v\" -v c=\"$c\" 'BEGIN{printf \"%d\", v*c/1000000}'); fi; " + "echo power=${pw:-0}; break; done; " + "[ -f /proc/pressure/cpu ] && sed 's/^/cpu /' /proc/pressure/cpu 2>/dev/null | head -1; " + "[ -f /proc/pressure/memory ] && sed 's/^/mem /' /proc/pressure/memory 2>/dev/null | head -1";
-                powerSource.connectSource(core.shellCmd(cmd));
+                powerSource.connectSource(OsFetch.shellCmd(cmd));
             }
         }
     }

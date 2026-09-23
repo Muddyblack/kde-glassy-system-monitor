@@ -301,9 +301,11 @@ function netHistory(now) {
     var domains = [["youtube.com", 9e8], ["reddit.com", 2.1e8], ["github.com", 1.2e8], ["steamcontent.com", 2.2e9], ["spotify.com", 3e8], ["discord.gg", 2e8], ["desktop.lan", 4e8]];
     var countries = [["DE", 1.9e9], ["US", 1.4e9], ["NL", 6e8], ["AT", 1.5e8], ["GB", 5e7]];
     var pad = function (n) { return n < 10 ? "0" + n : String(n); };
-    var days = {};
+    var days = {}, today = new Date(now);
     for (var k = 419; k >= 0; k--) {
-        var t = new Date(now - k * 86400000);
+        // By calendar day at noon: 24 h steps from midnight hit one date
+        // twice across a DST change.
+        var t = new Date(today.getFullYear(), today.getMonth(), today.getDate() - k, 12);
         var key = t.getFullYear() + "-" + pad(t.getMonth() + 1) + "-" + pad(t.getDate());
         var weekend = t.getDay() === 0 || t.getDay() === 6;
         var f = (0.55 + 0.45 * Math.abs(Math.sin(k * 1.7))) * (weekend ? 1.6 : 1) * (k === 0 ? 0.6 : 1);

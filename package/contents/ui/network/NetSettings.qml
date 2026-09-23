@@ -6,26 +6,15 @@ import "../Format.js" as Format
 // The window's own settings: alerts, desktop notifications, browser tabs,
 // the optional password, trusted apps and daily limits. Recording and
 // keeping the history live on the History page.
-Controls.Popup {
+NetDialog {
     id: popup
-    required property var page
-    readonly property var theme: page.theme
     readonly property var service: page.service
     readonly property var alerts: service.alertSettings
     property string lockMessage: ""
 
-    parent: page
-    anchors.centerIn: parent
-    modal: true
-    focus: true
     padding: 22
     width: Math.min(560, page.width - 40)
     height: Math.min(page.height - 40, body.implicitHeight + 44)
-    background: Rectangle {
-        radius: 14
-        color: popup.theme.popup
-        border.color: popup.theme.line2
-    }
     function setAlert(key, on) {
         const next = Object.assign({}, service.state.alerts || {});
         next[key] = on;

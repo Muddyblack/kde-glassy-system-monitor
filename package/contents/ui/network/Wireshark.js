@@ -1,4 +1,5 @@
 .pragma library
+.import "../Probes.js" as Probes
 
 // Wireshark and tshark, when installed. Glassy itself never captures: it
 // opens Wireshark on the right interface with a capture filter, or runs
@@ -20,9 +21,7 @@ function parseTools(text) {
 }
 
 // Only what a filter or an interface name can hold reaches the shell.
-function safeIp(ip) {
-    return /^[0-9a-fA-F:.]{2,45}$/.test(String(ip || "")) && String(ip) !== "*";
-}
+var safeIp = Probes.safeIp;
 function safePort(port) {
     return /^[0-9]{1,5}$/.test(String(port || "")) && Number(port) > 0 && Number(port) < 65536;
 }
