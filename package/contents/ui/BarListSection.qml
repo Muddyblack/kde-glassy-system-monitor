@@ -24,6 +24,7 @@ ColumnLayout {
 
     SectionHeader {
         id: header
+        fontFamily: section.monitor.fontFamily
         Layout.fillWidth: true
         Layout.bottomMargin: 2
         title: section.model.title
@@ -33,6 +34,7 @@ ColumnLayout {
     }
 
     Text {
+        font.family: section.monitor.fontFamily
         visible: section.model.rows.length === 0
         Layout.fillWidth: true
         Layout.preferredHeight: section.rowHeight
@@ -52,6 +54,7 @@ ColumnLayout {
             spacing: 6
 
             Text {
+                font.family: section.monitor.fontFamily
                 Layout.preferredWidth: Math.min(120, section.width * 0.34)
                 text: row.modelData.label
                 color: section.inkAlpha(0.72)
@@ -73,11 +76,13 @@ ColumnLayout {
                 }
             }
             Text {
+                font.family: section.monitor.fontFamily
                 text: row.modelData.detail
                 color: section.inkAlpha(0.45)
                 font.pixelSize: 10
             }
             Text {
+                font.family: section.monitor.fontFamily
                 Layout.preferredWidth: Math.max(44, implicitWidth)
                 horizontalAlignment: Text.AlignRight
                 text: row.modelData.value

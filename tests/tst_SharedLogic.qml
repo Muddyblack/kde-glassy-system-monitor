@@ -228,6 +228,42 @@ TestCase {
                     verify(hypr.indexOf(row.k) !== -1 || xml.indexOf('name="' + row.k + '"') !== -1, "studio row for unknown setting " + row.k);
     }
 
+    // The panel pill: which sections, and readings of a fixed width.
+    function test_panelShowsPickedSectionsElseTheFirst() {
+        compare(Sections.panelIds({
+            sections: "memory,cpu",
+            panelSections: ""
+        }), ["memory"]);
+        compare(Sections.panelIds({
+            sections: "memory,cpu",
+            panelSections: "network, gpu,network"
+        }), ["network", "gpu"]);
+    }
+    function test_pillCaptionsAreShortUnlessRenamed() {
+        compare(Sections.shortTitle("sensors", defaults), "Temp");
+        compare(Sections.shortTitle("sensors", Object.assign({}, defaults, {
+            hwSensorsTitle: "Die"
+        })), "Die");
+    }
+    function test_pillReadings() {
+        const m = fakeMonitor();
+        const cpu = SectionModels.pill("cpu", m, defaults);
+        compare(cpu.lines[0].text, "40%");
+        compare(cpu.ratio, 0.4);
+        compare(cpu.history, m.cpuHistory);
+        const net = SectionModels.pill("network", m, defaults);
+        compare(net.lines.map(l => l.mark), ["↓", "↑"]);
+        compare(net.lines[0].text, "4.9K/s");
+        compare(net.history2, m.ulHistory);
+        verify(net.max >= 5000);
+        // Latency gaps (-1) draw as zero in the sparkline.
+        verify(SectionModels.pill("ping", m, defaults).history.every(v => v >= 0));
+    }
+    function test_shortRatesStayWithinTheWidestSample() {
+        for (const v of [0, 9.94, 999, 1000, 10239, 1023999, 5e9, 999e12])
+            verify(Format.short(v).length <= Format.SHORT_WIDEST.length, Format.short(v));
+    }
+
     function test_cpuModelNestsAtMostEightCoreRings() {
         const m = fakeMonitor();
         const model = SectionModels.cpu(m, Object.assign({}, defaults, {

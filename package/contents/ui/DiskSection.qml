@@ -17,12 +17,14 @@ ColumnLayout {
 
     SectionHeader {
         id: header
+        fontFamily: section.monitor.fontFamily
         Layout.fillWidth: true
         title: section.model.title
         reading: section.model.reading
         readingColor: section.model.readingColor || section.monitor.textColor
         textColor: section.monitor.textColor
         Text {
+            font.family: section.monitor.fontFamily
             anchors.verticalCenter: parent.verticalCenter
             text: section.monitor.activeDisk
             color: section.monitor.textColor

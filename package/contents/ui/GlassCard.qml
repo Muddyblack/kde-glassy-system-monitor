@@ -176,6 +176,7 @@ Item {
             active: !card.tinted
             sourceComponent: CardMaterial {
                 material: card.material
+                solidColor: card.fill
                 radius: card.maxRadius
                 grain: card.grain
                 glassTint: card.glassTint

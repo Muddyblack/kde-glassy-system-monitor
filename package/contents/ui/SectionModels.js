@@ -313,3 +313,105 @@ function power(m) {
         series: [{ values: history, color: "#88ddff", fill: 0.30 }]
     };
 }
+
+// ── Panel pill ────────────────────────────────────────────────────────────
+// One section as the pill draws it:
+//   label   short caption ("CPU")
+//   lines   one or two readings, [{ text, color, mark }]; `mark` is "↓" etc.
+//   sample  the widest text a reading can take, so the pill never changes
+//           width with the numbers and the panel never re-lays out
+//   ratio   0–1 for a meter, or -1
+//   history [values] and `max` for the sparkline and mini bars; `history2`
+//           a second series drawn behind (upload, write)
+// Colours are "" where the text colour should be used.
+
+function tempColor(value, crit) {
+    var c = crit > 0 ? crit : 90;
+    var r = Math.max(0, (value - 30) / Math.max(20, c - 30));
+    return r >= 0.85 ? "#ff4444" : r >= 0.72 ? "#ff8844" : r >= 0.55 ? "#ffaa22" : "#44ddaa";
+}
+function batteryColor(percent) {
+    return percent <= 15 ? "#ff4444" : percent <= 30 ? "#ffaa00" : "#44dd88";
+}
+
+function pillPercent(m, cfg, id, key, value, history) {
+    var tint = loadTint(cfg, color(cfg, key, "#44ddaa"), value);
+    return { label: Sections.shortTitle(id, cfg), lines: [{ text: value.toFixed(0) + "%", color: tint }], sample: "100%", ratio: value / 100, history: history, max: 100, color: tint };
+}
+function pillRates(cfg, label, marks, keys, values, histories, floor) {
+    var colors = [color(cfg, keys[0], "#22aaff"), color(cfg, keys[1], "#ff9933")];
+    return {
+        label: label,
+        lines: [0, 1].map(function (i) { return { mark: marks[i], text: Format.short(values[i], "/s"), color: colors[i] }; }),
+        sample: Format.SHORT_WIDEST + "/s",
+        ratio: -1,
+        history: histories[0], history2: histories[1],
+        max: DiagramData.autoMax(histories, floor, 1.15),
+        color: colors[0]
+    };
+}
+
+function pill(id, m, cfg) {
+    var out;
+    switch (id) {
+    case "cpu":
+        out = pillPercent(m, cfg, id, "cpuColor", m.cpuPercent, m.cpuHistory);
+        break;
+    case "memory":
+        out = pillPercent(m, cfg, id, "memColor", m.memPercent, m.memHistory);
+        break;
+    case "gpu":
+        out = pillPercent(m, cfg, id, "gpuColor", m.gpuPercent, m.gpuHistory);
+        break;
+    case "network":
+        out = pillRates(cfg, Sections.shortTitle(id, cfg), ["↓", "↑"], ["dlColor", "ulColor"], [m.downloadSpeed, m.uploadSpeed], [m.dlHistory, m.ulHistory], 1024);
+        break;
+    case "disk":
+        out = pillRates(cfg, Sections.shortTitle(id, cfg), ["R", "W"], ["diskRdColor", "diskWrColor"], [m.diskReadSpeed, m.diskWriteSpeed], [m.diskReadHistory, m.diskWriteHistory], 1024 * 1024);
+        break;
+    case "ping": {
+        var model = ping(m, cfg);
+        var history = m.histories[m.activeTarget] || [];
+        out = { label: Sections.shortTitle(id, cfg), lines: [{ text: m.lastPing >= 0 ? m.lastPing.toFixed(0) + "ms" : "—", color: model.readingColor }], sample: "888ms", ratio: -1, history: history.map(function (v) { return Math.max(0, v); }), max: model.maxValue, color: model.readingColor };
+        break;
+    }
+    case "custom": {
+        var max = Math.max(0.1, cfg.customCmdMax || 1), tint = color(cfg, "customCmdColor", "#ffaa00");
+        out = { label: Sections.shortTitle(id, cfg), lines: [{ text: m.customValue.toFixed(1) + String(cfg.customCmdUnit || ""), color: tint }], sample: "888.8" + String(cfg.customCmdUnit || ""), ratio: m.customValue / max, history: m.customHistory, max: max, color: tint };
+        break;
+    }
+    case "sensors": {
+        var hot = tempColor(m.hwMaxTemp, m.hwMaxTempCrit);
+        out = { label: Sections.shortTitle(id, cfg), lines: [{ text: m.hwMaxTemp > 0 ? m.hwMaxTemp.toFixed(0) + "°C" : "—", color: hot }], sample: "188°C", ratio: m.hwMaxTemp / (m.hwMaxTempCrit > 0 ? m.hwMaxTempCrit : 90), color: hot };
+        break;
+    }
+    case "power": {
+        var charge = batteryColor(m.batteryPercent);
+        out = m.batteryPresent
+            ? { label: Sections.shortTitle(id, cfg), lines: [{ mark: m.batteryStatus === "Charging" ? "⚡" : "", text: m.batteryPercent + "%", color: charge }], sample: "100%", ratio: m.batteryPercent / 100, history: m.batteryPowerHistory, max: power(m).maxValue, color: charge }
+            : { label: Sections.shortTitle(id, cfg), lines: [{ text: "—", color: "" }], sample: "100%", ratio: -1 };
+        break;
+    }
+    case "system":
+        out = { label: Sections.shortTitle(id, cfg), lines: [{ text: m.osUptime || "—", color: "" }], sample: "88d 88h", ratio: -1 };
+        break;
+    case "storage": {
+        var disks = storage(m, cfg), full = disks.rows.reduce(function (a, r) { return !a || r.ratio > a.ratio ? r : a; }, null);
+        out = { label: full ? (full.label.split("/").filter(Boolean).pop() || "/") : Sections.shortTitle(id, cfg), lines: [{ text: full ? full.value : "—", color: full ? full.color : "" }], sample: "100%", ratio: full ? full.ratio : -1, color: full ? full.color : "" };
+        break;
+    }
+    case "processes": {
+        var top = processes(m, cfg).rows[0];
+        out = { label: top ? top.label : Sections.shortTitle(id, cfg), lines: [{ text: top ? top.value : "—", color: top ? top.color : "" }], sample: cfg.processSort === "memory" ? "888.8 MiB" : "88.8%", ratio: top && cfg.processSort !== "memory" ? parseFloat(top.value) / 100 : -1, color: top ? top.color : "" };
+        break;
+    }
+    default:
+        return pill("cpu", m, cfg);
+    }
+    out.id = id;
+    out.color = out.color || "";
+    out.history = out.history || [];
+    out.history2 = out.history2 || [];
+    out.max = out.max || 1;
+    return out;
+}

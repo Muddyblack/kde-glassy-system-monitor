@@ -151,5 +151,45 @@ Item {
             compare(JSON.parse(root.draft.userPresets)[0].name, "Mine");
             compare(gallery.saved.length, 1);
         }
+
+        function test_presetTilesSurviveRepeatedEdits() {
+            studio.selectTab("presets");
+            wait(50);
+            const tile = find("look_glassy");
+            verify(tile);
+            const gallery = tile.parent.parent;
+            const model = gallery.all;
+            verify(model && model.length > 0);
+            const preview = tile.look;
+            for (let i = 0; i < 100; i++) {
+                studio.update({
+                    lineWidth: 1 + (i % 40) / 10,
+                    bgRadiusTL: i % 30
+                });
+                verify(gallery.all === model, "Draft edits must preserve the gallery model");
+                verify(find("look_glassy") === tile, "Draft edits must preserve preset tiles");
+                verify(tile.look === preview, "Unchanged preset settings must not refresh its charts");
+                wait(1);
+            }
+            studio.update({
+                networkInterface: "regression0"
+            });
+            compare(tile.look.networkInterface, "regression0", "Device settings still reach previews");
+            studio.update({
+                userPresets: JSON.stringify([
+                    {
+                        name: "Regression",
+                        settings: {
+                            cpuColor: "#123456"
+                        }
+                    }
+                ])
+            });
+            verify(find("look_saved0"), "Changing saved looks must still refresh the gallery");
+            studio.update({
+                userPresets: "[]"
+            });
+            verify(!find("look_saved0"), "Removing a saved look must remove its tile");
+        }
     }
 }

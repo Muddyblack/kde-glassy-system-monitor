@@ -104,7 +104,7 @@ var SECTIONS = [
         { id: "looks", type: "looks", full: true, label: "", desc: "presets looks save import export json share neon dashboard minimal gauges gaming laptop" }
     ]),
     tab("layout", "Sections", [
-        { id: "sections", type: "sections", full: true, label: "What the widget shows", desc: "Switch sections on, drag them into order by the grip, and give each chart section its own size and style. One widget shows them all; a panel shows the first." },
+        { id: "sections", type: "sections", full: true, label: "What the widget shows", desc: "Switch sections on, drag them into order by the grip, and give each chart section its own size and style. One widget shows them all; a panel pill shows the first, or the ones picked under Layout › In a panel." },
         { k: "density", type: "seg", label: "Spacing", desc: "Room around and between sections.", opts: [["compact", "Compact"], ["normal", "Normal"], ["roomy", "Roomy"]] },
         { k: "layoutColumns", type: "seg", label: "Columns", desc: "Sections fill the columns left to right. Mark a section full width to give it a row of its own.", opts: [[1, "One"], [2, "Two"], [3, "Three"]] }
     ]),
@@ -118,6 +118,11 @@ var SECTIONS = [
     ], function (s, env) { return env === "hypr"; }),
     tab("layout", "In a panel", [
         { id: "panelNote", type: "note", full: true, note: "panel" },
+        { k: "panelSections", type: "chips", full: true, label: "Sections in the pill", desc: "None picked: the card's first section.",
+          opts: Sections.ALL.map(function (x) { return [x.id, x.label]; }),
+          set: function (v) { return { panelSections: v.join(",") }; } },
+        { k: "panelStyle", type: "seg", label: "Pill style", opts: [["values", "Values"], ["spark", "Sparkline"], ["bars", "Mini bars"]] },
+        { k: "panelHoverCard", type: "switch", label: "Card on hover", desc: "Hovering the pill shows the full card; a click keeps it open." },
         { k: "panelMode", type: "switch", label: "Always compact", desc: "Show the panel pill even on the desktop." },
         { k: "panelShowBg", type: "switch", label: "Pill background" },
         { k: "panelPlainText", type: "switch", label: "Plain text", desc: "Use the text colour instead of each metric's colour." },
@@ -197,6 +202,7 @@ var SECTIONS = [
           set: function (v) { var k = v[v.length - 1]; return k ? PALETTES[k].colors : {}; } }
     ]),
     tab("colors", "Text", [
+        { k: "fontFamily", type: "seg", label: "Font", opts: [["system", "System"], ["monospace", "Monospace"]] },
         { k: "useSystemTextColor", type: "seg", label: "Text colour", opts: [[true, "Follow theme"], [false, "Custom"]] },
         { k: "customTextColor", type: "color", label: "Custom text colour", swatches: ["#ffffff", "#eef1f5", "#c8d0da", "#1e241d", "#000000"], when: function (s) { return !s.useSystemTextColor; } }
     ]),
@@ -214,7 +220,7 @@ var SECTIONS = [
     ]),
     tab("network", "Network", [
         title("networkTitle", "Network"),
-        { k: "networkInterface", type: "select", label: "Interface", desc: "Automatic follows the busiest one.", opts: "ifaces" },
+        { k: "networkInterface", type: "select", label: "Interface", desc: "Automatic follows the default route, falling back to an active link.", opts: "ifaces" },
         { k: "netShowInfo", type: "switch", label: "Wi-Fi name and IP" },
         color("dlColor", "Download colour"),
         color("ulColor", "Upload colour"),
@@ -314,11 +320,11 @@ SECTIONS.forEach(function (section) {
 var NOTES = {
     glass: {
         kde: "Glass blurs and bends the desktop wallpaper behind the card. A panel popup has no wallpaper to sample, so only the tint shows there.",
-        hypr: "Quickshell cannot sample the wallpaper. Add `layerrule = blur, glassy-system-monitor` and `layerrule = ignorezero, glassy-system-monitor` to hyprland.conf for real blur behind the card."
+        hypr: "Quickshell cannot sample the wallpaper. For Hyprland 0.53 hyprland.conf, add `layerrule = blur on, ignore_alpha 0, match:namespace glassy-system-monitor`. For newer Lua configs, use `hl.layer_rule({ match = { namespace = \"glassy-system-monitor\" }, blur = true, ignore_alpha = 0 })`."
     },
     panel: {
-        kde: "Placed in a panel, the widget shows a pill for the first section; clicking it opens the full card.",
-        hypr: "Add hyprland/MonitorPill.qml to a Quickshell bar to show the pill for the first section."
+        kde: "Placed in a panel, the widget shows a pill; hovering it shows the full card, and a click keeps the card open.",
+        hypr: "Add hyprland/MonitorPill.qml to a Quickshell bar for the pill; hovering it shows the full card, and a click keeps it open."
     },
     sensors: {
         kde: "Reads lm-sensors (`sensors -j`). If nothing shows, install lm-sensors and run sensors-detect once.",

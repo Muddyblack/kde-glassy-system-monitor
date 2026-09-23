@@ -17,6 +17,7 @@ ColumnLayout {
 
     SectionHeader {
         id: header
+        fontFamily: section.monitor.fontFamily
         Layout.fillWidth: true
         title: section.model.title
         reading: section.model.reading

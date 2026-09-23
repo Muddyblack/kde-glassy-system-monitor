@@ -35,8 +35,8 @@ QQC2.Popup {
         const gp = anchorItem.mapToItem(parent, 0, 0);
         const screenMid = parent.mapToGlobal(0, parent.height / 2).y;
         const screenH = Qt.application.screens[0] ? Qt.application.screens[0].height : 1080;
-        return screenMid < screenH / 2 ? gp.y + anchorItem.height + 4   // panel at top â open downward
-        : gp.y - height - 4;                // panel at bottom â open upward
+        return screenMid < screenH / 2 ? gp.y + anchorItem.height + 4   // panel at top → open downward
+        : gp.y - height - 4;                // panel at bottom → open upward
     }
 
     background: Rectangle {
@@ -56,6 +56,7 @@ QQC2.Popup {
             spacing: 6
 
             Text {
+                font.family: connDialog.monitor.fontFamily
                 text: "Active Connections"
                 color: connDialog.monitor.textColor
                 font.pixelSize: 12
@@ -63,6 +64,7 @@ QQC2.Popup {
                 Layout.fillWidth: true
             }
             Text {
+                font.family: connDialog.monitor.fontFamily
                 visible: connDialog.connections.length > 0
                 text: connDialog.connections.length + ""
                 color: Qt.rgba(connDialog.monitor.textColor.r, connDialog.monitor.textColor.g, connDialog.monitor.textColor.b, 0.45)
@@ -90,6 +92,7 @@ QQC2.Popup {
         }
 
         Text {
+            font.family: connDialog.monitor.fontFamily
             visible: connDialog.loading && connDialog.connections.length === 0
             Layout.fillWidth: true
             text: "Fetching connectionsâ¦"
@@ -99,6 +102,7 @@ QQC2.Popup {
         }
 
         Text {
+            font.family: connDialog.monitor.fontFamily
             visible: !connDialog.loading && connDialog.connections.length === 0
             Layout.fillWidth: true
             text: "No external connections"
@@ -148,6 +152,7 @@ QQC2.Popup {
                         RowLayout {
                             spacing: 4
                             Text {
+                                font.family: connDialog.monitor.fontFamily
                                 text: modelData.procName
                                 color: connDialog.monitor.textColor
                                 font.pixelSize: 11
@@ -163,6 +168,7 @@ QQC2.Popup {
                                 color: modelData.proto === "tcp" ? Qt.rgba(0.2, 0.6, 1.0, 0.25) : Qt.rgba(0.4, 0.8, 0.4, 0.25)
                                 Text {
                                     id: protoLabel
+                                    font.family: connDialog.monitor.fontFamily
                                     anchors.centerIn: parent
                                     text: modelData.proto.toUpperCase()
                                     color: modelData.proto === "tcp" ? Qt.rgba(0.4, 0.8, 1.0, 0.9) : Qt.rgba(0.5, 1.0, 0.5, 0.9)
@@ -174,10 +180,10 @@ QQC2.Popup {
                                 Layout.fillWidth: true
                             }
                             Text {
+                                font.family: connDialog.monitor.fontFamily
                                 text: ":" + modelData.port
                                 color: Qt.rgba(connDialog.monitor.textColor.r, connDialog.monitor.textColor.g, connDialog.monitor.textColor.b, 0.45)
                                 font.pixelSize: 10
-                                font.family: "monospace"
                             }
                         }
 
@@ -185,11 +191,13 @@ QQC2.Popup {
                             Layout.fillWidth: true
                             spacing: 4
                             Text {
+                                font.family: connDialog.monitor.fontFamily
                                 visible: modelData.flag !== ""
                                 text: modelData.flag
                                 font.pixelSize: 11
                             }
                             Text {
+                                font.family: connDialog.monitor.fontFamily
                                 text: modelData.hostname !== "" ? modelData.hostname : modelData.remoteHost
                                 color: Qt.rgba(connDialog.monitor.textColor.r, connDialog.monitor.textColor.g, connDialog.monitor.textColor.b, 0.6)
                                 font.pixelSize: 10
@@ -197,11 +205,11 @@ QQC2.Popup {
                                 Layout.fillWidth: true
                             }
                             Text {
+                                font.family: connDialog.monitor.fontFamily
                                 visible: modelData.hostname !== "" && modelData.remoteHost !== modelData.hostname
                                 text: modelData.remoteHost
                                 color: Qt.rgba(connDialog.monitor.textColor.r, connDialog.monitor.textColor.g, connDialog.monitor.textColor.b, 0.3)
                                 font.pixelSize: 8
-                                font.family: "monospace"
                                 elide: Text.ElideLeft
                                 Layout.maximumWidth: 90
                             }

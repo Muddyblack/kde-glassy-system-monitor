@@ -12,6 +12,25 @@ PlasmoidItem {
 
     readonly property bool isInPanel: plasmoid.configuration.panelMode || [PlasmaCore.Types.TopEdge, PlasmaCore.Types.BottomEdge, PlasmaCore.Types.LeftEdge, PlasmaCore.Types.RightEdge].indexOf(Plasmoid.location) !== -1
     property bool fullShown: false
+    // The hover card lives in Plasma's tooltip window while it is open.
+    readonly property bool hoverShown: !!hoverCard.Window.window && hoverCard.Window.window.visible
+
+    // Hovering the pill shows the card as its tooltip; a click opens it as
+    // the popup, which stays until closed.
+    toolTipItem: isInPanel && plasmoid.configuration.panelHoverCard ? hoverCard : null
+    // Not a child of the applet: the tooltip window takes it when it opens.
+    property Item hoverCard: MonitorView {
+        monitor: core
+        cfg: plasmoid.configuration
+        width: preferredWidth
+        height: preferredHeight
+        implicitWidth: preferredWidth
+        implicitHeight: preferredHeight
+        Layout.minimumWidth: preferredWidth
+        Layout.minimumHeight: preferredHeight
+        Layout.preferredWidth: preferredWidth
+        Layout.preferredHeight: preferredHeight
+    }
 
     preferredRepresentation: isInPanel ? compactRepresentation : fullRepresentation
     // Plasma's own blur behind glass, when asked for; otherwise no frame.
@@ -37,8 +56,9 @@ PlasmoidItem {
             }
         }
         writeConfig: (key, value) => plasmoid.configuration[key] = value
-        onScreen: root.fullShown
+        onScreen: root.fullShown || root.hoverShown
         active: root.visible
+        inPanel: root.isInPanel
         systemAccent: Kirigami.Theme.highlightColor
         systemTextColor: Kirigami.Theme.textColor
     }
@@ -47,6 +67,13 @@ PlasmoidItem {
         monitor: core
         cfg: plasmoid.configuration
         inPanel: root.isInPanel
+        vertical: Plasmoid.formFactor === PlasmaCore.Types.Vertical
+        // Across a horizontal panel the pill sets the width; down a vertical
+        // one, the height.
+        Layout.minimumWidth: vertical ? -1 : implicitWidth
+        Layout.preferredWidth: vertical ? -1 : implicitWidth
+        Layout.minimumHeight: vertical ? implicitHeight : -1
+        Layout.preferredHeight: vertical ? implicitHeight : -1
         onActivated: root.expanded = !root.expanded
     }
 

@@ -33,6 +33,7 @@ Item {
     property var bands: []
     property color gapColor: "#ff4444"
     property color textColor: "white"
+    property string fontFamily: Qt.application.font.family
     // "gpu" (fragment shader) or "canvas" (Context2D, the pre-shader path).
     property string renderer: "gpu"
     property bool onScreen: true
@@ -107,6 +108,7 @@ Item {
             x: chart.plotLeft - 4 - width
             y: Data.yOf(modelData.value, chart.maxValue, chart.height) - 9
             Text {
+                font.family: chart.fontFamily
                 anchors.right: parent.right
                 text: parent.split > 0 ? parent.modelData.text.slice(0, parent.split) : parent.modelData.text
                 color: Qt.rgba(chart.textColor.r, chart.textColor.g, chart.textColor.b, 0.65)
@@ -114,6 +116,7 @@ Item {
                 font.bold: true
             }
             Text {
+                font.family: chart.fontFamily
                 anchors.right: parent.right
                 visible: parent.split > 0
                 text: parent.modelData.text.slice(parent.split + 1)
@@ -130,6 +133,7 @@ Item {
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.verticalCenter: parent.verticalCenter
         Text {
+            font.family: chart.fontFamily
             anchors.horizontalCenter: parent.horizontalCenter
             text: chart.centerText
             color: Qt.rgba(chart.textColor.r, chart.textColor.g, chart.textColor.b, 0.92)
@@ -137,6 +141,7 @@ Item {
             font.bold: true
         }
         Text {
+            font.family: chart.fontFamily
             anchors.horizontalCenter: parent.horizontalCenter
             visible: chart.centerSubText !== ""
             text: chart.centerSubText
@@ -171,6 +176,7 @@ Item {
                     height: caption.implicitHeight
                     Text {
                         id: caption
+                        font.family: chart.fontFamily
                         width: parent.width - reading.implicitWidth - 6
                         text: parent.parent.modelData.label
                         elide: Text.ElideRight
@@ -179,6 +185,7 @@ Item {
                     }
                     Text {
                         id: reading
+                        font.family: chart.fontFamily
                         anchors.right: parent.right
                         text: parent.parent.modelData.text
                         color: Qt.rgba(chart.textColor.r, chart.textColor.g, chart.textColor.b, 0.9)

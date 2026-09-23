@@ -2,12 +2,13 @@
    rows the Audio Visualizer site has no equivalent for. Page, studio and
    control styles come from style.css, shared with that site. */
 
-.gw{--ink:#eff0f1;display:grid;gap:10px 16px;padding:10px;color:var(--ink);font:12px/1.35 "Noto Sans",Inter,system-ui,sans-serif;position:relative}
+.gw{--ink:#eff0f1;--font:"Noto Sans",Inter,system-ui,sans-serif;display:grid;gap:10px 16px;padding:10px;color:var(--ink);font:12px/1.35 var(--font);position:relative}
 .gw.sh-soft{box-shadow:0 10px 30px #0000004d,0 2px 6px #00000033}
 .gw.sh-lifted{box-shadow:0 24px 60px #00000073,0 6px 16px #00000040}
 /* Card materials: the .s-* surfaces come from style.css (Audio Visualizer). */
 .gw .surf{position:absolute;inset:0;border-radius:inherit;overflow:hidden;pointer-events:none}
 .gw .s-color.frost{background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.02) 35%,rgba(0,0,0,.05)),var(--bgc);backdrop-filter:blur(var(--frost)) saturate(1.1);-webkit-backdrop-filter:blur(var(--frost)) saturate(1.1)}
+.gw .s-solid.flat{background:var(--bgc)}
 .gw .edge{position:absolute;inset:0;border-radius:inherit;border:1px solid #ffffff21;pointer-events:none}
 .gw .edge.hl{box-shadow:inset 0 1px #ffffff36,inset 0 -1px #00000026}
 .gw .grain{position:absolute;inset:0;border-radius:inherit;pointer-events:none;opacity:.14;mix-blend-mode:overlay;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E")}
@@ -70,12 +71,19 @@
 .gw-pchips small{font-size:8px;opacity:.42}.gw-pchips b{font-size:11px}
 .gw-kv{display:grid;grid-template-columns:46px 1fr;gap:3px 10px;font-size:11px}
 .gw-kv span{opacity:.5}
-.gw-panel{display:flex;align-items:center;gap:8px;padding:0 12px;height:44px;width:460px;border-radius:12px;background:#e0202326;border:1px solid #14ffffff}
-.gw-panel.hypr{border-radius:14px;background:#e611111b;border:2px solid #5589b4fa}
-.gw-slot{width:22px;height:22px;border-radius:6px;background:#1affffff}
+.gw-panel{display:flex;align-items:center;gap:8px;padding:0 12px;height:44px;min-width:460px;box-sizing:border-box;border-radius:12px;background:#202326e0;border:1px solid #ffffff14}
+.gw-panel.hypr{border-radius:14px;background:#11111be6;border:2px solid #89b4fa55}
+.gw-slot{width:22px;height:22px;border-radius:6px;background:#ffffff1a}
 .gw-pill{margin-left:auto;margin-right:auto;display:flex;align-items:baseline;gap:8px;padding:5px 12px;border-radius:14px;font:12px "Noto Sans",sans-serif;color:#eff0f1}
 .gw-pill.bg{background:rgba(13,15,26,.5);box-shadow:inset 0 0 0 1px rgba(255,255,255,.13)}
-.gw-pill small{opacity:.6}.gw-pill b{font-size:14px}
+.gw-pill{align-items:center;gap:10px;font-family:var(--font,"Noto Sans"),sans-serif;cursor:pointer}
+.gw-pr{display:flex;align-items:center;gap:5px}
+.gw-pv{display:flex;flex-direction:column;align-items:center;line-height:1.1}
+.gw-pv small{opacity:.55;font-size:8px}.gw-pv b{font-size:13px;font-variant-numeric:tabular-nums}
+.gw-pv.two b{font-size:10px}.gw-pv b i{font-style:normal;opacity:.65;margin-right:3px}
+.gw-pmeter{display:block;width:100%;height:3px;border-radius:2px;margin-top:2px;overflow:hidden}.gw-pmeter i{display:block;height:100%;border-radius:2px}
+.gw-pwrap{position:relative}
+.gw-hover{position:absolute;top:calc(100% + 8px);left:50%;transform:translateX(-50%)}
 
 .pp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
 .pp .ppv{height:96px}

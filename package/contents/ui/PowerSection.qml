@@ -15,6 +15,7 @@ ColumnLayout {
     spacing: 6
 
     SectionHeader {
+        fontFamily: section.monitor.fontFamily
         Layout.fillWidth: true
         title: section.monitor.sectionTitle("power")
         reading: section.monitor.batteryPresent ? section.monitor.batteryPercent + "%" : ""
@@ -80,6 +81,7 @@ ColumnLayout {
                 }
 
                 Text {
+                    font.family: section.monitor.fontFamily
                     anchors.centerIn: parent
                     text: section.monitor.batteryPercent + "%"
                     font.pixelSize: 9
@@ -93,6 +95,7 @@ ColumnLayout {
 
         // signed power draw
         Text {
+            font.family: section.monitor.fontFamily
             text: section.fmtPower(section.monitor.batteryPowerW)
             color: section.powerColor(section.monitor.batteryPowerW)
             font.pixelSize: 10
@@ -107,6 +110,7 @@ ColumnLayout {
 
         // status
         Text {
+            font.family: section.monitor.fontFamily
             text: section.monitor.batteryStatus
             color: section.monitor.batteryStatus === "Charging" ? "#44dd88" : section.monitor.batteryStatus === "Full" ? "#88ffaa" : Qt.rgba(section.monitor.textColor.r, section.monitor.textColor.g, section.monitor.textColor.b, 0.55)
             font.pixelSize: 10
@@ -116,6 +120,7 @@ ColumnLayout {
     }
 
     Text {
+        font.family: section.monitor.fontFamily
         visible: !section.monitor.batteryPresent
         Layout.fillWidth: true
         text: "No battery"
@@ -127,6 +132,7 @@ ColumnLayout {
     // ── Power-draw history ───────────────────────────────────────────────────
     Diagram {
         id: spark
+        fontFamily: section.monitor.fontFamily
         visible: section.monitor.batteryPresent
         Layout.fillWidth: true
         Layout.preferredHeight: 38
@@ -142,6 +148,7 @@ ColumnLayout {
         maxValue: SectionModels.power(section.monitor).maxValue
         series: SectionModels.power(section.monitor).series
         Text {
+            font.family: section.monitor.fontFamily
             anchors.right: parent.right
             anchors.rightMargin: 3
             y: 1
@@ -201,6 +208,7 @@ ColumnLayout {
                     spacing: 0
 
                     Text {
+                        font.family: section.monitor.fontFamily
                         text: modelData.lbl
                         color: Qt.rgba(section.monitor.textColor.r, section.monitor.textColor.g, section.monitor.textColor.b, 0.42)
                         font.pixelSize: 8
@@ -208,6 +216,7 @@ ColumnLayout {
                         anchors.horizontalCenter: parent.horizontalCenter
                     }
                     Text {
+                        font.family: section.monitor.fontFamily
                         text: modelData.val
                         color: modelData.tint
                         font.pixelSize: 11
@@ -243,6 +252,7 @@ ColumnLayout {
 
         Text {
             id: labelText
+            font.family: section.monitor.fontFamily
             anchors.left: parent.left
             anchors.verticalCenter: parent.verticalCenter
             text: label
@@ -281,6 +291,7 @@ ColumnLayout {
 
         Text {
             id: valueText
+            font.family: section.monitor.fontFamily
             anchors.right: parent.right
             anchors.verticalCenter: parent.verticalCenter
             text: value.toFixed(2) + "%"

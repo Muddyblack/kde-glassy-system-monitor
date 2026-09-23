@@ -168,6 +168,9 @@
         <entry name="bgColor" type="String">
             <default>#800d0f1a</default>
         </entry>
+        <entry name="fontFamily" type="String">
+            <default>system</default>
+        </entry>
         <entry name="bgRadiusTL" type="Double">
             <default>12.0</default>
         </entry>
@@ -376,6 +379,15 @@
             <default>false</default>
         </entry>
         <entry name="panelShowBg" type="Bool">
+            <default>true</default>
+        </entry>
+        <entry name="panelSections" type="String">
+            <default></default>
+        </entry>
+        <entry name="panelStyle" type="String">
+            <default>values</default>
+        </entry>
+        <entry name="panelHoverCard" type="Bool">
             <default>true</default>
         </entry>
 

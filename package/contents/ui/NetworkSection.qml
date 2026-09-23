@@ -19,6 +19,7 @@ ColumnLayout {
 
     component Link: Text {
         id: link
+        font.family: section.monitor.fontFamily
         signal activated
         color: area.containsMouse ? section.monitor.textColor : section.dimText
         font.pixelSize: 10
@@ -34,6 +35,7 @@ ColumnLayout {
 
     SectionHeader {
         id: header
+        fontFamily: section.monitor.fontFamily
         Layout.fillWidth: true
         title: section.model.title
         reading: section.model.reading
@@ -51,7 +53,7 @@ ColumnLayout {
                     model: section.monitor.availableIfaces
                     QQC2.MenuItem {
                         required property string modelData
-                        text: modelData
+                        text: modelData === "auto" ? "Automatic" + (section.monitor.autoIface ? " · " + section.monitor.autoIface : "") : modelData
                         checkable: true
                         checked: (section.cfg.networkInterface || "auto") === modelData
                         onTriggered: section.monitor.writeConfig("networkInterface", modelData)
@@ -73,6 +75,7 @@ ColumnLayout {
             }
         }
         Text {
+            font.family: section.monitor.fontFamily
             anchors.verticalCenter: parent.verticalCenter
             visible: !!section.cfg.netShowInfo && text !== ""
             text: [section.monitor.netSsid, section.monitor.netIpAddr].filter(Boolean).join(" · ")
@@ -115,6 +118,7 @@ ColumnLayout {
         Repeater {
             model: section.model.totals
             Text {
+                font.family: section.monitor.fontFamily
                 required property var modelData
                 required property int index
                 Layout.fillWidth: index === 0

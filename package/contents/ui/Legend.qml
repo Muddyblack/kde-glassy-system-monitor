@@ -38,6 +38,7 @@ Flow {
                     border.width: 1
                 }
                 Text {
+                    font.family: legend.monitor.fontFamily
                     anchors.verticalCenter: parent.verticalCenter
                     text: entry.modelData.label
                     color: Qt.rgba(entry.ink.r, entry.ink.g, entry.ink.b, entry.shown ? 0.7 : 0.3)
@@ -45,6 +46,7 @@ Flow {
                     font.strikeout: !entry.shown
                 }
                 Text {
+                    font.family: legend.monitor.fontFamily
                     anchors.verticalCenter: parent.verticalCenter
                     visible: text !== ""
                     text: entry.modelData.value || ""

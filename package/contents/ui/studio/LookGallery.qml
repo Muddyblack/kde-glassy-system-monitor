@@ -9,7 +9,10 @@ import "Looks.js" as Looks
 Column {
     id: gallery
     required property var studio
-    readonly property var saved: Looks.parseSaved(studio.draft.userPresets)
+    // Through a string property: it only notifies when the text changes, so
+    // other edits keep the tile list (and every tile's widget) as it is.
+    readonly property string savedJson: studio.draft.userPresets || ""
+    readonly property var saved: Looks.parseSaved(savedJson)
     readonly property var all: Looks.BUILT_IN.map(l => Object.assign({
             builtIn: true
         }, l)).concat(saved.map((l, i) => ({
@@ -64,7 +67,10 @@ Column {
             Rectangle {
                 id: tile
                 required property var modelData
-                readonly property var look: Looks.apply(gallery.studio.draft, gallery.studio.defaults, modelData.s)
+                // Applying a preset resets appearance edits to the same values.
+                // Only notify the full preview when those values actually change.
+                readonly property string lookJson: JSON.stringify(Looks.apply(gallery.studio.draft, gallery.studio.defaults, modelData.s))
+                readonly property var look: JSON.parse(lookJson)
                 readonly property bool current: Looks.matches(gallery.studio.draft, gallery.studio.defaults, modelData.s)
                 objectName: "look_" + modelData.id
                 width: gallery.tileWidth

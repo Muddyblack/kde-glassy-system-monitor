@@ -92,6 +92,8 @@ Kirigami.Page {
     property bool cfg_showYLabelsDefault
     property string cfg_bgColor
     property string cfg_bgColorDefault
+    property string cfg_fontFamily
+    property string cfg_fontFamilyDefault
     property real cfg_bgRadiusTL
     property real cfg_bgRadiusTLDefault
     property real cfg_bgRadiusTR
@@ -214,6 +216,12 @@ Kirigami.Page {
     property bool cfg_panelPlainTextDefault
     property bool cfg_panelShowBg
     property bool cfg_panelShowBgDefault
+    property string cfg_panelSections
+    property string cfg_panelSectionsDefault
+    property string cfg_panelStyle
+    property string cfg_panelStyleDefault
+    property bool cfg_panelHoverCard
+    property bool cfg_panelHoverCardDefault
     property string cfg_diskTitle
     property string cfg_diskTitleDefault
     property string cfg_diskDevice

@@ -165,7 +165,7 @@ Column {
                     font.weight: Font.Medium
                 }
                 Text {
-                    visible: row.on && row.position === 0
+                    visible: Sections.panelIds(list.studio.draft).indexOf(row.modelData) !== -1
                     text: "Shown in panels"
                     color: Theme.dim
                     font.family: Theme.fontFamily

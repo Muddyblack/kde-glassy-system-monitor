@@ -37,7 +37,7 @@
 
 ---
 
-A glassy real-time system monitor for KDE Plasma 6 and Hyprland. **One widget shows any of ten sections** — CPU, memory, network, ping, disk, GPU, sensors, power, system info and a custom command — in the order you choose, stacked or side by side. Charts are drawn by a fragment shader on the GPU, and every setting lives in a settings studio with a live preview, in the style of the [Plasma Audio Visualizer](https://github.com/Muddyblack/audio-wave-visualizer).
+A glassy real-time system monitor for KDE Plasma 6 and Hyprland. **One widget shows any of twelve sections** — CPU, memory, network, ping, disk, GPU, storage, top processes, sensors, power, system info and a custom command — in the order you choose, stacked or side by side. Charts are drawn by a fragment shader on the GPU, and every setting lives in a settings studio with a live preview, in the style of the [Plasma Audio Visualizer](https://github.com/Muddyblack/audio-wave-visualizer).
 
 Try the studio in your browser: **[muddyblack.github.io/kde-glassy-system-monitor](https://muddyblack.github.io/kde-glassy-system-monitor/)**.
 
@@ -54,7 +54,8 @@ Try the studio in your browser: **[muddyblack.github.io/kde-glassy-system-monito
 - **Side by side** — one to three columns; any section can take a full row of its own
 - **Per-section size and style** — e.g. CPU as a tall line chart next to memory as a small donut
 - **Never cut off** — every section reports the height its content needs; the card cannot be sized below it, and only charts give way (never below 40 px)
-- **Looks** — seven built-in looks, your own saved looks, and sharing as a JSON snippet. A look never carries commands, hosts or devices, so an imported one cannot run anything
+- **Looks** — eleven built-in looks, including Liquid Glass, Paper, Atmosphere and Terminal; save your own or share one as a JSON snippet. A look never carries commands, hosts or devices, so an imported one cannot run anything
+- **Spacing** — choose compact, normal or roomy padding around the card and between sections
 
 ### Monitoring sections
 
@@ -65,6 +66,8 @@ Try the studio in your browser: **[muddyblack.github.io/kde-glassy-system-monito
 - **Network** — upload/download bandwidth, session totals, per-interface selection, and an optional SSID / IP readout
 - **GPU** — utilization, clock, and an optional **per-engine breakdown** (VRAM, compute, decode, encode) — best-effort across NVIDIA, AMD, and Intel
 - **Disk I/O** — read/write throughput per device
+- **Storage** — usage bars for mounted filesystems; choose mount points or show all real filesystems of at least 256 MiB
+- **Top processes** — CPU or memory use, with configurable row count and optional grouping by name
 - **Power** — battery state and draw
 - **Hardware sensors** — temperatures with warning/critical thresholds
 - **OS info** — distro and host details
@@ -81,9 +84,11 @@ Try the studio in your browser: **[muddyblack.github.io/kde-glassy-system-monito
 - **Glassy look** — semi-transparent dark card with neon glow, same aesthetic as the [Plasma Audio Visualizer](https://github.com/muddyblack/plasma-audio-visualizer)
 - **GPU charts** — line, area, history bars, donut and pie are drawn by one fragment shader with an analytic glow; the original canvas renderer stays available as a switch and is used automatically where there is no GPU
 - **Frosted glass** — blurred card with adjustable strength (on by default; turn it off for a flat translucent card)
+- **Card materials** — tint, glass, liquid glass, solid and atmosphere, with controls for wallpaper blur, refraction, pointer light, opacity, shadow and grain
+- **Colour by load** — CPU, memory and GPU charts shift to warning and critical colours at thresholds you choose
 - **Chart styles** — line, filled area, history bars, donut, pie, meters, or numbers only
 - **Theming** — honors the active Plasma accent color (or set custom colors per section), system text color, configurable background color, and each of the four card corners rounded independently
-- **Palettes** — recolour every section at once (Glassy, Aurora, Ember, Ice, Monochrome)
+- **Palettes** — recolour every section at once (Glassy, Aurora, Ember, Ice, Terminal, Monochrome)
 - **Tunable poll rate** — one base interval drives every sensor, so you can trade update smoothness for CPU
 - **Compact panel mode** — condensed representation for panel placement
 
@@ -197,7 +202,7 @@ over a choice of wallpapers.
 |---|---|
 | **Presets** | Built-in looks, your saved looks, copy and import looks as JSON |
 | **Layout** | Sections on/off, drag to reorder, size S/M/L, chart style and full width per section; columns; panel pill; placement on Hyprland |
-| **Appearance** | Charts (style, history, curves, glow, labels), Card (tint, frost, edge, corners), Colours (palettes, text) |
+| **Appearance** | Charts (style, history, curves, glow, labels, colour by load), Card (material, frost, edge, corners), Colours (palettes, text and font) |
 | **Sections** | One tab per section: title, colours, hosts, devices, thresholds, commands |
 | **Performance** | GPU shader or canvas renderer, update interval, smooth scrolling, frame-rate cap |
 | **Info** | Version and update check, project stats, licence, links |

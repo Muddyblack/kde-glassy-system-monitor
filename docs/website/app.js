@@ -71,6 +71,8 @@ const monitor = {
             histories: [L.map(x => x.ping)], activeTarget: 0,
             targetList: String(S.targets || '').split(',').map(t => t.trim()).filter(Boolean),
             sessionDlBytes: 3.4 * 1073741824, sessionUlBytes: 0.6 * 1073741824,
+            hwMaxTemp: Math.max(...DemoData.SENSORS.map(c => c.maxTemp)), hwMaxTempCrit: DemoData.SENSORS[0].maxTempCrit,
+            batteryPresent: true, batteryPercent: DemoData.BATTERY.percent, batteryStatus: DemoData.BATTERY.status, osUptime: DemoData.SYSTEM.uptime,
             hoveredLine: '', hoveredCore: -1
         });
         const valid = this.pingHistory.filter(v => v >= 0);
@@ -333,8 +335,8 @@ function surfaceHTML(cfg, ids) {
     const hex = c => `rgb(${c.r * 255 | 0},${c.g * 255 | 0},${c.b * 255 | 0})`;
     const p3 = `rgb(${(p1.r * 0.2 + p2.r * 0.1) * 255 | 0},${(p1.g * 0.2 + p2.g * 0.1) * 255 | 0},${(p1.b * 0.2 + p2.b * 0.1) * 255 | 0})`;
     const liquid = material === 'liquid', glass = liquid || material === 'glass';
-    const cls = material === 'tint' ? 's-color' + (cfg.frostedGlass ? ' frost' : '') : `s-${material}` + (glass ? ` t-${cfg.glassTint || 'clear'}${liquid && cfg.glassRefraction > 0.02 ? ' refract' : ''}` : '');
-    const edge = material !== 'tint' || cfg.cardBorder ? `<i class="edge${cfg.cardBorder ? ' hl' : ''}"></i>` : '';
+    const cls = material === 'tint' ? 's-color' + (cfg.frostedGlass ? ' frost' : '') : `s-${material}` + (material === 'solid' && bg.a >= 1 ? ' flat' : '') + (glass ? ` t-${cfg.glassTint || 'clear'}${liquid && cfg.glassRefraction > 0.02 ? ' refract' : ''}` : '');
+    const edge = (material !== 'tint' && !(material === 'solid' && bg.a >= 1)) || cfg.cardBorder ? `<i class="edge${cfg.cardBorder ? ' hl' : ''}"></i>` : '';
     const vars = `opacity:${cfg.cardOpacity ?? 1};--bgc:rgba(${bg.r * 255 | 0},${bg.g * 255 | 0},${bg.b * 255 | 0},${bg.a});--frost:${(cfg.frostStrength ?? 0.55) * 24}px;--glass-blur:${((cfg.glassBlur ?? 0.85) * 24).toFixed(1)}px;--glass-color:${cfg.glassTintColor || '#3daee9'};--p1:${hex(p1)};--p2:${hex(p2)};--p3:${p3}`;
     return `<div class="surf ${cls}" style="${vars}">${liquid && cfg.glassSpecular !== false ? '<i class="spec"></i>' : ''}${edge}${cfg.grain ? '<i class="grain"></i>' : ''}</div>`;
 }
@@ -347,14 +349,40 @@ function widgetHTML(cfg) {
     const pad = ({ compact: 6, roomy: 14 })[cfg.density] || 10;
     const shadow = cfg.cardShadow === 'soft' || cfg.cardShadow === 'lifted' ? ' sh-' + cfg.cardShadow : '';
     const specular = material === 'liquid' && cfg.glassSpecular !== false ? ' specular' : '';
-    return `<div class="gw${shadow}${specular}" style="width:${cardWidth(cfg)}px;border-radius:${r};--ink:${inkOf(cfg)};padding:${pad}px;gap:${pad}px 16px;grid-template-columns:repeat(${cols},1fr)">${surfaceHTML(cfg, ids)}${ids.map((id, i) => `<section class="gw-sec" style="grid-row:${place[i].row + 1};grid-column:${place[i].column + 1} / span ${place[i].span}">${SECTION[id](cfg)}</section>`).join('')}</div>`;
+    return `<div class="gw${shadow}${specular}" style="width:${cardWidth(cfg)}px;border-radius:${r};--ink:${inkOf(cfg)};--font:${cfg.fontFamily === 'monospace' ? 'ui-monospace,monospace' : 'Noto Sans,Inter,system-ui,sans-serif'};padding:${pad}px;gap:${pad}px 16px;grid-template-columns:repeat(${cols},1fr)">${surfaceHTML(cfg, ids)}${ids.map((id, i) => `<section class="gw-sec" style="grid-row:${place[i].row + 1};grid-column:${place[i].column + 1} / span ${place[i].span}">${SECTION[id](cfg)}</section>`).join('')}</div>`;
+}
+// The panel pill from SectionModels.pill, like CompactRepresentation, and
+// the card it shows on hover (pinned by a click) under the panel.
+let pillHover = false, pillPinned = false;
+function pillChart(p, style, tint) {
+    const W = 34, H = 16;
+    const draw = (values, c, alpha, main) => {
+        const col = tint(c);
+        if (style === 'bars') {
+            const n = Math.floor(W / 3), list = values.slice(-n), w = W / n;
+            return list.map((v, i) => { const h = Math.max(1, Math.min(1, v / p.max) * H); return `<rect x="${(W - (list.length - i) * w).toFixed(1)}" y="${(H - h).toFixed(1)}" width="${(w - 1).toFixed(1)}" height="${h.toFixed(1)}" fill="${col}" opacity="${alpha}"/>`; }).join('');
+        }
+        const list = values.slice(-Math.floor(W / 2)), step = W / Math.max(1, list.length - 1);
+        const pts = list.map((v, i) => `${(i * step).toFixed(1)},${(H - Math.min(1, Math.max(0, v / p.max)) * (H - 1)).toFixed(1)}`).join(' ');
+        return (main ? `<polygon points="0,${H} ${pts} ${W},${H}" fill="${col}" opacity=".22"/>` : '') + `<polyline points="${pts}" fill="none" stroke="${col}" stroke-width="${main ? 1.4 : 1}" stroke-linejoin="round" opacity="${alpha}"/>`;
+    };
+    return `<svg class="gw-pspark" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">${p.history2.length > 1 ? draw(p.history2, p.lines[1] ? p.lines[1].color : p.color, 0.55, false) : ''}${draw(p.history, p.color, 1, true)}</svg>`;
 }
 function pillHTML(cfg) {
-    const id = Sections.parse(cfg.sections, cfg.activeSection)[0];
-    const val = { cpu: [m.cpuPercent.toFixed(0) + '%', cfg.cpuColor], memory: [m.memPercent.toFixed(0) + '%', cfg.memColor], network: ['↓ ' + Format.speed(m.downloadSpeed), cfg.dlColor], ping: [m.lastPing.toFixed(0) + 'ms', cfg.pingColor], disk: [Format.speed(m.diskReadSpeed), cfg.diskRdColor], gpu: [m.gpuPercent.toFixed(0) + '%', cfg.gpuColor], sensors: ['62°C', '#44ddaa'], power: ['76%', '#44dd88'], system: ['3h 12m', TEXT], custom: [m.customValue.toFixed(1), cfg.customCmdColor] }[id] || (model => [model.reading, model.readingColor || TEXT])(SectionModels[id](barLists(cfg), cfg));
-    const color = cfg.panelPlainText ? TEXT : val[1];
-    return `<div class="gw-panel ${env}"><span class="gw-slot"></span><span class="gw-slot"></span><div class="gw-pill${cfg.panelShowBg ? ' bg' : ''}"><small>${esc(Sections.info(id).label)}</small><b style="color:${color}">${esc(val[0])}</b></div><span class="gw-slot"></span></div>`;
+    const style = cfg.panelStyle || 'values', lists = barLists(cfg);
+    const tint = c => cfg.panelPlainText || !c ? TEXT : c;
+    const readings = Sections.panelIds(cfg).map(id => {
+        const p = SectionModels.pill(id, lists, cfg), two = p.lines.length > 1;
+        const lines = p.lines.map(l => `<b style="color:${tint(l.color)}">${l.mark ? `<i>${esc(l.mark)}</i>` : ''}${esc(l.text)}</b>`).join('');
+        const meter = style === 'values' && !two && p.ratio >= 0 ? `<span class="gw-pmeter" style="background:${tint(p.color)}33"><i style="width:${Math.min(1, p.ratio) * 100}%;background:${tint(p.color)}"></i></span>` : '';
+        return `<span class="gw-pr"><span class="gw-pv${two ? ' two' : ''}">${two ? '' : `<small>${esc(p.label)}</small>`}${lines}${meter}</span>${style !== 'values' && p.history.length > 1 ? pillChart(p, style, tint) : ''}</span>`;
+    }).join('');
+    const card = cfg.panelHoverCard !== false && (pillHover || pillPinned) ? `<div class="gw-hover">${widgetHTML(cfg)}</div>` : '';
+    return `<div class="gw-pwrap" style="--font:${cfg.fontFamily === 'monospace' ? 'ui-monospace,monospace' : '"Noto Sans"'}"><div class="gw-panel ${env}"><span class="gw-slot"></span><span class="gw-slot"></span><div class="gw-pill${cfg.panelShowBg ? ' bg' : ''}" title="Hover for the card, click to pin it">${readings}</div><span class="gw-slot"></span></div>${card}</div>`;
 }
+$('#mainWidget').addEventListener('pointerover', e => { const on = !!e.target.closest('.gw-pill, .gw-hover'); if (on !== pillHover) { pillHover = on; renderMain(); } });
+$('#mainWidget').addEventListener('pointerleave', () => { if (pillHover) { pillHover = false; renderMain(); } });
+$('#mainWidget').addEventListener('click', e => { if (e.target.closest('.gw-pill')) { pillPinned = !pillPinned; renderMain(); } });
 
 /* ─── mounting and fitting ─────────────────────────────────────── */
 function mount(el, html) { el.innerHTML = html; drawCharts(el); }
@@ -407,7 +435,8 @@ function fitStage() {
     $('#mainWidget').style.transform = `scale(${k})`;
     const sc = $('#scaler');
     sc.style.left = Math.max(20, (stage.clientWidth - inner.offsetWidth * k) / 2) + 'px';
-    sc.style.top = Math.max(top, top + (stage.clientHeight - top - bottom - inner.offsetHeight * k) / 2) + 'px';
+    // A panel sits near the top, leaving room for the card it shows on hover.
+    sc.style.top = (form === 'panel' ? top + 24 : Math.max(top, top + (stage.clientHeight - top - bottom - inner.offsetHeight * k) / 2)) + 'px';
     $('#sizeInfo').textContent = `demo · ${inner.offsetWidth} × ${inner.offsetHeight} px · ${k.toFixed(2)}×`;
 }
 $('#bdPicker').insertAdjacentHTML('beforeend', Catalog.StudioCatalog.wallpapers.map(w => `<button class="bdsw" data-bd="${w.id}" title="${esc(w.label)}" aria-label="${esc(w.label)} wallpaper" aria-pressed="${w.id === backdrop}"><span class="bd bd-${w.id}" aria-hidden="true"></span></button>`).join(''));
@@ -537,7 +566,7 @@ function renderSectionList(el, headHTML) {
               <span class="gs-grip" title="Drag to reorder">${on ? '⠿' : ''}</span>
               <input type="checkbox" class="switch" ${on ? 'checked' : ''} aria-label="Show ${esc(info.label)}">
               <svg viewBox="0 0 24 24"><path d="${info.icon}"/></svg>
-              <span class="gs-name">${esc(Sections.title(id, s))}${on && ids[0] === id ? '<small>Shown in panels</small>' : ''}</span>
+              <span class="gs-name">${esc(Sections.title(id, s))}${on && Sections.panelIds(s).includes(id) ? '<small>Shown in panels</small>' : ''}</span>
               ${on ? `<span class="gs-ctl">${grid ? `<button class="ghost small${spans.includes(id) ? ' on' : ''}" data-span>Full width</button>` : ''}${chartSections.includes(id) ? `<span class="seg small">${['s', 'm', 'l'].map(z => `<button data-size="${z}" aria-pressed="${(sizes[id] || 'm') === z}">${z.toUpperCase()}</button>`).join('')}</span><select class="sel">${styles.map(([v, l]) => `<option value="${v}" ${(styleMap[id] || '') === v ? 'selected' : ''}>${l}</option>`).join('')}</select>` : ''}</span>` : ''}
             </div>`;
         }).join('');

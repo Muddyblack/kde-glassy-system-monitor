@@ -25,6 +25,7 @@ ColumnLayout {
 
     SectionHeader {
         id: header
+        fontFamily: section.monitor.fontFamily
         Layout.fillWidth: true
         title: section.model.title
         reading: section.model.reading
@@ -39,6 +40,7 @@ ColumnLayout {
             implicitHeight: vendorLabel.implicitHeight + 4
             Text {
                 id: vendorLabel
+                font.family: section.monitor.fontFamily
                 anchors.centerIn: parent
                 text: section.vendor ? section.vendor[0] : ""
                 color: section.vendor ? section.vendor[1] : "transparent"
@@ -48,6 +50,7 @@ ColumnLayout {
             }
         }
         Text {
+            font.family: section.monitor.fontFamily
             anchors.verticalCenter: parent.verticalCenter
             visible: section.monitor.gpuFreqMhz > 0
             text: section.monitor.gpuFreqMhz + " MHz"
@@ -55,6 +58,7 @@ ColumnLayout {
             font.pixelSize: 10
         }
         Text {
+            font.family: section.monitor.fontFamily
             anchors.verticalCenter: parent.verticalCenter
             visible: section.monitor.gpuVendor === "" && section.monitor.gpuNoDataTicks > 3
             text: "No GPU data"
@@ -95,6 +99,7 @@ ColumnLayout {
             visible: section.monitor.gpuVramUsed >= 0
             spacing: 6
             Text {
+                font.family: section.monitor.fontFamily
                 text: "VRAM"
                 color: section.dimText
                 font.pixelSize: 10
@@ -124,6 +129,7 @@ ColumnLayout {
                 Layout.fillWidth: section.monitor.gpuVramTotal <= 0
             }
             Text {
+                font.family: section.monitor.fontFamily
                 text: section.monitor.gpuVramTotal > 0 ? Format.bytes(section.monitor.gpuVramUsed) + " / " + Format.bytes(section.monitor.gpuVramTotal) : Format.bytes(section.monitor.gpuVramUsed)
                 color: section.dimText
                 font.pixelSize: 10
@@ -146,11 +152,13 @@ ColumnLayout {
                         color: Qt.alpha(section.monitor.gpuColor, parent.busy ? 0.95 : 0.35)
                     }
                     Text {
+                        font.family: section.monitor.fontFamily
                         text: parent.modelData[0]
                         color: section.dimText
                         font.pixelSize: 10
                     }
                     Text {
+                        font.family: section.monitor.fontFamily
                         text: parent.modelData[1].toFixed(0) + "%"
                         color: parent.busy ? section.monitor.gpuColor : section.dimText
                         font.pixelSize: 10

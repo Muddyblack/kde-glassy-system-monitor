@@ -13,6 +13,7 @@ ColumnLayout {
     spacing: 1
 
     SectionHeader {
+        fontFamily: section.monitor.fontFamily
         Layout.fillWidth: true
         Layout.bottomMargin: 4
         title: section.monitor.sectionTitle("sensors")
@@ -45,6 +46,7 @@ ColumnLayout {
 
     // Empty-state hint
     Text {
+        font.family: section.monitor.fontFamily
         visible: section._empty
         Layout.fillWidth: true
         Layout.fillHeight: true
@@ -86,6 +88,7 @@ ColumnLayout {
                         spacing: 6
 
                         Text {
+                            font.family: section.monitor.fontFamily
                             text: chipDisplay
                             color: Qt.rgba(section.monitor.textColor.r, section.monitor.textColor.g, section.monitor.textColor.b, 0.85)
                             font.pixelSize: 10
@@ -99,6 +102,7 @@ ColumnLayout {
                             color: Qt.rgba(section.monitor.textColor.r, section.monitor.textColor.g, section.monitor.textColor.b, 0.10)
                         }
                         Text {
+                            font.family: section.monitor.fontFamily
                             visible: maxTemp > 0
                             text: "max " + maxTemp.toFixed(0) + "°C"
                             color: section.tempColor(maxTemp, maxTempCrit)
@@ -123,6 +127,7 @@ ColumnLayout {
                         // Label (left, capped width)
                         Text {
                             id: lblText
+                            font.family: section.monitor.fontFamily
                             anchors.left: parent.left
                             anchors.leftMargin: 4
                             anchors.verticalCenter: parent.verticalCenter
@@ -242,6 +247,7 @@ ColumnLayout {
                         // Value (right, fixed width)
                         Text {
                             id: valText
+                            font.family: section.monitor.fontFamily
                             anchors.right: parent.right
                             anchors.rightMargin: 4
                             anchors.verticalCenter: parent.verticalCenter

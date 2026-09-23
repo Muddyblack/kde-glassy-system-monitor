@@ -13,6 +13,7 @@ ColumnLayout {
     spacing: 0
 
     SectionHeader {
+        fontFamily: section.monitor.fontFamily
         Layout.fillWidth: true
         Layout.bottomMargin: 4
         title: section.monitor.sectionTitle("system")
@@ -73,6 +74,7 @@ ColumnLayout {
             spacing: 0
 
             Text {
+                font.family: section.monitor.fontFamily
                 Layout.fillWidth: true
                 text: section.monitor.osFetchTitle || section.monitor.osDistro
                 color: section.monitor.textColor
@@ -81,6 +83,7 @@ ColumnLayout {
                 elide: Text.ElideRight
             }
             Text {
+                font.family: section.monitor.fontFamily
                 Layout.fillWidth: true
                 text: section.monitor.osFetchTool
                 color: Qt.rgba(section.monitor.textColor.r, section.monitor.textColor.g, section.monitor.textColor.b, 0.40)
@@ -104,9 +107,9 @@ ColumnLayout {
 
         Text {
             id: rawText
+            font.family: section.monitor.fontFamily
             text: section.monitor.osFetchRaw
             color: section.monitor.textColor
-            font.family: "monospace"
             font.pixelSize: 10
             textFormat: Text.PlainText
             lineHeight: 1.15
@@ -143,6 +146,7 @@ ColumnLayout {
 
                     Text {
                         id: lblText
+                        font.family: section.monitor.fontFamily
                         anchors.left: parent.left
                         anchors.leftMargin: 2
                         anchors.verticalCenter: parent.verticalCenter
@@ -153,6 +157,7 @@ ColumnLayout {
                         elide: Text.ElideRight
                     }
                     Text {
+                        font.family: section.monitor.fontFamily
                         anchors.left: lblText.right
                         anchors.leftMargin: 4
                         anchors.right: parent.right

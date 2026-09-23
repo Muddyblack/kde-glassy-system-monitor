@@ -18,6 +18,7 @@ ColumnLayout {
 
     SectionHeader {
         id: header
+        fontFamily: section.monitor.fontFamily
         Layout.fillWidth: true
         title: section.model.title
         reading: section.model.reading
@@ -86,6 +87,7 @@ ColumnLayout {
                         border.width: 1
                     }
                     Text {
+                        font.family: section.monitor.fontFamily
                         Layout.fillWidth: true
                         text: "Core " + (coreItem.index + 1)
                         color: section.monitor.textColor
@@ -95,6 +97,7 @@ ColumnLayout {
                         elide: Text.ElideRight
                     }
                     Text {
+                        font.family: section.monitor.fontFamily
                         text: (section.monitor.corePercents[coreItem.index] || 0).toFixed(0) + "%"
                         color: coreItem.tint
                         opacity: coreItem.shown ? 1 : 0.4

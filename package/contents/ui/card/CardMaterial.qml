@@ -16,6 +16,7 @@ Canvas {
     property real radius: 12
     property string glassTint: "clear"
     property color glassTintColor: "#3daee9"
+    property color solidColor: "transparent"
     property bool grain: false
     property bool specular: true
     property bool edgeHighlight: false
@@ -31,7 +32,7 @@ Canvas {
         enabled: card.material === "liquid" && card.specular
     }
     readonly property point specularPoint: hover.hovered ? hover.point.position : Qt.point(width * 0.22, -height * 0.1)
-    readonly property var signature: [material, grain, radius, glassTint, glassTintColor, specular, edgeHighlight, cover1, cover2, cover3, width, height]
+    readonly property var signature: [material, grain, radius, glassTint, glassTintColor, solidColor, specular, edgeHighlight, cover1, cover2, cover3, width, height]
     onSignatureChanged: requestPaint()
     onSpecularPointChanged: {
         if (material === "liquid" && specular)
@@ -131,7 +132,12 @@ Canvas {
                 break;
             }
         case "solid":
-            diagonal(ctx, w, h, [[0, "#efefe6"], [1, "#d8dece"]]);
+            if (solidColor.a >= 1) {
+                ctx.fillStyle = solidColor;
+                ctx.fillRect(0, 0, w, h);
+            } else {
+                diagonal(ctx, w, h, [[0, "#efefe6"], [1, "#d8dece"]]);
+            }
             break;
         case "atmosphere":
             {
@@ -159,7 +165,7 @@ Canvas {
         }
         ctx.restore();
 
-        if (material === "")
+        if (material === "" || (material === "solid" && solidColor.a >= 1 && !edgeHighlight))
             return;
         ctx.lineWidth = 1;
         const edge = () => {

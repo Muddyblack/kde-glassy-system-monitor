@@ -27,18 +27,21 @@ Item {
 
     // ── sections ──────────────────────────────────────────────────────────────
     readonly property var sectionIds: Sections.parse(cfg.sections, cfg.activeSection)
-    readonly property bool showPingSection: sectionIds.indexOf("ping") !== -1
-    readonly property bool showNetworkSpeed: sectionIds.indexOf("network") !== -1
-    readonly property bool showCpuSection: sectionIds.indexOf("cpu") !== -1
-    readonly property bool showMemorySection: sectionIds.indexOf("memory") !== -1
-    readonly property bool showDiskSection: sectionIds.indexOf("disk") !== -1
-    readonly property bool showCustomSection: sectionIds.indexOf("custom") !== -1
-    readonly property bool showGpuSection: sectionIds.indexOf("gpu") !== -1
-    readonly property bool showHwSensors: sectionIds.indexOf("sensors") !== -1
-    readonly property bool showOsInfo: sectionIds.indexOf("system") !== -1
-    readonly property bool showPowerSection: sectionIds.indexOf("power") !== -1
-    readonly property bool showStorage: sectionIds.indexOf("storage") !== -1
-    readonly property bool showProcesses: sectionIds.indexOf("processes") !== -1
+    // In a panel the pill's sections are read too, even ones the card leaves out.
+    property bool inPanel: false
+    readonly property var sampledIds: inPanel ? sectionIds.concat(Sections.panelIds(cfg).filter(id => sectionIds.indexOf(id) === -1)) : sectionIds
+    readonly property bool showPingSection: sampledIds.indexOf("ping") !== -1
+    readonly property bool showNetworkSpeed: sampledIds.indexOf("network") !== -1
+    readonly property bool showCpuSection: sampledIds.indexOf("cpu") !== -1
+    readonly property bool showMemorySection: sampledIds.indexOf("memory") !== -1
+    readonly property bool showDiskSection: sampledIds.indexOf("disk") !== -1
+    readonly property bool showCustomSection: sampledIds.indexOf("custom") !== -1
+    readonly property bool showGpuSection: sampledIds.indexOf("gpu") !== -1
+    readonly property bool showHwSensors: sampledIds.indexOf("sensors") !== -1
+    readonly property bool showOsInfo: sampledIds.indexOf("system") !== -1
+    readonly property bool showPowerSection: sampledIds.indexOf("power") !== -1
+    readonly property bool showStorage: sampledIds.indexOf("storage") !== -1
+    readonly property bool showProcesses: sampledIds.indexOf("processes") !== -1
 
     function sectionTitle(id) {
         return Sections.title(id, cfg);
@@ -55,6 +58,7 @@ Item {
     // the ping section stays on the user's own colour no matter the latency.
     readonly property bool pingAlertActive: !!cfg.pingThresholdColors && isAlerting
     readonly property color textColor: Qt.color(Sections.textColor(cfg, core.systemTextColor))
+    readonly property string fontFamily: cfg.fontFamily === "monospace" ? "monospace" : Qt.application.font.family
     readonly property color dlColor: Qt.color(cfg.dlColor || "#22aaff")
     readonly property color ulColor: Qt.color(cfg.ulColor || "#ff9933")
     readonly property color cpuColor: Qt.color(cfg.cpuColor || "#44ddaa")

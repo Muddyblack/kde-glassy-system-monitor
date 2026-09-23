@@ -22,6 +22,20 @@ function bytes(b) {
     return Math.max(0, b).toFixed(0) + " B";
 }
 
+// Panel-sized: "3.4M/s", "812K/s". One decimal below 10, whole numbers from
+// 10 up, stepping up at 1000, so no reading is wider than SHORT_WIDEST.
+function short(v, suffix) {
+    var units = ["B", "K", "M", "G", "T"], i = 0;
+    v = Math.max(0, v || 0);
+    while (v >= 999.5 && i < units.length - 1) {
+        v /= 1024;
+        i++;
+    }
+    // 9.95 and up would round to "10.0": whole numbers from there.
+    return v.toFixed(i > 0 && v < 9.95 ? 1 : 0) + units[i] + (suffix || "");
+}
+var SHORT_WIDEST = "888M";
+
 // "1.1 / 1.8 TiB": a part of a whole in the whole's unit, short enough for
 // a bar row.
 function usage(part, whole) {

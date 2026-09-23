@@ -8,6 +8,7 @@ Item {
     property string reading: ""
     property color readingColor: textColor
     property color textColor: "white"
+    property string fontFamily: Qt.application.font.family
     // Optional extra content between title and reading (chips, totals).
     default property alias extra: middle.data
 
@@ -15,6 +16,7 @@ Item {
 
     Text {
         id: titleText
+        font.family: header.fontFamily
         anchors.verticalCenter: parent.verticalCenter
         text: header.title
         color: header.textColor
@@ -37,6 +39,7 @@ Item {
     }
     Text {
         id: readingText
+        font.family: header.fontFamily
         anchors.right: parent.right
         anchors.verticalCenter: parent.verticalCenter
         text: header.reading

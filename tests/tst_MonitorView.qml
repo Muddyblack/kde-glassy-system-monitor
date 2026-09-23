@@ -102,6 +102,29 @@ Item {
             verify(ys[0] < ys[1] && ys[1] < ys[2], "one column stacks in list order");
         }
 
+        function test_monospaceReachesHeaderAndChart() {
+            const v = view({
+                sections: "cpu",
+                fontFamily: "monospace"
+            });
+            compare(core.fontFamily, "monospace");
+            const cpu = sections(v)[0];
+            const chart = cpu.children.find(child => child.sectionStyle !== undefined);
+            verify(chart);
+            compare(chart.fontFamily, "monospace");
+            const texts = [];
+            const collect = item => {
+                for (const child of item.children) {
+                    if (child.text !== undefined && child.font !== undefined)
+                        texts.push(child);
+                    collect(child);
+                }
+            };
+            collect(cpu);
+            verify(texts.some(item => item.text === "CPU"));
+            verify(texts.every(item => item.font.family === "monospace"));
+        }
+
         function test_twoColumnsPlaceSideBySide() {
             const v = view({
                 sections: "cpu,memory,network",

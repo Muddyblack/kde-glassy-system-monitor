@@ -21,6 +21,7 @@ ColumnLayout {
         property color tint: section.monitor.textColor
         spacing: 1
         Text {
+            font.family: section.monitor.fontFamily
             text: parent.label
             color: section.monitor.textColor
             opacity: 0.38
@@ -28,6 +29,7 @@ ColumnLayout {
             font.letterSpacing: 0.8
         }
         Text {
+            font.family: section.monitor.fontFamily
             text: parent.value
             color: parent.tint
             opacity: 0.85
@@ -43,6 +45,7 @@ ColumnLayout {
 
     SectionHeader {
         id: header
+        fontFamily: section.monitor.fontFamily
         Layout.fillWidth: true
         title: section.model.title
         reading: section.model.reading
@@ -70,6 +73,7 @@ ColumnLayout {
                 }
                 Text {
                     id: chipText
+                    font.family: section.monitor.fontFamily
                     anchors.centerIn: parent
                     width: Math.min(implicitWidth, 76)
                     text: parent.modelData

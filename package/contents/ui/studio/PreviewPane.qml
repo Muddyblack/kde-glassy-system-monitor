@@ -86,11 +86,16 @@ Rectangle {
         }
     }
 
-    // Panel form: a floating panel with the pill in it.
+    // Panel form: a floating panel with the pill in it, and the card the
+    // pill shows on hover (pinned by a click) underneath, as on the desktop.
+    property bool cardPinned: false
+    readonly property bool hoverCardShown: form === "panel" && draft.panelHoverCard !== false && (pill.hovered || cardPinned)
     Rectangle {
+        id: panelBar
         visible: pane.form === "panel"
         anchors.horizontalCenter: parent.horizontalCenter
-        y: pane.stageTop + (pane.height - pane.stageTop - pane.stageBottom - height) / 2
+        // Near the top while the card shows below it, centred otherwise.
+        y: pane.hoverCardShown ? pane.stageTop + 8 : pane.stageTop + (pane.height - pane.stageTop - pane.stageBottom - height) / 2
         width: Math.min(pane.width - 40, pill.implicitWidth + 220)
         height: 44
         radius: pane.studio.env === "kde" ? 12 : 14
@@ -119,6 +124,29 @@ Rectangle {
             monitor: pane.monitor
             cfg: pane.draft
             inPanel: true
+            onActivated: pane.cardPinned = !pane.cardPinned
+        }
+    }
+    Item {
+        readonly property real room: pane.height - y - pane.stageBottom
+        readonly property real fit: Math.max(0.25, Math.min(1, (pane.width - 40) / hoverCard.width, room / hoverCard.height))
+        visible: pane.hoverCardShown
+        x: Math.max(20, Math.min(pane.width - 20 - width, panelBar.x + pill.x + pill.width / 2 - width / 2))
+        y: panelBar.y + panelBar.height + 8
+        width: hoverCard.width * fit
+        height: hoverCard.height * fit
+        MonitorView {
+            id: hoverCard
+            objectName: "previewHoverCard"
+            // Its own size: the desktop preview is hidden in this form and
+            // measures short.
+            width: Math.max(220, preferredWidth)
+            height: preferredHeight
+            scale: parent.fit
+            transformOrigin: Item.TopLeft
+            monitor: pane.monitor
+            cfg: pane.draft
+            backdrop: backdropImage
         }
     }
 
@@ -277,7 +305,7 @@ Rectangle {
             Text {
                 id: sizeInfo
                 anchors.centerIn: parent
-                text: (pane.live ? "live" : "demo") + (pane.form === "panel" ? " · first section" : " · " + Math.round(pane.cardWidth) + " × " + Math.round(pane.cardHeight) + " px")
+                text: (pane.live ? "live" : "demo") + (pane.form === "panel" ? (pane.cardPinned ? " · card pinned, click the pill to close" : " · hover the pill for the card") : " · " + Math.round(pane.cardWidth) + " × " + Math.round(pane.cardHeight) + " px")
                 color: "#b0e6ebe3"
                 font.family: "monospace"
                 font.pixelSize: 10

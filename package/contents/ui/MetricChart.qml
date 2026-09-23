@@ -54,6 +54,7 @@ Diagram {
     axis: !!cfg.showYLabels
     strongGrid: !!cfg.showGridLines
     textColor: monitor.textColor
+    fontFamily: monitor.fontFamily
     onScreen: monitor.onScreen
     onPaintRequested: monitor.notePaintRequested()
     onPainted: monitor.notePainted()
