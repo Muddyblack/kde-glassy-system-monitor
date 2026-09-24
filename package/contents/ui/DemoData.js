@@ -37,7 +37,67 @@ var SENSORS = [
     { chip: "nvme", chipDisplay: "NVMe SSD", maxTemp: 41, maxTempCrit: 85, sensors: [{ label: "Composite", value: 41, crit: 85, type: "temp" }] }
 ];
 
-var SYSTEM = { distro: "NixOS 26.05", kernel: "7.2.4", hostname: "glassbox", uptime: "3h 12m" };
+var SYSTEM = { distro: "NixOS 26.05", kernel: "7.2.4", hostname: "glassbox", uptime: "3h 12m", logo: "nix-snowflake" };
+
+// Load average at step `i`, as Probes.LOAD_CMD prints it (8 CPUs).
+function loadText(i) {
+    var l1 = 1.4 + 1.6 * Math.abs(Math.sin(i / 11)) + (i % 37 > 30 ? 3 : 0);
+    var l5 = 1.6 + 0.8 * Math.abs(Math.sin(i / 40)), l15 = 1.5 + 0.3 * Math.sin(i / 90);
+    return l1.toFixed(2) + " " + l5.toFixed(2) + " " + l15.toFixed(2) + " 3/1204 88123\n" + (11520 + i) + ".42 90210.11\n8";
+}
+
+// `sensors -j` with fans at step `i`: two board headers, a GPU fan that
+// stops at idle, and an empty header (never shown).
+function fansJson(i) {
+    return JSON.stringify({
+        "nct6799-isa-0290": { "Adapter": "ISA adapter", "CPU Fan": { "fan2_input": Math.round(1180 + 260 * Math.sin(i / 6)), "fan2_min": 0 }, "Case Fan 1": { "fan1_input": Math.round(820 + 40 * Math.sin(i / 9)) }, "fan3": { "fan3_input": 0 } },
+        "amdgpu-pci-0300": { "Adapter": "PCI adapter", "fan1": { "fan1_input": i % 40 < 26 ? Math.round(1450 + 300 * Math.sin(i / 5)) : 0, "fan1_max": 3300 } }
+    });
+}
+
+// Probes.servicesCmd output with a failed unit and three watched ones.
+var SERVICES = [
+    "@@failed", "backup-nas.service loaded failed failed Nightly backup to the NAS",
+    "@@ufailed",
+    "@@running", "41",
+    "@@show", "Id=sshd.service", "LoadState=loaded", "ActiveState=active", "SubState=running", "Description=SSH Daemon", "",
+    "Id=docker.service", "LoadState=loaded", "ActiveState=active", "SubState=running", "Description=Docker Application Container Engine", "",
+    "@@ushow", "Id=syncthing.service", "LoadState=loaded", "ActiveState=activating", "SubState=start", "Description=Syncthing - Open Source Continuous File Synchronization"
+].join("\n");
+
+// Probes.containersCmd output at step `i`: Docker, Podman and a k3s cluster.
+function containersText(i) {
+    var w = function (base, swing, k) { return Math.max(0, base + swing * Math.sin(i / 4 + k)).toFixed(2) + "%"; };
+    return [
+        "@@ps docker",
+        "4f1c2a9be0d1|web|nginx:1.27-alpine|running|Up 3 hours",
+        "9ab7d2c4f310|db|postgres:16|running|Up 3 hours (healthy)",
+        "c1d2e3f4a5b6|homeassistant|ghcr.io/home-assistant/home-assistant:stable|running|Up 2 days",
+        "0f84a9d82aa0|windows-build|dockurr/windows|exited|Exited (0) 3 days ago",
+        "@@stats docker",
+        "web|" + w(0.4, 0.3, 0) + "|18.2MiB / 31.1GiB|0.06%",
+        "db|" + w(2.1, 1.8, 1) + "|212MiB / 31.1GiB|0.67%",
+        "homeassistant|" + w(4.5, 2.5, 2) + "|486MiB / 31.1GiB|1.53%",
+        "@@ps podman",
+        "e8f9a0b1c2d3|cache|docker.io/library/redis:7|running|Up 40 minutes",
+        "@@stats podman",
+        "cache|" + w(0.3, 0.2, 3) + "|9.8MB / 33.3GB|0.03%",
+        "@@kube default",
+        "default api-7c9f6d-x2k4p Running true,true 0,0 <none>",
+        "default worker-5d8b9-q7wnm Running false 4 CrashLoopBackOff",
+        "kube-system coredns-6799fbcd5-8kq2d Running true 0 <none>",
+        "@@top",
+        "default api-7c9f6d-x2k4p " + Math.round(120 + 80 * Math.sin(i / 5)) + "m 210Mi",
+        "kube-system coredns-6799fbcd5-8kq2d 3m 18Mi"
+    ].join("\n");
+}
+
+// Measured draw and power profiles for the Power section.
+function powerSources(i) {
+    var cpu = 9 + 5 * Math.abs(Math.sin(i / 7)), gpu = 14 + 20 * Math.abs(Math.sin(i / 11));
+    return [{ id: "intel-rapl:0", label: "CPU package", watts: cpu }, { id: "hwmon3", label: "GPU (AMD)", watts: gpu }];
+}
+var PROFILES = ["power-saver", "balanced", "performance"];
 var BATTERY = { percent: 76, status: "Discharging", health: 94, cycles: 212, temp: 31, hours: 4.6 };
 
 // `df -B1 -P -T` as Probes.STORAGE_CMD prints it: a btrfs root with a

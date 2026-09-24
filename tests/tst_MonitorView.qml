@@ -140,7 +140,7 @@ Item {
         }
 
         function test_minimumNeverAbovePreferred() {
-            for (const layout of ["cpu", "cpu,memory,network,ping,disk,gpu,sensors,power,system,custom"]) {
+            for (const layout of ["cpu", "cpu,memory,network,ping,disk,gpu,sensors,power,system,custom", "load,fans,services,containers,storage,processes,power"]) {
                 const v = view({
                     sections: layout,
                     showCpuCores: true
@@ -154,7 +154,7 @@ Item {
         // its own minimum, only charts shrink, and never below 40 px.
         function test_atMinimumHeightNothingIsCut() {
             const v = view({
-                sections: "cpu,sensors,power,system,ping",
+                sections: "cpu,sensors,power,system,ping,load,fans,services,containers",
                 showCpuCores: true
             }, 0);
             v.height = v.minimumHeight;

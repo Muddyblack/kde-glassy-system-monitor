@@ -16,6 +16,10 @@ var ALL = [
     { id: "system", stock: "System Info", short: "Uptime", label: "System", titleKey: "osInfoTitle", icon: "M4 5h16v11H4zM8 20h8M12 16v4" },
     { id: "storage", short: "Space", colorKey: "storageColor", label: "Storage", titleKey: "storageTitle", icon: "M4 14h16v5H4zM4 14l2.5-8h11l2.5 8M7 16.5h3" },
     { id: "processes", short: "Top", colorKey: "processColor", label: "Processes", titleKey: "processesTitle", icon: "M4 6h9M4 12h13M4 18h6M17 5v3M20 9v11M14 15v5" },
+    { id: "load", stock: "Load", short: "Load", colorKey: "loadColor", label: "Load & uptime", titleKey: "loadTitle", icon: "M4 19h16M6 16l4-5 3 3 5-7M4 5v14" },
+    { id: "fans", stock: "Fans", short: "Fans", colorKey: "fanColor", label: "Fans", titleKey: "fansTitle", icon: "M12 12m-2 0a2 2 0 1 0 4 0 2 2 0 1 0-4 0M12 10c0-4 1-7 4-7 2 0 2 3 0 5l-2 2M14 12c4 0 7 1 7 4 0 2-3 2-5 0l-2-2M12 14c0 4-1 7-4 7-2 0-2-3 0-5l2-2M10 12c-4 0-7-1-7-4 0-2 3-2 5 0l2 2" },
+    { id: "services", stock: "Services", short: "Units", colorKey: "serviceColor", label: "Services", titleKey: "servicesTitle", icon: "M12 3l8 4.5v9L12 21l-8-4.5v-9zM12 12l8-4.5M12 12v9M12 12L4 7.5" },
+    { id: "containers", stock: "Containers", short: "Pods", colorKey: "containerColor", label: "Containers", titleKey: "containersTitle", icon: "M3 9h18v10H3zM3 9l2-4h14l2 4M8 9v10M13 9v10M18 9v10" },
     { id: "custom", stock: "Load Average", short: "Load", colorKey: "customCmdColor", label: "Custom", titleKey: "customCmdTitle", icon: "M5 8l4 4-4 4M11 16h8" }
 ];
 

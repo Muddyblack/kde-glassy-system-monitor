@@ -130,6 +130,54 @@ Kirigami.Page {
     property bool cfg_processGroupDefault
     property string cfg_processColor
     property string cfg_processColorDefault
+    property string cfg_loadTitle
+    property string cfg_loadTitleDefault
+    property string cfg_loadColor
+    property string cfg_loadColorDefault
+    property string cfg_fansTitle
+    property string cfg_fansTitleDefault
+    property string cfg_fanColor
+    property string cfg_fanColorDefault
+    property string cfg_servicesTitle
+    property string cfg_servicesTitleDefault
+    property string cfg_serviceColor
+    property string cfg_serviceColorDefault
+    property string cfg_serviceUnits
+    property string cfg_serviceUnitsDefault
+    property string cfg_containersTitle
+    property string cfg_containersTitleDefault
+    property string cfg_containerColor
+    property string cfg_containerColorDefault
+    property string cfg_containerSource
+    property string cfg_containerSourceDefault
+    property string cfg_kubeNamespace
+    property string cfg_kubeNamespaceDefault
+    property bool cfg_containerShowStopped
+    property bool cfg_containerShowStoppedDefault
+    property string cfg_containerSort
+    property string cfg_containerSortDefault
+    property int cfg_containerCount
+    property int cfg_containerCountDefault
+    property string cfg_powerChart
+    property string cfg_powerChartDefault
+    property bool cfg_powerShowProfiles
+    property bool cfg_powerShowProfilesDefault
+    property bool cfg_powerShowSources
+    property bool cfg_powerShowSourcesDefault
+    property bool cfg_powerShowPressure
+    property bool cfg_powerShowPressureDefault
+    property string cfg_powerColor
+    property string cfg_powerColorDefault
+    property string cfg_powerLoadColor
+    property string cfg_powerLoadColorDefault
+    property bool cfg_panelCycle
+    property bool cfg_panelCycleDefault
+    property int cfg_panelCycleSeconds
+    property int cfg_panelCycleSecondsDefault
+    property bool cfg_panelIcons
+    property bool cfg_panelIconsDefault
+    property string cfg_remoteHost
+    property string cfg_remoteHostDefault
     property string cfg_surfaceStyle
     property string cfg_surfaceStyleDefault
     property string cfg_glassTint

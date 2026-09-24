@@ -24,11 +24,36 @@
   encode), best-effort across NVIDIA, AMD and Intel
 - **Disk I/O**: read / write per device
 - **Storage**: usage bars for chosen mount points, or every real filesystem of at least 256 MiB
-- **Top processes**: CPU or memory, row count, optional grouping by name
-- **Power**: battery state and draw
+- **Top processes**: CPU or memory, row count, optional grouping by name; hover a row and click
+  ✕ twice to end it (the whole group when grouped; Shift sends SIGKILL)
+- **Power**: battery charge, flow, time left, health, cycles and temperature; the machine's
+  measured draw from RAPL energy counters and hwmon power sensors (CPU package, platform,
+  amdgpu, NVIDIA); a chart of power, charge or temperature; power-profile buttons
+  (power-profiles-daemon); CPU and memory pressure
+- **Load & uptime**: 1, 5 and 15 minute load against the number of CPUs, uptime, running and
+  total tasks
+- **Fans**: RPM per fan from lm-sensors against its reported (or fastest seen) speed; empty
+  headers stay hidden, a GPU fan that stops at idle shows "stopped"
+- **Services**: failed systemd units (system and user) plus any units you watch, with their state
+- **Containers**: Docker and Podman containers with CPU and memory, and Kubernetes pods
+  (kubectl, or k3s's bundled one) with status, restarts and `kubectl top` usage
 - **Sensors**: temperatures with warning / critical thresholds
-- **System info**: distro and host details
+- **System info**: distro logo, distro and host details, or a fetch tool's output
 - **Custom command**: chart the output of any shell command on an interval
+
+## Panel pill
+
+- **Values, sparkline or mini bars** for the sections you pick
+- **Tray mode**: one section at a time, turning over every few seconds; scroll to step. The pill
+  keeps the width of the widest reading, so the panel never re-lays out
+- **Icons** in place of the captions
+
+## Another machine
+
+Set **Layout › Machine › Remote host** (`user@host` or an alias from `~/.ssh/config`) and every
+section reads that machine instead: the probes run there over one shared SSH connection
+(`ControlMaster`, kept open for two minutes). It needs key login, since a password prompt cannot
+be answered. The network window stays local.
 
 ## Look and feel
 

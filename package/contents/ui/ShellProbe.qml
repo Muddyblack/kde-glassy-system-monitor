@@ -11,6 +11,7 @@ Item {
     property int interval: 5000
     property bool running: false
     property alias sourceComponent: source.sourceComponent
+    property alias remote: source.remote
     signal result(string text)
 
     property bool busy: false

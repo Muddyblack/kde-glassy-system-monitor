@@ -66,3 +66,16 @@ function rangeTicks(maxValue, format) {
         { value: 0, text: "0", grid: false }
     ];
 }
+
+// "3d 4h", "4h 12m", "12m" from seconds.
+function duration(seconds) {
+    var s = Math.max(0, Math.floor(seconds || 0));
+    var d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60);
+    return d > 0 ? d + "d " + h + "h" : h > 0 ? h + "h " + m + "m" : m + "m";
+}
+
+// "12.4 W", "850 mW".
+function watts(w) {
+    w = Math.abs(w || 0);
+    return w > 0 && w < 1 ? Math.round(w * 1000) + " mW" : w.toFixed(1) + " W";
+}

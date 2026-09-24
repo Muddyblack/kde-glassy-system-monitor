@@ -73,7 +73,7 @@ const html = `<!doctype html>
     <div class="hero-copy">
       <div class="eyebrow">System monitor for Plasma &amp; Hyprland</div>
       <h1>Your system,<br><span>in glass.</span></h1>
-      <p>CPU, memory, network, ping, disks, GPU, sensors and power in one widget — any sections, in any order, side by side. Charts are drawn by a fragment shader on the GPU; this page runs that same shader in your browser.</p>
+      <p>CPU, memory, network, ping, disks, GPU, load, fans, sensors, power, services and containers in one widget — any sections, in any order, side by side. Charts are drawn by a fragment shader on the GPU; this page runs that same shader in your browser.</p>
       <div class="hero-cta">
         <a class="primary-link" href="#looks">Start from a look</a>
         <a class="ghost-link" href="#" data-page="studio">Open the studio →</a>

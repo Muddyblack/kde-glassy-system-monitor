@@ -299,19 +299,198 @@ function processes(m, cfg) {
                 detail: byMemory ? cpu : mem,
                 value: byMemory ? mem : cpu,
                 ratio: top > 0 ? (byMemory ? p.memory : p.cpu) / top : 0,
-                color: tint
+                color: tint,
+                // The row's ✕ ends these (the whole group when grouped).
+                pids: p.pids || [p.pid]
             };
         })
     };
 }
 
-// The battery's power-draw sparkline, auto-scaled with a 10 W floor.
-function power(m) {
-    var history = m.batteryPowerHistory;
+// Load average: 1, 5 and 15 minutes against the number of CPUs (the dashed
+// line: every CPU busy), with uptime and task counts below.
+function load(m, cfg) {
+    var tint = color(cfg, "loadColor", "#ffb347");
+    var l = m.loadInfo || { load1: 0, load5: 0, load15: 0, running: 0, tasks: 0, uptime: 0, cpus: 1 };
+    var peak = Math.max.apply(null, [0].concat(m.load1History || [], m.load15History || []));
+    var max = Math.max(l.cpus, peak * 1.2, 1);
+    var warn = color(cfg, "loadWarnColor", "#ffaa22"), crit = color(cfg, "loadCritColor", "#ff4444");
+    var share = l.load1 / l.cpus * 100;
+    var reading = l.load1.toFixed(2);
+    var fmt = function (v) { return v.toFixed(v < 10 ? 1 : 0); };
     return {
-        maxValue: Math.max(10, Math.max.apply(null, [0].concat(history))) * 1.15,
-        series: [{ values: history, color: "#88ddff", fill: 0.30 }]
+        title: Sections.title("load", cfg),
+        reading: reading,
+        readingColor: share >= 100 ? crit : share >= 70 ? warn : tint,
+        maxValue: max,
+        ticks: Format.rangeTicks(max, fmt),
+        markers: [{ value: l.cpus, color: warn }],
+        centerText: reading,
+        centerSubText: l.cpus + " CPUs",
+        series: function () {
+            var list = [], width = Number(cfg.lineWidth || 2.2);
+            if (!hidden(m, "load15"))
+                list.push({ values: m.load15History || [], value: l.load15, color: tint, alpha: dim(m, "load15") * 0.35, width: width * 0.6, fill: 0, glow: false, label: "15 min", text: l.load15.toFixed(2) });
+            if (!hidden(m, "load5"))
+                list.push({ values: m.load5History || [], value: l.load5, color: tint, alpha: dim(m, "load5") * 0.6, width: width * 0.75, fill: 0, glow: false, label: "5 min", text: l.load5.toFixed(2) });
+            if (!hidden(m, "load1"))
+                list.push({ values: m.load1History || [], value: l.load1, color: tint, alpha: dim(m, "load1"), label: "1 min", text: reading });
+            return list;
+        },
+        legend: [
+            { key: "load1", label: "1 min", value: l.load1.toFixed(2), color: tint },
+            { key: "load5", label: "5 min", value: l.load5.toFixed(2), color: tint },
+            { key: "load15", label: "15 min", value: l.load15.toFixed(2), color: tint }
+        ],
+        stats: [
+            { label: "UPTIME", value: l.uptime > 0 ? Format.duration(l.uptime) : "—", color: "" },
+            { label: "PER CPU", value: (l.load1 / l.cpus).toFixed(2), color: share >= 100 ? crit : "" },
+            { label: "RUNNING", value: String(l.running), color: "" },
+            { label: "TASKS", value: String(l.tasks), color: "" }
+        ]
     };
+}
+
+// Fans: RPM against the fan's own maximum (reported, else the fastest seen).
+function fans(m, cfg) {
+    var tint = color(cfg, "fanColor", "#66ccff");
+    var peaks = m.fanPeaks || {};
+    var list = m.fans || [];
+    var fastest = list.reduce(function (a, f) { return !a || f.rpm > a.rpm ? f : a; }, null);
+    return {
+        title: Sections.title("fans", cfg),
+        reading: fastest ? fastest.rpm + " RPM" : "",
+        readingColor: "",
+        empty: m.fansRead ? "No fan speeds reported (lm-sensors)." : "Reading fans…",
+        rows: list.map(function (f) {
+            var top = f.max > 0 ? f.max : Math.max(peaks[f.key] || 0, 1);
+            return {
+                label: f.label,
+                detail: f.chip,
+                value: f.rpm > 0 ? f.rpm + " RPM" : "stopped",
+                ratio: f.rpm / top,
+                color: f.rpm > 0 ? tint : ""
+            };
+        })
+    };
+}
+
+// State colours shared by services and containers.
+function stateColor(cfg, state) {
+    return state === "failed" ? color(cfg, "loadCritColor", "#ff4444")
+        : state === "waiting" || state === "paused" ? color(cfg, "loadWarnColor", "#ffaa22")
+        : state === "stopped" ? "" : null;
+}
+
+// systemd: failed units first, then the watched ones, each with a state dot.
+function services(m, cfg) {
+    var tint = color(cfg, "serviceColor", "#44dd88");
+    var s = m.services || { failed: [], running: 0, units: [] };
+    var rows = [], seen = {};
+    var unitName = function (n) { return String(n).replace(/\.service$/, ""); };
+    s.failed.forEach(function (u) {
+        seen[(u.user ? "u:" : "s:") + u.name] = true;
+        rows.push({ label: unitName(u.name), detail: (u.user ? "user · " : "") + u.desc, value: "failed", ratio: -1, color: stateColor(cfg, "failed") });
+    });
+    s.units.forEach(function (u) {
+        if (seen[(u.user ? "u:" : "s:") + u.name])
+            return;
+        var state = u.load === "not-found" ? "stopped" : u.active === "active" ? "running" : u.active === "failed" ? "failed" : /activating|deactivating|reloading/.test(u.active) ? "waiting" : "stopped";
+        rows.push({
+            label: unitName(u.name),
+            detail: (u.user ? "user · " : "") + (u.load === "not-found" ? "not found" : u.desc),
+            value: u.load === "not-found" ? "—" : u.sub || u.active,
+            ratio: -1,
+            color: state === "running" ? tint : stateColor(cfg, state)
+        });
+    });
+    var failed = s.failed.length;
+    return {
+        title: Sections.title("services", cfg),
+        reading: failed ? failed + " failed" : m.servicesRead ? s.running + " running" : "",
+        readingColor: failed ? stateColor(cfg, "failed") : tint,
+        empty: m.servicesRead ? "No failed units." : "Reading systemd…",
+        rows: rows
+    };
+}
+
+// Docker, Podman and Kubernetes: running ones first, busiest on top.
+function containers(m, cfg) {
+    var tint = color(cfg, "containerColor", "#2496ed");
+    var info = m.containerInfo || { engines: [], errors: [], context: "", list: [] };
+    var sort = cfg.containerSort || "cpu";
+    var list = info.list.filter(function (c) { return cfg.containerShowStopped || c.state !== "stopped"; });
+    var order = { failed: 0, running: 1, waiting: 2, paused: 3, stopped: 4 };
+    list.sort(function (a, b) {
+        var live = (a.state === "running" ? 0 : 1) - (b.state === "running" ? 0 : 1);
+        if (live)
+            return live;
+        if (sort === "name" || a.state !== "running")
+            return (order[a.state] - order[b.state]) || (a.name < b.name ? -1 : 1);
+        return sort === "memory" ? b.memory - a.memory : b.cpu - a.cpu || b.memory - a.memory;
+    });
+    var byMemory = sort === "memory";
+    var top = list.reduce(function (a, c) { return Math.max(a, byMemory ? c.memory : c.cpu); }, 0);
+    var running = info.list.filter(function (c) { return c.state === "running"; }).length;
+    var failing = info.list.filter(function (c) { return c.state === "failed"; }).length;
+    var image = function (c) {
+        return c.engine === "kubernetes" ? c.ns + (c.restarts ? " · ↻" + c.restarts : "") : String(c.image).replace(/^[^/]+\.[^/]+\//, "").replace(/^library\//, "");
+    };
+    return {
+        title: Sections.title("containers", cfg),
+        reading: m.containersRead ? running + " running" + (failing ? " · " + failing + " failing" : "") : "",
+        readingColor: failing ? stateColor(cfg, "failed") : tint,
+        empty: !m.containersRead ? "Looking for containers…"
+            : info.errors.length ? info.errors[0]
+            : info.engines.length ? "No " + (cfg.containerShowStopped ? "" : "running ") + "containers."
+            : "No Docker, Podman or Kubernetes found.",
+        rows: list.slice(0, Math.max(1, cfg.containerCount || 8)).map(function (c) {
+            var live = c.state === "running";
+            return {
+                label: c.name,
+                detail: image(c),
+                value: live ? (byMemory ? Format.bytes(c.memory) : c.cpu.toFixed(1) + "%") : String(c.status).split(" (")[0].replace(/ ago$/, "").slice(0, 18),
+                ratio: live ? (top > 0 ? (byMemory ? c.memory : c.cpu) / top : 0) : -1,
+                color: live ? tint : stateColor(cfg, c.state)
+            };
+        })
+    };
+}
+
+// Power: the chart picked by `tab` ("power", "battery" or "temp").
+// Power draws the battery's flow and, where sensors exist, the machine's
+// measured load; Battery the charge; Temp the battery temperature.
+function power(m, cfg, tab) {
+    var flow = color(cfg, "powerColor", "#88ddff"), loadTint = color(cfg, "powerLoadColor", "#ffaa22");
+    var batteryTint = batteryColor(m.batteryPercent);
+    var fmtW = function (v) { return v.toFixed(v < 10 ? 1 : 0) + " W"; };
+    if (tab === "battery")
+        return { maxValue: 100, ticks: Format.PERCENT_TICKS, series: [{ values: m.batteryPercentHistory || [], value: m.batteryPercent, color: batteryTint, fill: 0.3, label: "Battery", text: m.batteryPercent + "%" }], legend: [] };
+    if (tab === "temp") {
+        var temps = m.batteryTempHistory || [];
+        var tmax = Math.max(50, Math.max.apply(null, [0].concat(temps)) * 1.15);
+        return { maxValue: tmax, ticks: Format.rangeTicks(tmax, function (v) { return v.toFixed(0) + "°C"; }), series: [{ values: temps, value: m.batteryTempC, color: tempColor(m.batteryTempC, 60), fill: 0.3, label: "Temp", text: m.batteryTempC.toFixed(0) + "°C" }], legend: [] };
+    }
+    var flowH = m.batteryPresent ? m.batteryPowerHistory || [] : [];
+    var loadH = m.hasPowerSensors ? m.powerLoadHistory || [] : [];
+    var max = Math.max(10, Math.max.apply(null, [0].concat(flowH, loadH))) * 1.15;
+    var series = [], legend = [];
+    if (loadH.length && !hidden(m, "powerLoad")) {
+        series.push({ values: loadH, value: m.powerLoadW, color: loadTint, alpha: dim(m, "powerLoad"), fill: flowH.length ? 0 : 0.3, label: "Load", text: fmtW(m.powerLoadW) });
+    }
+    if (flowH.length && !hidden(m, "powerFlow"))
+        series.push({ values: flowH, value: Math.abs(m.batteryPowerW), color: flow, alpha: dim(m, "powerFlow"), fill: 0.3, label: "Battery", text: fmtW(Math.abs(m.batteryPowerW)) });
+    if (loadH.length)
+        legend.push({ key: "powerLoad", label: "Load", value: fmtW(m.powerLoadW), color: loadTint });
+    if (flowH.length)
+        legend.push({ key: "powerFlow", label: m.batteryPowerW > 0.05 ? "Charging" : "Battery", value: fmtW(Math.abs(m.batteryPowerW)), color: flow });
+    return { maxValue: max, ticks: Format.rangeTicks(max, fmtW), series: series, legend: legend.length > 1 ? legend : [] };
+}
+
+// The power profile buttons: [{ id, label }] for the profiles offered.
+var PROFILE_LABELS = { "power-saver": "Saver", balanced: "Balanced", performance: "Performance" };
+function profiles(m) {
+    return (m.powerProfiles || []).map(function (p) { return { id: p, label: PROFILE_LABELS[p] || p }; });
 }
 
 // ── Panel pill ────────────────────────────────────────────────────────────
@@ -386,10 +565,32 @@ function pill(id, m, cfg) {
         break;
     }
     case "power": {
-        var charge = batteryColor(m.batteryPercent);
+        var charge = batteryColor(m.batteryPercent), draw = power(m, cfg, "power");
         out = m.batteryPresent
-            ? { label: Sections.shortTitle(id, cfg), lines: [{ mark: m.batteryStatus === "Charging" ? "⚡" : "", text: m.batteryPercent + "%", color: charge }], sample: "100%", ratio: m.batteryPercent / 100, history: m.batteryPowerHistory, max: power(m).maxValue, color: charge }
+            ? { label: Sections.shortTitle(id, cfg), lines: [{ mark: m.batteryStatus === "Charging" ? "⚡" : "", text: m.batteryPercent + "%", color: charge }], sample: "100%", ratio: m.batteryPercent / 100, history: m.batteryPowerHistory, max: draw.maxValue, color: charge }
+            : m.hasPowerSensors
+            ? { label: "Power", lines: [{ text: m.powerLoadW.toFixed(m.powerLoadW < 10 ? 1 : 0) + "W", color: color(cfg, "powerLoadColor", "#ffaa22") }], sample: "888W", ratio: -1, history: m.powerLoadHistory, max: draw.maxValue, color: color(cfg, "powerLoadColor", "#ffaa22") }
             : { label: Sections.shortTitle(id, cfg), lines: [{ text: "—", color: "" }], sample: "100%", ratio: -1 };
+        break;
+    }
+    case "load": {
+        var lm = load(m, cfg), li = m.loadInfo;
+        out = { label: Sections.shortTitle(id, cfg), lines: [{ text: li ? li.load1.toFixed(2) : "—", color: lm.readingColor }], sample: "88.88", ratio: li ? Math.min(1, li.load1 / li.cpus) : -1, history: m.load1History || [], max: lm.maxValue, color: lm.readingColor };
+        break;
+    }
+    case "fans": {
+        var fm = fans(m, cfg), fast = (m.fans || []).reduce(function (a, f) { return !a || f.rpm > a.rpm ? f : a; }, null);
+        out = { label: Sections.shortTitle(id, cfg), lines: [{ text: fast ? String(fast.rpm) : "—", color: color(cfg, "fanColor", "#66ccff") }], sample: "8888", ratio: fm.rows.length ? fm.rows.reduce(function (a, r) { return Math.max(a, r.ratio); }, 0) : -1, color: color(cfg, "fanColor", "#66ccff") };
+        break;
+    }
+    case "services": {
+        var sm = services(m, cfg), nf = (m.services || { failed: [] }).failed.length;
+        out = { label: Sections.shortTitle(id, cfg), lines: [{ text: nf ? nf + " ✕" : "OK", color: sm.readingColor }], sample: "88 ✕", ratio: -1, color: sm.readingColor };
+        break;
+    }
+    case "containers": {
+        var cm = containers(m, cfg), ci = m.containerInfo;
+        out = { label: Sections.shortTitle(id, cfg), lines: [{ text: ci ? String(ci.list.filter(function (c) { return c.state === "running"; }).length) : "—", color: cm.readingColor }], sample: "888", ratio: -1, color: cm.readingColor };
         break;
     }
     case "system":

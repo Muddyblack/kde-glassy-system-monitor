@@ -55,12 +55,33 @@ QtObject {
         m.batteryTempC = DemoData.BATTERY.temp;
         m.batteryTimeRemainHours = DemoData.BATTERY.hours;
         m.batteryPowerHistory = m.appendHistory(m.batteryPowerHistory, r.watts);
+        m.batteryModel = "L20L2PF0";
+        m.acOnline = 0;
+        m.batteryPercentHistory = m.appendHistory(m.batteryPercentHistory, DemoData.BATTERY.percent);
+        m.batteryTempHistory = m.appendHistory(m.batteryTempHistory, DemoData.BATTERY.temp + Math.sin(i / 20));
+        const sources = DemoData.powerSources(i);
+        m.powerSources = sources;
+        m.powerLoadW = sources.reduce((a, x) => a + x.watts, 0);
+        m.powerLoadHistory = m.appendHistory(m.powerLoadHistory, m.powerLoadW);
+        m.powerProfiles = DemoData.PROFILES;
+        if (!m.powerProfile)
+            m.powerProfile = "balanced";
         m.cpuPressureAvg10 = r.cpu / 12;
         m.memPressureAvg10 = 0.4;
         // Storage and processes go through the real parsers and ranking, so
         // the mount filter, sort, row count and grouping all show.
         const cfg = m.cfg;
         m.storage = Probes.parseStorage(DemoData.DF, cfg.storageMounts);
+        // The newer sections too: load, fans, systemd units, containers.
+        m.applyLoadSample(Probes.parseLoad(DemoData.loadText(i)));
+        const peaks = Object.assign({}, m.fanPeaks);
+        m.fans = Probes.parseFans(DemoData.fansJson(i), peaks);
+        m.fanPeaks = peaks;
+        m.fansRead = true;
+        m.services = Probes.parseServices(DemoData.SERVICES);
+        m.servicesRead = true;
+        m.containerInfo = Probes.parseContainerList(DemoData.containersText(i));
+        m.containersRead = true;
         m.processes = Probes.topProcesses(DemoData.procSnapshot(i - 1), DemoData.procSnapshot(i), cfg.processCount || 5, cfg.processSort || "cpu", cfg.processGroup !== false);
     }
     // Full charts from the first frame: histories are filled directly, so the
@@ -84,6 +105,17 @@ QtObject {
         m.gpuHistory = list.map(r => r.gpu);
         m.customHistory = list.map(r => r.custom);
         m.batteryPowerHistory = list.map(r => r.watts);
+        m.batteryPercentHistory = list.map(() => DemoData.BATTERY.percent);
+        m.batteryTempHistory = list.map((r, k) => DemoData.BATTERY.temp + Math.sin((k - n) / 20));
+        m.powerLoadHistory = list.map((r, k) => DemoData.powerSources(k - n).reduce((a, x) => a + x.watts, 0));
+        const loads = list.map((r, k) => Probes.parseLoad(DemoData.loadText(k - n)));
+        m.load1History = loads.map(l => l.load1);
+        m.load5History = loads.map(l => l.load5);
+        m.load15History = loads.map(l => l.load15);
+        // The GPU fan has spun before, so it shows while stopped.
+        m.fanPeaks = {
+            "amdgpu-pci-0300:fan1": 1800
+        };
         m.activeIface = "wlp2s0";
         m.autoIface = "wlp2s0";
         m.availableIfaces = ["auto", "wlp2s0", "enp5s0", "wg0", "docker0"];
@@ -96,6 +128,7 @@ QtObject {
         m.osKernel = DemoData.SYSTEM.kernel;
         m.osHostname = DemoData.SYSTEM.hostname;
         m.osUptime = DemoData.SYSTEM.uptime;
+        m.osLogoIcon = DemoData.SYSTEM.logo;
         m.applyHwSensorUpdate(DemoData.SENSORS);
         push(0);
     }

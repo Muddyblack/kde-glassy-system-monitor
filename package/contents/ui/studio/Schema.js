@@ -9,7 +9,7 @@ var TABS = Catalog.StudioCatalog.tabs;
 // Tabs that share one main tab and switch with a second row of buttons.
 var GROUPS = {
     appearance: ["charts", "card", "colors"],
-    sections: ["cpu", "memory", "network", "ping", "disk", "gpu", "storage", "processes", "sensors", "power", "system", "custom"]
+    sections: ["cpu", "memory", "network", "ping", "disk", "gpu", "storage", "processes", "load", "fans", "services", "containers", "sensors", "power", "system", "custom"]
 };
 var GROUP_LABELS = { appearance: "Appearance", sections: "Sections" };
 function tabGroup(id) {
@@ -122,11 +122,18 @@ var SECTIONS = [
           opts: Sections.ALL.concat(Sections.PILL_ONLY).map(function (x) { return [x.id, x.label]; }),
           set: function (v) { return { panelSections: v.join(",") }; } },
         { k: "panelStyle", type: "seg", label: "Pill style", opts: [["values", "Values"], ["spark", "Sparkline"], ["bars", "Mini bars"]] },
+        { k: "panelCycle", type: "switch", label: "Tray mode", desc: "One section at a time, turning over on its own; scroll over the pill to step through them." },
+        { k: "panelCycleSeconds", type: "range", label: "Turn every", min: 2, max: 30, step: 1, fmt: "s", when: function (s) { return s.panelCycle; } },
+        { k: "panelIcons", type: "switch", label: "Icons", desc: "Each section's icon in place of its caption." },
         { k: "panelHoverCard", type: "switch", label: "Card on hover", desc: "Hovering the pill shows the full card; a click keeps it open." },
         { k: "panelMode", type: "switch", label: "Always compact", desc: "Show the panel pill even on the desktop." },
         { k: "panelShowBg", type: "switch", label: "Pill background" },
         { k: "panelPlainText", type: "switch", label: "Plain text", desc: "Use the text colour instead of each metric's colour." },
         { k: "panelShowSessionTotals", type: "switch", label: "Network totals", desc: "Traffic since login, when the panel is tall enough." }
+    ]),
+
+    tab("layout", "Machine", [
+        { k: "remoteHost", type: "text", label: "Remote host", desc: "Show another machine: user@host or an alias from ~/.ssh/config. Needs key login (no password prompt); the probes run there over one shared SSH connection. Empty shows this machine.", placeholder: "me@server" }
     ]),
 
     tab("charts", "Chart", [
@@ -263,7 +270,13 @@ var SECTIONS = [
     ]),
     tab("power", "Power", [
         title("powerTitle", "Power"),
-        { id: "powerNote", type: "note", full: true, note: "power" }
+        { id: "powerNote", type: "note", full: true, note: "power" },
+        { k: "powerChart", type: "seg", label: "Chart", desc: "Also switchable in the widget.", opts: [["power", "Power (W)"], ["battery", "Battery %"], ["temp", "Temperature"]] },
+        { k: "powerShowProfiles", type: "switch", label: "Power profile buttons", desc: "Balanced, performance and saver, through power-profiles-daemon." },
+        { k: "powerShowSources", type: "switch", label: "Where the power goes", desc: "CPU package, GPU and platform draw from energy counters and power sensors." },
+        { k: "powerShowPressure", type: "switch", label: "Pressure", desc: "How long tasks waited for CPU and memory (PSI)." },
+        color("powerColor", "Battery flow colour"),
+        color("powerLoadColor", "Load colour")
     ]),
     tab("system", "System info", [
         title("osInfoTitle", "System Info"),
@@ -283,6 +296,29 @@ var SECTIONS = [
         { k: "processCount", type: "range", label: "Rows", min: 3, max: 10, step: 1, fmt: "samples" },
         { k: "processGroup", type: "switch", label: "Group by name", desc: "A browser's many helper processes become one row." },
         color("processColor", "Colour")
+    ]),
+    tab("load", "Load & uptime", [
+        title("loadTitle", "Load"),
+        color("loadColor", "Colour", "The 5 and 15 minute averages are fainter lines of the same colour; the dashed line marks every CPU busy.")
+    ]),
+    tab("fans", "Fans", [
+        title("fansTitle", "Fans"),
+        { id: "fansNote", type: "note", full: true, note: "sensors" },
+        color("fanColor", "Colour")
+    ]),
+    tab("services", "Services", [
+        title("servicesTitle", "Services"),
+        { k: "serviceUnits", type: "text", label: "Watch units", desc: "Comma-separated; prefix user units with user:. Failed units always show.", placeholder: "sshd, docker, user:syncthing" },
+        color("serviceColor", "Colour")
+    ]),
+    tab("containers", "Containers", [
+        title("containersTitle", "Containers"),
+        { k: "containerSource", type: "seg", label: "Show", opts: [["all", "Everything"], ["containers", "Docker & Podman"], ["kubernetes", "Kubernetes"]] },
+        { k: "kubeNamespace", type: "text", label: "Namespace", desc: "Kubernetes pods (kubectl or k3s) from ~/.kube/config, $KUBECONFIG or a readable /etc/rancher/k3s/k3s.yaml. Empty shows every namespace.", placeholder: "default", when: function (s) { return s.containerSource !== "containers"; } },
+        { k: "containerSort", type: "seg", label: "Sort by", opts: [["cpu", "CPU"], ["memory", "Memory"], ["name", "Name"]] },
+        { k: "containerCount", type: "range", label: "Rows", min: 3, max: 20, step: 1, fmt: "samples" },
+        { k: "containerShowStopped", type: "switch", label: "Stopped ones too" },
+        color("containerColor", "Colour")
     ]),
     tab("custom", "Custom sensor", [
         title("customCmdTitle", "Custom"),
@@ -331,8 +367,8 @@ var NOTES = {
         hypr: "Reads lm-sensors (`sensors -j`). If nothing shows, install lm-sensors and run sensors-detect once."
     },
     power: {
-        kde: "Battery from /sys/class/power_supply, pressure from /proc/pressure. Desktops without a battery show pressure only.",
-        hypr: "Battery from /sys/class/power_supply, pressure from /proc/pressure. Desktops without a battery show pressure only."
+        kde: "Battery from /sys/class/power_supply, draw from RAPL energy counters and hwmon power sensors (amdgpu; nvidia-smi when the GPU section uses it), pressure from /proc/pressure. Some distributions make RAPL root-only; then only GPU sensors and the battery show.",
+        hypr: "Battery from /sys/class/power_supply, draw from RAPL energy counters and hwmon power sensors (amdgpu; nvidia-smi when the GPU section uses it), pressure from /proc/pressure. Some distributions make RAPL root-only; then only GPU sensors and the battery show."
     },
     renderer: {
         kde: "The GPU shader draws each new sample once and slides it while scrolling; the canvas renderer is the original Context2D path, kept as a fallback. Software rendering always uses the canvas.",

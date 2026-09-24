@@ -73,8 +73,18 @@ const monitor = {
             sessionDlBytes: 3.4 * 1073741824, sessionUlBytes: 0.6 * 1073741824,
             hwMaxTemp: Math.max(...DemoData.SENSORS.map(c => c.maxTemp)), hwMaxTempCrit: DemoData.SENSORS[0].maxTempCrit,
             batteryPresent: true, batteryPercent: DemoData.BATTERY.percent, batteryStatus: DemoData.BATTERY.status, osUptime: DemoData.SYSTEM.uptime,
+            batteryModel: 'L20L2PF0', acOnline: 0, batteryHealthPct: DemoData.BATTERY.health, batteryCycles: DemoData.BATTERY.cycles, batteryTempC: DemoData.BATTERY.temp,
+            batteryTimeRemainHours: DemoData.BATTERY.hours,
+            batteryPercentHistory: L.map(() => DemoData.BATTERY.percent), batteryTempHistory: L.map((x, k) => DemoData.BATTERY.temp + Math.sin((this.t + k) / 20)),
+            powerSources: DemoData.powerSources(this.t), powerLoadHistory: L.map((x, k) => DemoData.powerSources(this.t - L.length + 1 + k).reduce((a, s) => a + s.watts, 0)),
+            hasPowerSensors: true, powerProfiles: DemoData.PROFILES, powerProfile: this.powerProfile || 'balanced',
+            cpuPressureAvg10: r.cpu / 12, memPressureAvg10: 0.4,
             hoveredLine: '', hoveredCore: -1
         });
+        this.powerLoadW = this.powerSources.reduce((a, s) => a + s.watts, 0);
+        // Load average through the widget's own parser, one reading per step.
+        const loads = L.map((x, k) => Probes.parseLoad(DemoData.loadText(this.t - L.length + 1 + k)));
+        Object.assign(this, { loadInfo: loads[loads.length - 1], load1History: loads.map(l => l.load1), load5History: loads.map(l => l.load5), load15History: loads.map(l => l.load15) });
         const valid = this.pingHistory.filter(v => v >= 0);
         this.avgPing = valid.reduce((a, b) => a + b, 0) / Math.max(1, valid.length);
         this.jitter = Math.sqrt(valid.reduce((s, v) => s + (v - this.avgPing) ** 2, 0) / Math.max(1, valid.length));
@@ -276,18 +286,27 @@ function modelSection(cfg, id, below = '', extra = '') {
 }
 // BarListSection in HTML: storage and processes. The rows go through the
 // widget's parsers and ranking with this card's settings, as DemoFeeder does.
+// Fans seen turning, as MonitorCore keeps them: the GPU fan has spun before.
+const fanPeaks = { 'amdgpu-pci-0300:fan1': 1800 };
 function barLists(cfg) {
     return {
         ...m,
         storage: Probes.parseStorage(DemoData.DF, cfg.storageMounts),
         processes: Probes.topProcesses(DemoData.procSnapshot(m.t - 1), DemoData.procSnapshot(m.t), cfg.processCount || 5, cfg.processSort || 'cpu', cfg.processGroup !== false),
+        fans: Probes.parseFans(DemoData.fansJson(m.t), fanPeaks), fanPeaks, fansRead: true,
+        services: Probes.parseServices(DemoData.SERVICES), servicesRead: true,
+        containerInfo: Probes.parseContainerList(DemoData.containersText(m.t)), containersRead: true,
         // The "Network apps" pill reading: the demo's busiest app.
         netApps: { top: { name: 'Firefox', rateIn: m.downloadSpeed * 0.7, rateOut: m.uploadSpeed * 0.3 }, count: 9, history: m.dlHistory.map(v => v * 0.7) }
     };
 }
 function barList(cfg, id) {
     const model = SectionModels[id](barLists(cfg), cfg);
-    const rows = model.rows.length ? model.rows.map(r => `<div class="gw-brow"><span>${esc(r.label)}</span><span class="gw-mtrack"><i style="width:${Math.min(1, r.ratio) * 100}%;background:${r.color}"></i></span><small>${esc(r.detail)}</small><b style="color:${r.color}">${esc(r.value)}</b></div>`).join('') : `<div class="gw-brow gw-dim">${esc(model.empty)}</div>`;
+    // Rows without a bar (ratio < 0) carry a state dot, as in BarListSection.
+    const tint = r => r.color || alpha(TEXT, 0.45);
+    const rows = model.rows.length ? model.rows.map(r => r.ratio < 0
+        ? `<div class="gw-brow gw-dotrow"><i class="gw-dot" style="background:${tint(r)}"></i><span>${esc(r.label)}</span><small>${esc(r.detail)}</small><b style="color:${tint(r)}">${esc(r.value)}</b></div>`
+        : `<div class="gw-brow"><span>${esc(r.label)}</span><span class="gw-mtrack"><i style="width:${Math.min(1, r.ratio) * 100}%;background:${tint(r)}"></i></span><small>${esc(r.detail)}</small><b style="color:${tint(r)}">${esc(r.value)}</b></div>`).join('') : `<div class="gw-brow gw-dim">${esc(model.empty)}</div>`;
     return head(model.title, model.reading, model.readingColor || INK) + `<div class="gw-bars">${rows}</div>`;
 }
 const SECTION = {
@@ -306,19 +325,33 @@ const SECTION = {
             ? `<div class="gw-srow"><span>${esc(s.label)}</span><span class="gw-mtrack"><i style="width:100%;background:#22aaff55"></i></span><b style="color:#22aaff">${s.value} RPM</b></div>`
             : `<div class="gw-srow"><span>${esc(s.label)}</span><span class="gw-mtrack"><i style="width:${s.value / s.crit * 100}%;background:${col(s.value, s.crit)}"></i></span><b style="color:${col(s.value, s.crit)}">${s.value.toFixed(1)}°C</b></div>`).join('')}`).join('')}</div>`;
     },
+    // PowerSection in HTML: glance row, chart tabs, profile, tiles, sources.
     power(cfg) {
-        const b = DemoData.BATTERY;
+        const b = DemoData.BATTERY, tab = ['power', 'battery', 'temp'].includes(cfg.powerChart) ? cfg.powerChart : 'power';
+        const model = SectionModels.power(m, cfg, tab), load = colorOf(cfg, 'powerLoadColor', '#ffaa22');
+        const tabs = [['power', 'Power (W)'], ['battery', 'Battery %'], ['temp', 'Temp (°C)']].map(([id, label]) => `<span class="gw-seg${id === tab ? ' on' : ''}">${label}</span>`).join('');
+        const profiles = cfg.powerShowProfiles !== false ? `<div class="gw-segs"><small>Profile</small>${SectionModels.profiles(m).map(p => `<span class="gw-seg${p.id === m.powerProfile ? ' on' : ''}">${p.label}</span>`).join('')}</div>` : '';
+        const tile = (k, v, c) => `<span><small>${k}</small><b style="color:${c || INK}">${esc(v)}</b></span>`;
+        const bar = (label, v, max, c, text) => `<div class="gw-srow"><span>${label}</span><span class="gw-mtrack"><i style="width:${Math.min(100, v / max * 100)}%;background:${c}"></i></span><b>${text}</b></div>`;
         return head(title(cfg, 'power'), b.percent + '%', '#44dd88') +
-            `<div class="gw-battery"><span class="gw-bar"><i style="width:${b.percent}%"></i><b>${b.percent}%</b></span><em style="color:#ffaa22">${m.batteryPowerW.toFixed(1)}W</em><span class="gw-dim">${b.status}</span></div>` +
-            chartHTML(cfg, 'power', () => SectionModels.power(m), { style: 'area', axis: false, height: 38 }) +
-            `<div class="gw-pchips">${[['Health', b.health + '%', '#44dd88'], ['Temp', b.temp + '°C', '#44ddaa'], ['Cycles', b.cycles, INK], ['Remaining', '4h 36m', INK]].map(([k, v, c]) => `<span><small>${k}</small><b style="color:${c}">${v}</b></span>`).join('')}</div>` +
-            `<div class="gw-srow"><span>CPU pressure</span><span class="gw-mtrack"><i style="width:${m.cpuPercent / 2.4}%;background:#ff6644"></i></span><b>${(m.cpuPercent / 12).toFixed(2)}%</b></div><div class="gw-srow"><span>MEM pressure</span><span class="gw-mtrack"><i style="width:2%;background:#aa66ff"></i></span><b>0.40%</b></div>`;
+            `<div class="gw-pglance"><i class="gw-cell"><i style="width:${b.percent}%"></i></i><span><b>L20L2PF0</b><small>4h 36m left</small></span><em style="color:#ffaa22">${Math.abs(m.batteryPowerW).toFixed(1)}W<small>${Format.watts(m.powerLoadW)} load</small></em></div>` +
+            `<div class="gw-segs">${tabs}</div>` +
+            chartHTML(cfg, 'power', () => ({ ...model }), { style: Schema.parseStyles(cfg.sectionStyles).power || 'area' }) +
+            legend(cfg, pl(cfg, 'power'), model.legend) + profiles +
+            `<div class="gw-ptiles">${tile('Battery', b.percent + '%', '#44dd88')}${tile('Status', b.status)}${tile('Temperature', b.temp + '°C')}${tile('Cycle count', b.cycles)}</div>` +
+            bar('Battery health', b.health, 100, '#44dd88', b.health.toFixed(1) + '%') +
+            (cfg.powerShowSources !== false ? m.powerSources.map(s => bar(esc(s.label), s.watts, model.maxValue, load, Format.watts(s.watts))).join('') : '') +
+            (cfg.powerShowPressure !== false ? bar('CPU pressure', m.cpuPressureAvg10, 20, '#ff6644', m.cpuPressureAvg10.toFixed(2) + '%') + bar('Memory pressure', 0.4, 20, '#aa66ff', '0.40%') : '');
     },
+    load: cfg => modelSection(cfg, 'load', (model, left) => `<div class="gw-stats" style="padding-left:${left}px">${model.stats.map(st => `<span><small>${st.label}</small><b style="color:${st.color || INK}">${esc(st.value)}</b></span>`).join('')}</div>`),
+    fans: cfg => barList(cfg, 'fans'),
+    services: cfg => barList(cfg, 'services'),
+    containers: cfg => barList(cfg, 'containers'),
     storage: cfg => barList(cfg, 'storage'),
     processes: cfg => barList(cfg, 'processes'),
     system(cfg) {
         const s = DemoData.SYSTEM;
-        return head(title(cfg, 'system'), s.uptime, INK) + `<div class="gw-kv">${[['OS', s.distro], ['Kernel', s.kernel], ['Host', s.hostname], ['Uptime', s.uptime]].map(([k, v]) => `<span>${k}</span><b>${esc(v)}</b>`).join('')}</div>`;
+        return head(title(cfg, 'system'), s.uptime, INK) + (cfg.osShowLogo !== false ? `<div class="gw-oshead"><i class="gw-snow">❄</i><span><b>${esc(s.distro)}</b><small>${esc(s.hostname)}</small></span></div>` : '') + `<div class="gw-kv">${[['OS', s.distro], ['Kernel', s.kernel], ['Host', s.hostname], ['Uptime', s.uptime]].map(([k, v]) => `<span>${k}</span><b>${esc(v)}</b>`).join('')}</div>`;
     }
 };
 
@@ -373,11 +406,15 @@ function pillChart(p, style, tint) {
 function pillHTML(cfg) {
     const style = cfg.panelStyle || 'values', lists = barLists(cfg);
     const tint = c => cfg.panelPlainText || !c ? TEXT : c;
-    const readings = Sections.panelIds(cfg).map(id => {
+    // Tray mode shows one reading at a time, as CompactRepresentation does.
+    const ids = Sections.panelIds(cfg), cycling = cfg.panelCycle && ids.length > 1;
+    const shownId = cycling ? ids[Math.floor(monitor.t / Math.max(1, cfg.panelCycleSeconds || 4)) % ids.length] : null;
+    const icon = id => cfg.panelIcons ? `<svg class="gw-picon" viewBox="0 0 24 24"><path d="${Sections.info(id).icon}"/></svg>` : '';
+    const readings = ids.filter(id => !cycling || id === shownId).map(id => {
         const p = SectionModels.pill(id, lists, cfg), two = p.lines.length > 1;
         const lines = p.lines.map(l => `<b style="color:${tint(l.color)}">${l.mark ? `<i>${esc(l.mark)}</i>` : ''}${esc(l.text)}</b>`).join('');
         const meter = style === 'values' && !two && p.ratio >= 0 ? `<span class="gw-pmeter" style="background:${tint(p.color)}33"><i style="width:${Math.min(1, p.ratio) * 100}%;background:${tint(p.color)}"></i></span>` : '';
-        return `<span class="gw-pr"><span class="gw-pv${two ? ' two' : ''}">${two ? '' : `<small>${esc(p.label)}</small>`}${lines}${meter}</span>${style !== 'values' && p.history.length > 1 ? pillChart(p, style, tint) : ''}</span>`;
+        return `<span class="gw-pr" style="color:${tint(p.color)}">${icon(id)}<span class="gw-pv${two ? ' two' : ''}">${two || cfg.panelIcons ? '' : `<small>${esc(p.label)}</small>`}${lines}${meter}</span>${style !== 'values' && p.history.length > 1 ? pillChart(p, style, tint) : ''}</span>`;
     }).join('');
     const card = cfg.panelHoverCard !== false && (pillHover || pillPinned) ? `<div class="gw-hover">${widgetHTML(cfg)}</div>` : '';
     return `<div class="gw-pwrap" style="--font:${cfg.fontFamily === 'monospace' ? 'ui-monospace,monospace' : '"Noto Sans"'}"><div class="gw-panel ${env}"><span class="gw-slot"></span><span class="gw-slot"></span><div class="gw-pill${cfg.panelShowBg ? ' bg' : ''}" title="Hover for the card, click to pin it">${readings}</div><span class="gw-slot"></span></div>${card}</div>`;
@@ -534,7 +571,7 @@ function renderSectionList(el, headHTML) {
     const list = $('.gs-list', el);
     let dragging = null;
     const styles = [['', 'Default']].concat(Schema.CHARTS.map(c => [c.style, c.label]));
-    const chartSections = ['cpu', 'memory', 'network', 'ping', 'disk', 'gpu', 'custom'];
+    const chartSections = ['cpu', 'memory', 'network', 'ping', 'disk', 'gpu', 'load', 'custom'];
     function commit(ids, patch = {}) { update({ sections: ids.join(','), ...patch }); }
     list.addEventListener('dragstart', e => { const row = e.target.closest('[data-id]'); dragging = row && row.dataset.id; e.dataTransfer.effectAllowed = 'move'; });
     list.addEventListener('dragover', e => { if (dragging) e.preventDefault(); });
@@ -627,7 +664,7 @@ function renderLookGallery(el) {
 function renderProjectInfo(el) {
     el.innerHTML = `<div class="gi">
       <div class="gi-head"><img src="assets/studio/icon.png" alt=""><div><h3>${esc(Project.name)}</h3><a href="${Project.profile}" target="_blank" rel="noopener">By ${esc(Project.author)} ↗</a></div></div>
-      <p class="rd">An open-source system monitor for Plasma and Hyprland: CPU, memory, network, ping, disks, GPU, sensors and power in one glass card.</p>
+      <p class="rd">An open-source system monitor for Plasma and Hyprland: CPU, memory, network, ping, disks, GPU, load, fans, sensors, power, services and containers in one glass card.</p>
       <div class="gi-stats">${Project.statistics.map(st => `<a href="${st.href}" target="_blank" rel="noopener"><b data-count="${st.id}">—</b><span>${esc(st.label)} ↗</span></a>`).join('')}</div>
       <div class="gi-card"><b>License · ${esc(Project.license)}</b><span class="rd">${esc(Project.licenseId)}</span></div>
       <h4>Support the project</h4>

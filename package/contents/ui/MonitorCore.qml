@@ -42,6 +42,38 @@ Item {
     readonly property bool showPowerSection: sampledIds.indexOf("power") !== -1
     readonly property bool showStorage: sampledIds.indexOf("storage") !== -1
     readonly property bool showProcesses: sampledIds.indexOf("processes") !== -1
+    readonly property bool showLoad: sampledIds.indexOf("load") !== -1
+    readonly property bool showFans: sampledIds.indexOf("fans") !== -1
+    readonly property bool showServices: sampledIds.indexOf("services") !== -1
+    readonly property bool showContainers: sampledIds.indexOf("containers") !== -1
+
+    // ── remote host ───────────────────────────────────────────────────────────
+    // With `remoteHost` set every probe runs there over one shared SSH
+    // connection (CommandSource wraps the commands) and the local
+    // ksystemstats daemon is left alone. The network window stays local.
+    readonly property string remoteHost: Probes.remoteHost(cfg.remoteHost)
+    // "" while the host answers (or no host is set), else why it does not.
+    property string remoteError: ""
+    ShellProbe {
+        sourceComponent: core.commandSourceComponent
+        remote: core.remoteHost
+        command: "echo glassy-ok"
+        interval: core._pollBase * 15
+        running: core.live && core.remoteHost !== ""
+        onResult: text => core.remoteError = text.indexOf("glassy-ok") !== -1 ? "" : "Cannot reach " + core.remoteHost + " (ssh with a key, no password prompt)"
+    }
+    onRemoteHostChanged: {
+        remoteError = "";
+        // Readings from the other machine must not run into this one's.
+        _procSnapshot = null;
+        _powerPrev = null;
+        lastCpuStats = null;
+        lastNetBytes = null;
+        _lastDiskStats = null;
+        _lastIfaceBytes = null;
+        if (showGpuSection && live)
+            detectGpu();
+    }
 
     function sectionTitle(id) {
         return Sections.title(id, cfg);
@@ -292,6 +324,7 @@ Item {
     // module is not installed — the Loader turns that into a status we can read.
     Loader {
         id: sensorLoader
+        active: core.remoteHost === ""
         // setSource rather than a source binding: the backend declares `host` as
         // a required property, which has to be supplied at creation time.
         Component.onCompleted: if (core.live)
@@ -339,6 +372,8 @@ Item {
         if (core.showCustomSection && core._phaseActive(core._custPhaseStart, core._custInterval))
             return true;
         if (core.showGpuSection && core._phaseActive(core._gpuPhaseStart, core._gpuInterval))
+            return true;
+        if (core.showLoad && core._phaseActive(core._loadPhaseStart, core._loadInterval))
             return true;
         return false;
     }
@@ -435,6 +470,7 @@ Item {
     CommandSource {
         id: pingSource
         sourceComponent: core.commandSourceComponent
+        remote: core.remoteHost
         onNewData: function (sourceName, data) {
             core.isPinging = false;
             pingSource.disconnectSource(sourceName);
@@ -626,6 +662,7 @@ Item {
     CommandSource {
         id: sysSource
         sourceComponent: core.commandSourceComponent
+        remote: core.remoteHost
         onNewData: function (sourceName, data) {
             core.isReadingSys = false;
             sysSource.disconnectSource(sourceName);
@@ -716,6 +753,7 @@ Item {
     CommandSource {
         id: netInfoSource
         sourceComponent: core.commandSourceComponent
+        remote: core.remoteHost
         onNewData: function (sourceName, data) {
             core.isReadingNetInfo = false;
             netInfoSource.disconnectSource(sourceName);
@@ -755,6 +793,7 @@ Item {
     property var _lastIfaceBytes: null
     ShellProbe {
         sourceComponent: core.commandSourceComponent
+        remote: core.remoteHost
         command: Probes.INTERFACES_CMD
         interval: core._pollBase * 10
         running: core.showNetworkSpeed && core.live
@@ -765,6 +804,7 @@ Item {
     property var storage: []
     ShellProbe {
         sourceComponent: core.commandSourceComponent
+        remote: core.remoteHost
         command: Probes.STORAGE_CMD
         interval: core._pollBase * 15
         running: core.showStorage && core.active && core.live
@@ -775,7 +815,9 @@ Item {
     property var processes: []
     property var _procSnapshot: null
     ShellProbe {
+        id: processProbe
         sourceComponent: core.commandSourceComponent
+        remote: core.remoteHost
         command: Probes.PROCESSES_CMD
         interval: core._pollBase * 3
         running: core.showProcesses && core.active && core.live
@@ -784,6 +826,112 @@ Item {
             if (core._procSnapshot)
                 core.processes = Probes.topProcesses(core._procSnapshot, next, cfg.processCount || 5, cfg.processSort || "cpu", cfg.processGroup !== false);
             core._procSnapshot = next;
+        }
+    }
+
+    // ── One-off actions (end a process, switch power profile) ─────────────────
+    // The reply only matters as "done": the next poll shows the result.
+    property string lastActionError: ""
+    CommandSource {
+        id: actionSource
+        sourceComponent: core.commandSourceComponent
+        remote: core.remoteHost
+        onNewData: function (sourceName, data) {
+            actionSource.disconnectSource(sourceName);
+            core.lastActionError = String(data["stdout"] || "").trim().split("\n")[0].slice(0, 160);
+            processProbe.poll();
+            powerTimer.restart();
+            core.triggerPower();
+        }
+    }
+    function runAction(command) {
+        if (!command || !core.live)
+            return;
+        // A unique suffix, so repeating the same action is a new source.
+        actionSource.connectSource(OsFetch.shellCmd(command + " # " + Date.now()));
+    }
+    function killProcesses(pids, force) {
+        runAction(Probes.killCmd(pids, force));
+    }
+    function setPowerProfile(name) {
+        if (name === powerProfile)
+            return;
+        powerProfile = name;
+        runAction(Probes.setProfileCmd(name));
+    }
+
+    // ── Load and uptime ───────────────────────────────────────────────────────
+    // The kernel refreshes the averages every five seconds.
+    property var loadInfo: null
+    property var load1History: []
+    property var load5History: []
+    property var load15History: []
+    SampleClock {
+        id: loadClock
+        sampleInterval: 5000
+        minInterval: 1000
+        maxInterval: 60000
+        smooth: !!cfg.smoothScroll
+    }
+    property alias loadClock: loadClock
+    readonly property real _loadPhaseStart: loadClock.phaseStart
+    readonly property real _loadInterval: loadClock.interval
+    ShellProbe {
+        sourceComponent: core.commandSourceComponent
+        remote: core.remoteHost
+        command: Probes.LOAD_CMD
+        interval: Math.max(2000, core._pollBase * 5)
+        running: core.showLoad && core.active && core.live
+        onResult: text => core.applyLoadSample(Probes.parseLoad(text))
+    }
+    function applyLoadSample(info) {
+        if (!info)
+            return;
+        loadInfo = info;
+        load1History = appendHistory(load1History, info.load1);
+        load5History = appendHistory(load5History, info.load5);
+        load15History = appendHistory(load15History, info.load15);
+        loadClock.sample();
+        _ensureScrollTicker();
+    }
+
+    // ── Fans ──────────────────────────────────────────────────────────────────
+    // From the same `sensors -j` read as the sensors section.
+    property var fans: []
+    property var fanPeaks: ({})
+    property bool fansRead: false
+
+    // ── systemd units ─────────────────────────────────────────────────────────
+    property var services: null
+    property bool servicesRead: false
+    ShellProbe {
+        sourceComponent: core.commandSourceComponent
+        remote: core.remoteHost
+        command: Probes.servicesCmd(cfg.serviceUnits || "")
+        interval: core._pollBase * 10
+        running: core.showServices && core.active && core.live
+        onResult: text => {
+            core.services = Probes.parseServices(text);
+            core.servicesRead = true;
+        }
+    }
+
+    // ── Containers and pods ───────────────────────────────────────────────────
+    property var containerInfo: null
+    property bool containersRead: false
+    ShellProbe {
+        sourceComponent: core.commandSourceComponent
+        remote: core.remoteHost
+        command: Probes.containersCmd({
+            containers: cfg.containerSource !== "kubernetes",
+            kubernetes: cfg.containerSource !== "containers",
+            namespace: cfg.kubeNamespace || ""
+        })
+        interval: core._pollBase * 6
+        running: core.showContainers && core.active && core.live
+        onResult: text => {
+            core.containerInfo = Probes.parseContainerList(text);
+            core.containersRead = true;
         }
     }
 
@@ -1037,6 +1185,7 @@ Item {
     CommandSource {
         id: customSource
         sourceComponent: core.commandSourceComponent
+        remote: core.remoteHost
         onNewData: function (sourceName, data) {
             core.isReadingCustom = false;
             customSource.disconnectSource(sourceName);
@@ -1193,6 +1342,7 @@ Item {
     CommandSource {
         id: gpuDetectSource
         sourceComponent: core.commandSourceComponent
+        remote: core.remoteHost
         onNewData: function (sourceName, data) {
             gpuDetectSource.disconnectSource(sourceName);
             const out = (data["stdout"] || "").trim();
@@ -1217,6 +1367,7 @@ Item {
     CommandSource {
         id: gpuSource
         sourceComponent: core.commandSourceComponent
+        remote: core.remoteHost
         onNewData: function (sourceName, data) {
             core.isReadingGpu = false;
             gpuSource.disconnectSource(sourceName);
@@ -1510,16 +1661,25 @@ Item {
     CommandSource {
         id: hwSensorsSource
         sourceComponent: core.commandSourceComponent
+        remote: core.remoteHost
         onNewData: function (sourceName, data) {
             core.isReadingHwSensors = false;
             hwSensorsSource.disconnectSource(sourceName);
-            core.applyHwSensorUpdate(core.parseHwSensorsJson(data["stdout"] || ""));
+            const text = data["stdout"] || "";
+            if (core.showHwSensors)
+                core.applyHwSensorUpdate(core.parseHwSensorsJson(text));
+            if (core.showFans) {
+                const peaks = Object.assign({}, core.fanPeaks);
+                core.fans = Probes.parseFans(text, peaks);
+                core.fanPeaks = peaks;
+                core.fansRead = true;
+            }
         }
     }
 
     Timer {
         interval: core._pollBase * 3
-        running: core.showHwSensors && core.active
+        running: (core.showHwSensors || core.showFans) && core.active && core.live
         repeat: true
         triggeredOnStart: true
         onTriggered: {
@@ -1531,38 +1691,7 @@ Item {
     }
 
     function friendlyChipName(n) {
-        const s = n.toLowerCase();
-        if (s.startsWith("coretemp"))
-            return "CPU (Intel)";
-        if (s.startsWith("k10temp"))
-            return "CPU (AMD)";
-        if (s.startsWith("zenpower"))
-            return "CPU (AMD Zen)";
-        if (s.startsWith("k8temp"))
-            return "CPU (AMD K8)";
-        if (s.startsWith("nvme"))
-            return "NVMe SSD";
-        if (s.startsWith("amdgpu"))
-            return "GPU (AMD)";
-        if (s.startsWith("nouveau"))
-            return "GPU (Nouveau)";
-        if (s.startsWith("radeon"))
-            return "GPU (Radeon)";
-        if (s.startsWith("i915"))
-            return "GPU (Intel)";
-        if (s.startsWith("acpitz"))
-            return "ACPI Thermal";
-        if (s.startsWith("iwlwifi"))
-            return "Wi-Fi";
-        if (s.startsWith("drivetemp"))
-            return "Drive";
-        if (s.startsWith("hddtemp"))
-            return "HDD";
-        if (s.startsWith("ucsi"))
-            return "USB-PD";
-        if (s.startsWith("nct") || s.startsWith("it8") || s.startsWith("w83") || s.startsWith("f71") || s.startsWith("nuvoton"))
-            return "Motherboard";
-        return n;
+        return Probes.chipName(n);
     }
 
     function parseHwSensorsJson(text) {
@@ -1770,6 +1899,7 @@ Item {
     CommandSource {
         id: osInfoSource
         sourceComponent: core.commandSourceComponent
+        remote: core.remoteHost
         onNewData: function (sourceName, data) {
             osInfoSource.disconnectSource(sourceName);
             const lines = (data["stdout"] || "").split('\n');
@@ -1777,6 +1907,10 @@ Item {
             core.osKernel = (lines[1] || "").trim();
             core.osHostname = (lines[2] || "").trim();
             core.osUptime = (lines[3] || "").trim();
+            // The fetch tool reports the same name; either may come first.
+            const logo = (lines[4] || "").trim();
+            if (/^[A-Za-z0-9._-]+$/.test(logo))
+                core.osLogoIcon = logo;
         }
     }
 
@@ -1786,7 +1920,7 @@ Item {
         repeat: true
         triggeredOnStart: true
         onTriggered: {
-            const cmd = "grep -m1 PRETTY_NAME /etc/os-release 2>/dev/null | cut -d= -f2 | tr -d '\"'; " + "uname -r 2>/dev/null; " + "cat /etc/hostname 2>/dev/null || hostname 2>/dev/null; " + "awk '{d=int($1/86400);h=int(($1%86400)/3600);m=int(($1%3600)/60);" + "if(d>0)printf \"%dd %dh %dm\\n\",d,h,m;" + "else if(h>0)printf \"%dh %dm\\n\",h,m;" + "else printf \"%dm\\n\",m}' /proc/uptime 2>/dev/null";
+            const cmd = "grep -m1 PRETTY_NAME /etc/os-release 2>/dev/null | cut -d= -f2 | tr -d '\"'; " + "uname -r 2>/dev/null; " + "cat /etc/hostname 2>/dev/null || hostname 2>/dev/null; " + "awk '{d=int($1/86400);h=int(($1%86400)/3600);m=int(($1%3600)/60);" + "if(d>0)printf \"%dd %dh %dm\\n\",d,h,m;" + "else if(h>0)printf \"%dh %dm\\n\",h,m;" + "else printf \"%dm\\n\",m}' /proc/uptime 2>/dev/null; " + "(. /etc/os-release 2>/dev/null; echo \"${LOGO:-$ID}\")";
             osInfoSource.connectSource(OsFetch.shellCmd(cmd));
         }
     }
@@ -1810,6 +1944,7 @@ Item {
     CommandSource {
         id: osFetchSource
         sourceComponent: core.commandSourceComponent
+        remote: core.remoteHost
         onNewData: function (sourceName, data) {
             core.isReadingOsFetch = false;
             osFetchSource.disconnectSource(sourceName);
@@ -1846,6 +1981,9 @@ Item {
     property int batteryPercent: 0
     property string batteryStatus: ""
     property bool batteryPresent: false
+    property string batteryModel: ""
+    // 1 on mains, 0 on battery, -1 unknown (no charger reported).
+    property int acOnline: -1
     // Power draw: signed W. Positive = charging, negative = discharging, 0 = idle/full.
     property real batteryPowerW: 0
     property int batteryCycles: -1            // -1 = unknown
@@ -1853,122 +1991,109 @@ Item {
     property real batteryTempC: -999          // -999 = unknown
     property real batteryTimeRemainHours: 0   // 0 = unknown / N/A
     property var batteryPowerHistory: []      // |W| samples for sparkline
+    property var batteryPercentHistory: []
+    property var batteryTempHistory: []
+    // Measured draw from energy counters and power sensors (RAPL, amdgpu,
+    // nvidia-smi): [{ id, label, watts }], and the machine's load from them.
+    property var powerSources: []
+    property real powerLoadW: 0
+    property var powerLoadHistory: []
+    readonly property bool hasPowerSensors: powerSources.length > 0
+    // power-profiles-daemon: the active profile and the ones offered.
+    property string powerProfile: ""
+    property var powerProfiles: []
     property real cpuPressureAvg10: 0
     property real memPressureAvg10: 0
     property bool isReadingPower: false
+    property var _powerPrev: null
 
     CommandSource {
         id: powerSource
         sourceComponent: core.commandSourceComponent
+        remote: core.remoteHost
         onNewData: function (sourceName, data) {
             core.isReadingPower = false;
             powerSource.disconnectSource(sourceName);
-            core.parsePowerData(data["stdout"] || "");
+            core.applyPower(Probes.parsePower(data["stdout"] || ""), Date.now());
         }
     }
 
+    function triggerPower() {
+        if (core.isReadingPower || !core.showPowerSection || !core.live)
+            return;
+        core.isReadingPower = true;
+        powerSource.connectSource(OsFetch.shellCmd(Probes.powerCmd({
+            nvidia: core.gpuMode === "nvidia",
+            profiles: core.powerProfiles.length === 0
+        })));
+    }
     Timer {
-        interval: core._pollBase * 5
-        running: core.showPowerSection && core.active
+        id: powerTimer
+        interval: Math.max(2000, core._pollBase * 3)
+        running: core.showPowerSection && core.active && core.live
         repeat: true
         triggeredOnStart: true
-        onTriggered: {
-            if (!core.isReadingPower) {
-                core.isReadingPower = true;
-                const cmd = "for p in /sys/class/power_supply/BAT0 /sys/class/power_supply/BAT1 " + "/sys/class/power_supply/battery /sys/class/power_supply/BATT; do " + "[ -f $p/capacity ] || continue; " + "echo bat=$(cat $p/capacity 2>/dev/null); " + "echo status=$(cat $p/status 2>/dev/null); " + "[ -f $p/cycle_count ] && echo cycles=$(cat $p/cycle_count 2>/dev/null); " + "[ -f $p/temp ] && echo temp=$(cat $p/temp 2>/dev/null); " + "en=$(cat $p/energy_now 2>/dev/null); " + "ef=$(cat $p/energy_full 2>/dev/null); " + "ed=$(cat $p/energy_full_design 2>/dev/null); " + "if [ -n \"$en\" ]; then echo useEnergy=1; else en=$(cat $p/charge_now 2>/dev/null); ef=$(cat $p/charge_full 2>/dev/null); ed=$(cat $p/charge_full_design 2>/dev/null); echo useEnergy=0; fi; " + "echo enow=${en:-0}; echo efull=${ef:-0}; echo edesign=${ed:-0}; " + "pw=$(cat $p/power_now 2>/dev/null); " + "if [ -z \"$pw\" ]; then v=$(cat $p/voltage_now 2>/dev/null); c=$(cat $p/current_now 2>/dev/null); " + "[ -n \"$v\" ] && [ -n \"$c\" ] && pw=$(awk -v v=\"$v\" -v c=\"$c\" 'BEGIN{printf \"%d\", v*c/1000000}'); fi; " + "echo power=${pw:-0}; break; done; " + "[ -f /proc/pressure/cpu ] && sed 's/^/cpu /' /proc/pressure/cpu 2>/dev/null | head -1; " + "[ -f /proc/pressure/memory ] && sed 's/^/mem /' /proc/pressure/memory 2>/dev/null | head -1";
-                powerSource.connectSource(OsFetch.shellCmd(cmd));
-            }
-        }
+        onTriggered: core.triggerPower()
     }
 
-    function parsePowerData(text) {
-        let bat = -1, status = '', powerUW = 0;
-        let cycles = -1, tempDeci = -9999;
-        let enow = 0, efull = 0, edesign = 0, useEnergy = false;
-        let cpuAvg10 = 0, memAvg10 = 0;
-
-        for (const line of text.split('\n')) {
-            const t = line.trim();
-            if (t.startsWith('bat=')) {
-                const v = parseInt(t.slice(4));
-                if (!isNaN(v) && v >= 0)
-                    bat = v;
-            } else if (t.startsWith('status=')) {
-                status = t.slice(7);
-            } else if (t.startsWith('cycles=')) {
-                const v = parseInt(t.slice(7));
-                if (!isNaN(v))
-                    cycles = v;
-            } else if (t.startsWith('temp=')) {
-                const v = parseInt(t.slice(5));
-                if (!isNaN(v))
-                    tempDeci = v;
-            } else if (t.startsWith('enow=')) {
-                const v = parseInt(t.slice(5));
-                if (!isNaN(v))
-                    enow = v;
-            } else if (t.startsWith('efull=')) {
-                const v = parseInt(t.slice(6));
-                if (!isNaN(v))
-                    efull = v;
-            } else if (t.startsWith('edesign=')) {
-                const v = parseInt(t.slice(8));
-                if (!isNaN(v))
-                    edesign = v;
-            } else if (t.startsWith('useEnergy=')) {
-                useEnergy = t.slice(10) === '1';
-            } else if (t.startsWith('power=')) {
-                const v = parseInt(t.slice(6));
-                if (!isNaN(v))
-                    powerUW = v;
-            } else if (t.startsWith('cpu some')) {
-                const m = t.match(/avg10=(\d+\.?\d*)/);
-                if (m)
-                    cpuAvg10 = parseFloat(m[1]);
-            } else if (t.startsWith('mem some')) {
-                const m = t.match(/avg10=(\d+\.?\d*)/);
-                if (m)
-                    memAvg10 = parseFloat(m[1]);
-            }
-        }
-
-        core.batteryPresent = bat >= 0;
-        if (bat >= 0)
-            core.batteryPercent = bat;
-        if (status)
-            core.batteryStatus = status;
+    function applyPower(p, now) {
+        core.batteryPresent = p.battery >= 0;
+        if (p.battery >= 0)
+            core.batteryPercent = p.battery;
+        if (p.status)
+            core.batteryStatus = p.status;
+        core.batteryModel = p.model;
+        core.acOnline = p.ac;
 
         // Sign convention: + when charging, - when discharging. sysfs power_now
         // is usually unsigned and we infer direction from status.
-        let pw = Math.abs(powerUW) / 1000000.0;
-        if (status === 'Discharging')
+        let pw = Math.abs(p.powerUW) / 1000000.0;
+        if (p.status === 'Discharging')
             pw = -pw;
-        else if (status !== 'Charging')
-            pw = (status === 'Full' || pw < 0.05) ? 0 : pw;
+        else if (p.status !== 'Charging')
+            pw = (p.status === 'Full' || pw < 0.05) ? 0 : pw;
         core.batteryPowerW = pw;
-
-        // History for sparkline (absolute value)
-        core.batteryPowerHistory = core.appendHistory(core.batteryPowerHistory, Math.abs(pw));
-
-        // Diagnostics
-        core.batteryCycles = cycles;
-        core.batteryTempC = tempDeci > -1000 ? tempDeci / 10.0 : -999;
-        core.batteryHealthPct = (edesign > 0 && efull > 0) ? (efull / edesign * 100.0) : 0;
-
+        core.batteryCycles = p.cycles;
+        core.batteryTempC = p.tempDeci > -1000 ? p.tempDeci / 10.0 : -999;
+        core.batteryHealthPct = (p.edesign > 0 && p.efull > 0) ? (p.efull / p.edesign * 100.0) : 0;
         // Time remaining only when units are µWh and we actually have power flow
-        if (useEnergy && Math.abs(powerUW) > 1000 && enow > 0 && efull > 0) {
-            if (status === 'Discharging')
-                core.batteryTimeRemainHours = enow / Math.abs(powerUW);
-            else if (status === 'Charging' && efull > enow)
-                core.batteryTimeRemainHours = (efull - enow) / Math.abs(powerUW);
+        if (p.useEnergy && Math.abs(p.powerUW) > 1000 && p.enow > 0 && p.efull > 0) {
+            if (p.status === 'Discharging')
+                core.batteryTimeRemainHours = p.enow / Math.abs(p.powerUW);
+            else if (p.status === 'Charging' && p.efull > p.enow)
+                core.batteryTimeRemainHours = (p.efull - p.enow) / Math.abs(p.powerUW);
             else
                 core.batteryTimeRemainHours = 0;
         } else {
             core.batteryTimeRemainHours = 0;
         }
+        if (core.batteryPresent) {
+            core.batteryPowerHistory = core.appendHistory(core.batteryPowerHistory, Math.abs(pw));
+            core.batteryPercentHistory = core.appendHistory(core.batteryPercentHistory, core.batteryPercent);
+            if (core.batteryTempC > -100)
+                core.batteryTempHistory = core.appendHistory(core.batteryTempHistory, core.batteryTempC);
+        }
 
-        core.cpuPressureAvg10 = cpuAvg10;
-        core.memPressureAvg10 = memAvg10;
+        const prev = core._powerPrev;
+        const sources = Probes.powerSources(prev ? prev.p : null, p, prev ? (now - prev.t) / 1000 : 0);
+        core._powerPrev = {
+            p: p,
+            t: now
+        };
+        // The first read has counters but no rate yet: keep the old list.
+        if (sources.list.length || !prev) {
+            core.powerSources = sources.list;
+            core.powerLoadW = sources.load;
+            if (sources.list.length)
+                core.powerLoadHistory = core.appendHistory(core.powerLoadHistory, sources.load);
+        }
+
+        if (p.profile)
+            core.powerProfile = p.profile;
+        if (p.profiles)
+            core.powerProfiles = p.profiles;
+        core.cpuPressureAvg10 = p.cpuPressure;
+        core.memPressureAvg10 = p.memPressure;
     }
 
     // ── shared interaction state ──────────────────────────────────────────────

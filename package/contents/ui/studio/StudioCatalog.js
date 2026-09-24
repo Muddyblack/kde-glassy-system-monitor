@@ -55,6 +55,10 @@ var StudioCatalog = {
         {"id": "system", "label": "System", "icon": "M4 5h16v11H4zM8 20h8M12 16v4"},
         {"id": "storage", "label": "Storage", "icon": "M4 14h16v5H4zM4 14l2.5-8h11l2.5 8M7 16.5h3"},
         {"id": "processes", "label": "Processes", "icon": "M4 6h9M4 12h13M4 18h6M17 5v3M20 9v11M14 15v5"},
+        {"id": "load", "label": "Load", "icon": "M4 19h16M6 16l4-5 3 3 5-7M4 5v14"},
+        {"id": "fans", "label": "Fans", "icon": "M12 12m-2 0a2 2 0 1 0 4 0 2 2 0 1 0-4 0M12 10c0-4 1-7 4-7 2 0 2 3 0 5l-2 2M14 12c4 0 7 1 7 4 0 2-3 2-5 0l-2-2M12 14c0 4-1 7-4 7-2 0-2-3 0-5l2-2M10 12c-4 0-7-1-7-4 0-2 3-2 5 0l2 2"},
+        {"id": "services", "label": "Services", "icon": "M12 3l8 4.5v9L12 21l-8-4.5v-9zM12 12l8-4.5M12 12v9M12 12L4 7.5"},
+        {"id": "containers", "label": "Containers", "icon": "M3 9h18v10H3zM3 9l2-4h14l2 4M8 9v10M13 9v10M18 9v10"},
         {"id": "custom", "label": "Custom", "icon": "M5 8l4 4-4 4M11 16h8"},
         {"id": "performance", "label": "Performance", "icon": "M12 13l4-4M4 17a8 8 0 1 1 16 0M12 13a1 1 0 1 0 0 .1"},
         {"id": "about", "label": "Info", "icon": "M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0zM12 11v6M12 7.5v.5"}

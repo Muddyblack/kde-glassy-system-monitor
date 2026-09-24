@@ -13,7 +13,7 @@ Column {
     readonly property var order: enabledIds.concat(Sections.IDS.filter(id => enabledIds.indexOf(id) === -1))
     readonly property var styles: Schema.parseStyles(studio.draft.sectionStyles)
     readonly property var styleOptions: [["", "Default"]].concat(Schema.CHARTS.map(c => [c.style, c.label]))
-    readonly property var chartSections: ["cpu", "memory", "network", "ping", "disk", "gpu", "custom"]
+    readonly property var chartSections: ["cpu", "memory", "network", "ping", "disk", "gpu", "load", "custom"]
     readonly property var spans: Schema.fields(studio.draft.sectionSpans)
     readonly property bool gridded: (studio.draft.layoutColumns || 1) > 1
     readonly property real rowStep: 46 + spacing

@@ -5,7 +5,7 @@
       http://www.kde.org/standards/kcfg/1.0/kcfg.xsd">
     <kcfgfile name=""/>
     <group name="General">
-        <!-- Sections shown, in order: cpu,memory,network,ping,disk,gpu,sensors,power,system,custom.
+        <!-- Sections shown, in order: cpu,memory,network,ping,disk,gpu,sensors,power,system,storage,processes,load,fans,services,containers,custom.
              Empty falls back to the single legacy activeSection below. -->
         <entry name="sections" type="String">
             <default></default>
@@ -229,6 +229,85 @@
         </entry>
         <entry name="processColor" type="String">
             <default>#4aa8ff</default>
+        </entry>
+        <!-- Load average and uptime (/proc/loadavg). -->
+        <entry name="loadTitle" type="String">
+            <default>Load</default>
+        </entry>
+        <entry name="loadColor" type="String">
+            <default>#ffb347</default>
+        </entry>
+        <!-- Fans (lm-sensors). -->
+        <entry name="fansTitle" type="String">
+            <default>Fans</default>
+        </entry>
+        <entry name="fanColor" type="String">
+            <default>#66ccff</default>
+        </entry>
+        <!-- systemd: failed units, plus the units listed here ("sshd, docker, user:syncthing"). -->
+        <entry name="servicesTitle" type="String">
+            <default>Services</default>
+        </entry>
+        <entry name="serviceColor" type="String">
+            <default>#44dd88</default>
+        </entry>
+        <entry name="serviceUnits" type="String">
+            <default></default>
+        </entry>
+        <!-- Containers: "all", "containers" (Docker/Podman) or "kubernetes"; empty namespace = all. -->
+        <entry name="containersTitle" type="String">
+            <default>Containers</default>
+        </entry>
+        <entry name="containerColor" type="String">
+            <default>#2496ed</default>
+        </entry>
+        <entry name="containerSource" type="String">
+            <default>all</default>
+        </entry>
+        <entry name="kubeNamespace" type="String">
+            <default></default>
+        </entry>
+        <entry name="containerShowStopped" type="Bool">
+            <default>false</default>
+        </entry>
+        <entry name="containerSort" type="String">
+            <default>cpu</default>
+        </entry>
+        <entry name="containerCount" type="Int">
+            <default>8</default>
+        </entry>
+        <!-- Power section: chart tab (power, battery, temp) and what shows below it. -->
+        <entry name="powerChart" type="String">
+            <default>power</default>
+        </entry>
+        <entry name="powerShowProfiles" type="Bool">
+            <default>true</default>
+        </entry>
+        <entry name="powerShowSources" type="Bool">
+            <default>true</default>
+        </entry>
+        <entry name="powerShowPressure" type="Bool">
+            <default>true</default>
+        </entry>
+        <entry name="powerColor" type="String">
+            <default>#88ddff</default>
+        </entry>
+        <entry name="powerLoadColor" type="String">
+            <default>#ffaa22</default>
+        </entry>
+        <!-- Panel pill as a tray: one section at a time, turning every panelCycleSeconds; icons instead of captions. -->
+        <entry name="panelCycle" type="Bool">
+            <default>false</default>
+        </entry>
+        <entry name="panelCycleSeconds" type="Int">
+            <default>4</default>
+        </entry>
+        <entry name="panelIcons" type="Bool">
+            <default>false</default>
+        </entry>
+        <!-- Read another machine over SSH ("user@host" or an ssh config alias); empty = this one. -->
+        <entry name="remoteHost" type="String">
+            <default></default>
         </entry>
         <entry name="surfaceStyle" type="String">
             <default>tint</default>

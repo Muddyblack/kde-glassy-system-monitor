@@ -31,8 +31,9 @@
   <img src="./docs/readme/look-dashboard.png" alt="The Dashboard look: CPU, memory, network, disk and GPU in one card" width="640"/>
 </p>
 
-One widget for CPU, memory, network, ping, disk, GPU, storage, processes, sensors, power,
-system info and your own commands, in the order and layout you want. Charts run on the GPU,
+One widget for CPU, memory, network, ping, disk, GPU, storage, processes, load, fans, sensors,
+power, systemd services, containers and Kubernetes pods, system info and your own commands, in
+the order and layout you want, for this machine or another one over SSH. Charts run on the GPU,
 and everything is set up in a studio with a live preview. Works on KDE Plasma 6 and on
 Hyprland through Quickshell.
 

@@ -144,7 +144,7 @@ Column {
     }
     Text {
         width: parent.width
-        text: "An open-source system monitor for Plasma and Hyprland: CPU, memory, network, ping, disks, GPU, sensors and power in one glass card. Explore the project, get updates, or help improve it."
+        text: "An open-source system monitor for Plasma and Hyprland: CPU, memory, network, ping, disks, GPU, load, fans, sensors, power, services and containers in one glass card. Explore the project, get updates, or help improve it."
         wrapMode: Text.WordWrap
         color: Theme.muted
         font.family: Theme.fontFamily

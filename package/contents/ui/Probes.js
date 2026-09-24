@@ -159,9 +159,10 @@ function topProcesses(prev, next, count, sort, group) {
         var key = group ? p.name : pid;
         var row = rows[key];
         if (!row) {
-            row = rows[key] = { name: p.name, pid: Number(pid), count: 0, cpu: 0, memory: 0 };
+            row = rows[key] = { name: p.name, pid: Number(pid), pids: [], count: 0, cpu: 0, memory: 0 };
             list.push(row);
         }
+        row.pids.push(Number(pid));
         row.count++;
         row.cpu += cpu;
         row.memory += p.rss;
@@ -171,6 +172,423 @@ function topProcesses(prev, next, count, sort, group) {
     });
     list.sort(sort === "memory" ? function (a, b) { return b.memory - a.memory; } : function (a, b) { return b.cpu - a.cpu || b.memory - a.memory; });
     return list.slice(0, Math.max(1, count || 5));
+}
+
+// POSIX single quotes around any string.
+function quote(s) {
+    return "'" + String(s).replace(/'/g, "'\\''") + "'";
+}
+
+// Ends a process row: SIGTERM, or SIGKILL when `force`. Only whole pids
+// above 1 reach the shell; other users' processes simply refuse.
+function killCmd(pids, force) {
+    var list = (pids || []).map(Number).filter(function (p) { return p > 1 && Math.floor(p) === p; });
+    return list.length ? "kill -" + (force ? "KILL" : "TERM") + " " + list.join(" ") + " 2>&1" : "";
+}
+
+// ── Load and uptime ──────────────────────────────────────────────────────────
+var LOAD_CMD = "cat /proc/loadavg /proc/uptime; nproc 2>/dev/null || getconf _NPROCESSORS_ONLN";
+
+// { load1, load5, load15, running, tasks, uptime (s), cpus }, or null.
+function parseLoad(text) {
+    var lines = String(text || "").trim().split("\n");
+    var l = (lines[0] || "").trim().split(/\s+/);
+    if (l.length < 4 || isNaN(Number(l[0])))
+        return null;
+    var tasks = l[3].split("/");
+    return {
+        load1: Number(l[0]) || 0,
+        load5: Number(l[1]) || 0,
+        load15: Number(l[2]) || 0,
+        // The reading itself is one of the running tasks.
+        running: Math.max(0, (parseInt(tasks[0]) || 1) - 1),
+        tasks: parseInt(tasks[1]) || 0,
+        uptime: parseFloat(String(lines[1] || "").split(" ")[0]) || 0,
+        cpus: Math.max(1, parseInt(lines[2]) || 1)
+    };
+}
+
+// ── Sensor chips and fans (lm-sensors JSON) ──────────────────────────────────
+function chipName(n) {
+    var s = String(n).toLowerCase();
+    var names = [["coretemp", "CPU (Intel)"], ["k10temp", "CPU (AMD)"], ["zenpower", "CPU (AMD Zen)"], ["k8temp", "CPU (AMD K8)"], ["nvme", "NVMe SSD"],
+        ["amdgpu", "GPU (AMD)"], ["nouveau", "GPU (Nouveau)"], ["radeon", "GPU (Radeon)"], ["i915", "GPU (Intel)"], ["acpitz", "ACPI Thermal"],
+        ["iwlwifi", "Wi-Fi"], ["drivetemp", "Drive"], ["hddtemp", "HDD"], ["ucsi", "USB-PD"], ["thinkpad", "ThinkPad"], ["dell_smm", "Dell"],
+        ["asus", "ASUS"], ["applesmc", "Apple SMC"], ["nct", "Motherboard"], ["it8", "Motherboard"], ["w83", "Motherboard"], ["f71", "Motherboard"], ["nuvoton", "Motherboard"]];
+    for (var i = 0; i < names.length; i++)
+        if (s.indexOf(names[i][0]) === 0)
+            return names[i][1];
+    return String(n);
+}
+
+// Every fan in `sensors -j` output: [{ key, chip, label, rpm, max }]. A fan
+// reading 0 RPM shows only once it was seen turning (`peaks`, key → highest
+// RPM so far, updated in place): boards report every empty header as 0,
+// while a GPU fan that stops at idle has spun before.
+function parseFans(text, peaks) {
+    var data;
+    try {
+        data = typeof text === "string" ? JSON.parse(text) : text;
+    } catch (e) {
+        return [];
+    }
+    var out = [];
+    peaks = peaks || {};
+    for (var chip in data) {
+        var c = data[chip];
+        if (!c || typeof c !== "object")
+            continue;
+        for (var label in c) {
+            var sd = c[label];
+            if (!sd || typeof sd !== "object")
+                continue;
+            for (var k in sd) {
+                var m = /^(fan\d+)_input$/.exec(k);
+                if (!m || typeof sd[k] !== "number")
+                    continue;
+                var key = chip + ":" + label, rpm = Math.max(0, Math.round(sd[k]));
+                peaks[key] = Math.max(peaks[key] || 0, rpm);
+                if (peaks[key] > 0)
+                    out.push({ key: key, chip: chipName(chip), label: label, rpm: rpm, max: Number(sd[m[1] + "_max"]) > rpm ? Number(sd[m[1] + "_max"]) : 0 });
+            }
+        }
+    }
+    return out;
+}
+
+// ── systemd units ────────────────────────────────────────────────────────────
+// "sshd, docker.service, user:syncthing" → [{ name, user }]; anything that is
+// not a plain unit name is dropped before it could reach a shell.
+function serviceList(text) {
+    var out = [];
+    String(text || "").split(",").forEach(function (part) {
+        var s = part.trim(), user = false;
+        if (s.indexOf("user:") === 0) {
+            user = true;
+            s = s.slice(5).trim();
+        }
+        if (/^[A-Za-z0-9@._\\:-]+$/.test(s))
+            out.push({ name: s, user: user });
+    });
+    return out;
+}
+
+function servicesCmd(units) {
+    var list = serviceList(units);
+    var sys = list.filter(function (u) { return !u.user; }).map(function (u) { return quote(u.name); });
+    var usr = list.filter(function (u) { return u.user; }).map(function (u) { return quote(u.name); });
+    var props = " show --no-pager -p Id,LoadState,ActiveState,SubState,Description ";
+    return "echo @@failed; systemctl --failed --no-legend --plain --no-pager 2>/dev/null; "
+        + "echo @@ufailed; systemctl --user --failed --no-legend --plain --no-pager 2>/dev/null; "
+        + "echo @@running; systemctl list-units --type=service --state=running --no-legend --plain --no-pager 2>/dev/null | wc -l"
+        + (sys.length ? "; echo @@show; systemctl" + props + sys.join(" ") + " 2>/dev/null" : "")
+        + (usr.length ? "; echo @@ushow; systemctl --user" + props + usr.join(" ") + " 2>/dev/null" : "");
+}
+
+// → { failed [{ name, user, desc }], running, units [{ name, user, load,
+// active, sub, desc }] }
+function parseServices(text) {
+    var out = { failed: [], running: 0, units: [] }, part = "", unit = null;
+    var flush = function () {
+        if (unit && unit.name)
+            out.units.push(unit);
+        unit = null;
+    };
+    String(text || "").split("\n").forEach(function (line) {
+        var m = /^@@(failed|ufailed|running|show|ushow)\s*$/.exec(line);
+        if (m) {
+            flush();
+            part = m[1];
+            return;
+        }
+        var t = line.trim();
+        if (part === "failed" || part === "ufailed") {
+            var f = t.replace(/^[●*]\s*/, "").split(/\s+/);
+            if (f.length >= 4 && f[0])
+                out.failed.push({ name: f[0], user: part === "ufailed", desc: f.slice(4).join(" ") });
+        } else if (part === "running") {
+            if (/^\d+$/.test(t))
+                out.running = parseInt(t);
+        } else if (part === "show" || part === "ushow") {
+            if (!t) {
+                flush();
+                return;
+            }
+            var eq = t.indexOf("=");
+            if (eq < 0)
+                return;
+            unit = unit || { name: "", user: part === "ushow", load: "", active: "", sub: "", desc: "" };
+            var k = t.slice(0, eq), v = t.slice(eq + 1);
+            if (k === "Id")
+                unit.name = v;
+            else if (k === "LoadState")
+                unit.load = v;
+            else if (k === "ActiveState")
+                unit.active = v;
+            else if (k === "SubState")
+                unit.sub = v;
+            else if (k === "Description")
+                unit.desc = v;
+        }
+    });
+    flush();
+    return out;
+}
+
+// ── Containers and pods ──────────────────────────────────────────────────────
+// Docker and Podman containers with their CPU and memory, and Kubernetes pods
+// (kubectl, or k3s's bundled one) when a kubeconfig is readable. `namespace`
+// empty means all namespaces.
+function containersCmd(opts) {
+    opts = opts || {};
+    var ns = /^[a-z0-9-]+$/.test(String(opts.namespace || "")) ? "-n " + opts.namespace : "-A";
+    var sh = "";
+    if (opts.containers !== false)
+        sh += "for e in docker podman; do command -v $e >/dev/null 2>&1 || continue; echo \"@@ps $e\"; "
+            + "timeout 4 $e ps -a --format '{{.ID}}|{{.Names}}|{{.Image}}|{{.State}}|{{.Status}}' 2>&1 </dev/null; "
+            + "echo \"@@stats $e\"; timeout 6 $e stats --no-stream --format '{{.Name}}|{{.CPUPerc}}|{{.MemUsage}}|{{.MemPerc}}' 2>/dev/null </dev/null; done; ";
+    if (opts.kubernetes !== false)
+        sh += "K=\"$KUBECONFIG\"; if [ -z \"$K\" ]; then for f in \"$HOME/.kube/config\" /etc/rancher/k3s/k3s.yaml; do [ -r \"$f\" ] && { K=\"$f\"; break; }; done; fi; "
+            + "kc=; if command -v kubectl >/dev/null 2>&1; then kc=kubectl; elif command -v k3s >/dev/null 2>&1; then kc=\"k3s kubectl\"; fi; "
+            + "if [ -n \"$K\" ] && [ -n \"$kc\" ]; then export KUBECONFIG=\"$K\"; echo \"@@kube $($kc config current-context 2>/dev/null)\"; "
+            + "timeout 6 $kc get pods " + ns + " --no-headers --request-timeout=5s -o custom-columns='NS:.metadata.namespace,NAME:.metadata.name,PHASE:.status.phase,READY:.status.containerStatuses[*].ready,RESTARTS:.status.containerStatuses[*].restartCount,WAIT:.status.containerStatuses[*].state.waiting.reason' 2>&1 </dev/null | head -300; "
+            + "echo @@top; timeout 6 $kc top pods " + ns + " --no-headers --request-timeout=5s 2>/dev/null </dev/null | head -300; fi";
+    return sh;
+}
+
+// "5m" (millicores) or "2" (cores) → percent of one core.
+function kubeCpu(text) {
+    var m = /^([0-9.]+)(m|n|u)?$/.exec(String(text || "").trim());
+    if (!m)
+        return 0;
+    var v = Number(m[1]);
+    return m[2] === "m" ? v / 10 : m[2] === "u" ? v / 1e4 : m[2] === "n" ? v / 1e7 : v * 100;
+}
+
+// → { engines [names], errors [text], context, list [{ engine, name, image,
+// ns, state (running|waiting|failed|stopped|paused), status, cpu, memory,
+// restarts }] }
+function parseContainerList(text) {
+    var out = { engines: [], errors: [], context: "", list: [] };
+    var byKey = {}, part = "", engine = "";
+    var add = function (c) {
+        byKey[c.engine + ":" + (c.ns ? c.ns + "/" : "") + c.name] = c;
+        out.list.push(c);
+    };
+    String(text || "").split("\n").forEach(function (line) {
+        var m = /^@@(ps|stats) (docker|podman)\s*$/.exec(line);
+        if (m) {
+            part = m[1];
+            engine = m[2];
+            if (out.engines.indexOf(engine) === -1)
+                out.engines.push(engine);
+            return;
+        }
+        m = /^@@kube ?(.*)$/.exec(line);
+        if (m) {
+            part = "pods";
+            engine = "kubernetes";
+            out.context = m[1].trim();
+            out.engines.push(engine);
+            return;
+        }
+        if (line.trim() === "@@top") {
+            part = "top";
+            return;
+        }
+        var t = line.trim();
+        if (!t)
+            return;
+        var f;
+        if (part === "ps") {
+            f = t.split("|");
+            if (f.length < 5) {
+                if (out.errors.indexOf(engine + ": " + t) === -1 && out.errors.length < 4)
+                    out.errors.push(engine + ": " + t.slice(0, 160));
+                return;
+            }
+            var st = f[3].toLowerCase();
+            add({
+                engine: engine, name: f[1].split(",")[0], image: f[2], ns: "",
+                state: st === "running" ? "running" : st === "restarting" ? "waiting" : st === "paused" ? "paused" : st === "dead" ? "failed" : "stopped",
+                status: f[4], cpu: 0, memory: 0, restarts: 0
+            });
+        } else if (part === "stats") {
+            f = t.split("|");
+            var c = byKey[engine + ":" + f[0]];
+            if (c && f.length >= 3) {
+                c.cpu = parseFloat(f[1]) || 0;
+                c.memory = sizeBytes(String(f[2]).split("/")[0]);
+            }
+        } else if (part === "pods") {
+            f = t.split(/\s+/);
+            if (f.length < 6 || !/^[A-Za-z]+$/.test(f[2])) {
+                if (out.errors.length < 4)
+                    out.errors.push("kubernetes: " + t.slice(0, 160));
+                return;
+            }
+            var ready = f[3] === "<none>" ? [] : f[3].split(",");
+            var wait = f[5] === "<none>" ? "" : f[5].split(",")[0];
+            var phase = f[2];
+            var state = /BackOff|Err|Invalid|OOM/.test(wait) || phase === "Failed" ? "failed"
+                : phase === "Succeeded" ? "stopped"
+                : phase === "Running" && ready.length && ready.every(function (r) { return r === "true"; }) ? "running" : "waiting";
+            add({
+                engine: engine, name: f[1], image: "", ns: f[0], state: state,
+                status: wait || (phase === "Succeeded" ? "Completed" : phase === "Running" && state === "waiting" ? "Not ready" : phase),
+                cpu: 0, memory: 0,
+                restarts: f[4] === "<none>" ? 0 : f[4].split(",").reduce(function (a, v) { return a + (parseInt(v) || 0); }, 0)
+            });
+        } else if (part === "top") {
+            f = t.split(/\s+/);
+            // All namespaces: NS NAME CPU MEM; one namespace: NAME CPU MEM.
+            var keyed = f.length >= 4 ? "kubernetes:" + f[0] + "/" + f[1] : null;
+            var pod = keyed ? byKey[keyed] : out.list.filter(function (x) { return x.engine === "kubernetes" && x.name === f[0]; })[0];
+            if (pod) {
+                pod.cpu = kubeCpu(f[f.length - 2]);
+                pod.memory = sizeBytes(f[f.length - 1]);
+            }
+        }
+    });
+    return out;
+}
+
+// ── Power ────────────────────────────────────────────────────────────────────
+// The system battery (not a mouse's), the charger, energy counters (RAPL)
+// and power sensors (hwmon, e.g. amdgpu), pressure stall info, and the
+// power-profiles-daemon profile over D-Bus (either bus name).
+var PP_FN = "pp() { gdbus call --system --timeout 2 --dest org.freedesktop.UPower.PowerProfiles --object-path /org/freedesktop/UPower/PowerProfiles --method org.freedesktop.DBus.Properties.$1 org.freedesktop.UPower.PowerProfiles \"$2\" $3 2>/dev/null "
+    + "|| gdbus call --system --timeout 2 --dest net.hadess.PowerProfiles --object-path /net/hadess/PowerProfiles --method org.freedesktop.DBus.Properties.$1 net.hadess.PowerProfiles \"$2\" $3 2>/dev/null; }; ";
+
+function powerCmd(opts) {
+    opts = opts || {};
+    return "for p in /sys/class/power_supply/*; do t=$(cat $p/type 2>/dev/null); "
+        + "if [ \"$t\" = Mains ]; then echo ac=$(cat $p/online 2>/dev/null); continue; fi; "
+        + "[ \"$t\" = Battery ] || continue; [ \"$(cat $p/scope 2>/dev/null)\" = Device ] && continue; [ -f $p/capacity ] || continue; "
+        + "echo bat=$(cat $p/capacity 2>/dev/null); echo status=$(cat $p/status 2>/dev/null); "
+        + "[ -f $p/cycle_count ] && echo cycles=$(cat $p/cycle_count 2>/dev/null); "
+        + "[ -f $p/temp ] && echo temp=$(cat $p/temp 2>/dev/null); "
+        + "en=$(cat $p/energy_now 2>/dev/null); ef=$(cat $p/energy_full 2>/dev/null); ed=$(cat $p/energy_full_design 2>/dev/null); "
+        + "if [ -n \"$en\" ]; then echo useEnergy=1; else en=$(cat $p/charge_now 2>/dev/null); ef=$(cat $p/charge_full 2>/dev/null); ed=$(cat $p/charge_full_design 2>/dev/null); echo useEnergy=0; fi; "
+        + "echo enow=${en:-0}; echo efull=${ef:-0}; echo edesign=${ed:-0}; "
+        + "pw=$(cat $p/power_now 2>/dev/null); "
+        + "if [ -z \"$pw\" ]; then v=$(cat $p/voltage_now 2>/dev/null); c=$(cat $p/current_now 2>/dev/null); "
+        + "[ -n \"$v\" ] && [ -n \"$c\" ] && pw=$(awk -v v=\"$v\" -v c=\"$c\" 'BEGIN{printf \"%d\", v*c/1000000}'); fi; "
+        + "echo power=${pw:-0}; echo model=$(cat $p/model_name 2>/dev/null); break; done; "
+        + "for r in /sys/class/powercap/intel-rapl:[0-9]*; do case ${r##*/} in *:*:*) continue;; esac; [ -r $r/energy_uj ] || continue; "
+        + "echo \"rapl ${r##*/} $(cat $r/energy_uj 2>/dev/null) $(cat $r/max_energy_range_uj 2>/dev/null) $(cat $r/name 2>/dev/null)\"; done; "
+        + "for h in /sys/class/hwmon/hwmon*; do n=$(cat $h/name 2>/dev/null); case $n in BAT*|ADP*|AC*|ucsi*|macsmc*) continue;; esac; "
+        + "for f in $h/power1_average $h/power1_input; do [ -r $f ] && { echo \"hwmon ${h##*/} $(cat $f 2>/dev/null) $n\"; break; }; done; done; "
+        + (opts.nvidia ? "nvidia-smi --query-gpu=index,power.draw --format=csv,noheader,nounits 2>/dev/null | sed 's/^/nvidia /'; " : "")
+        + "[ -f /proc/pressure/cpu ] && sed 's/^/cpu /' /proc/pressure/cpu 2>/dev/null | head -1; "
+        + "[ -f /proc/pressure/memory ] && sed 's/^/mem /' /proc/pressure/memory 2>/dev/null | head -1; "
+        + "if command -v gdbus >/dev/null 2>&1; then " + PP_FN + "echo \"profile $(pp Get ActiveProfile)\"; "
+        + (opts.profiles ? "echo \"profiles $(pp Get Profiles)\"; " : "") + "fi";
+}
+
+// Switches the power profile; only a plain profile name reaches the shell.
+function setProfileCmd(name) {
+    if (!/^[a-z-]+$/.test(String(name || "")))
+        return "";
+    return PP_FN + "pp Set ActiveProfile \"<'" + name + "'>\" || powerprofilesctl set " + name;
+}
+
+// Plain values out of powerCmd's reply. Energy counters are left cumulative;
+// powerSources() turns two replies into watts.
+function parsePower(text) {
+    var out = {
+        battery: -1, status: "", ac: -1, cycles: -1, tempDeci: -9999, enow: 0, efull: 0, edesign: 0, useEnergy: false, powerUW: 0, model: "",
+        rapl: {}, hwmon: [], nvidia: [], cpuPressure: 0, memPressure: 0, profile: "", profiles: null
+    };
+    String(text || "").split("\n").forEach(function (line) {
+        var t = line.trim(), eq = t.indexOf("="), k = eq > 0 ? t.slice(0, eq) : "", v = eq > 0 ? t.slice(eq + 1) : "";
+        var n = parseInt(v), f = t.split(/\s+/);
+        if (k === "bat" && !isNaN(n) && n >= 0)
+            out.battery = n;
+        else if (k === "status")
+            out.status = v;
+        else if (k === "ac" && !isNaN(n))
+            out.ac = Math.max(out.ac, n);
+        else if (k === "cycles" && !isNaN(n))
+            out.cycles = n;
+        else if (k === "temp" && !isNaN(n))
+            out.tempDeci = n;
+        else if (k === "enow" && !isNaN(n))
+            out.enow = n;
+        else if (k === "efull" && !isNaN(n))
+            out.efull = n;
+        else if (k === "edesign" && !isNaN(n))
+            out.edesign = n;
+        else if (k === "useEnergy")
+            out.useEnergy = v === "1";
+        else if (k === "power" && !isNaN(n))
+            out.powerUW = n;
+        else if (k === "model")
+            out.model = v;
+        else if (f[0] === "rapl" && f.length >= 3 && !isNaN(Number(f[2])))
+            out.rapl[f[1]] = { energy: Number(f[2]), range: Number(f[3]) || 0, name: f.slice(4).join(" ") || f[1] };
+        else if (f[0] === "hwmon" && f.length >= 3 && Number(f[2]) > 0)
+            out.hwmon.push({ id: f[1], watts: Number(f[2]) / 1e6, name: f.slice(3).join(" ") || f[1] });
+        else if (f[0] === "nvidia" && f.length >= 3 && !isNaN(parseFloat(f[2])))
+            out.nvidia.push({ id: "nvidia" + parseInt(f[1]), watts: parseFloat(f[2]), name: "nvidia" });
+        else if (t.indexOf("cpu some") === 0 || t.indexOf("mem some") === 0) {
+            var a = /avg10=(\d+\.?\d*)/.exec(t);
+            if (a)
+                out[t.charAt(0) === "c" ? "cpuPressure" : "memPressure"] = parseFloat(a[1]);
+        } else if (f[0] === "profile") {
+            var p = /'([a-z-]+)'/.exec(t);
+            out.profile = p ? p[1] : "";
+        } else if (f[0] === "profiles") {
+            var list = [], re = /'Profile': <'([a-z-]+)'>/g, mm;
+            while ((mm = re.exec(t)) !== null)
+                list.push(mm[1]);
+            out.profiles = list;
+        }
+    });
+    return out;
+}
+
+var RAPL_LABELS = { "package-0": "CPU package", "package-1": "CPU package 2", psys: "Platform", dram: "Memory" };
+var HWMON_LABELS = { amdgpu: "GPU (AMD)", zenpower: "CPU (AMD)", nouveau: "GPU (Nouveau)", xe: "GPU (Intel)", i915: "GPU (Intel)" };
+
+// Watts per source between two parsePower() results `dt` seconds apart:
+// [{ id, label, watts }], plus `load`, the whole machine where a sensor
+// covers it (platform "psys"), else the sum of CPU packages and GPUs.
+function powerSources(prev, next, dt) {
+    var list = [];
+    if (prev && dt > 0)
+        for (var id in next.rapl) {
+            var a = prev.rapl[id], b = next.rapl[id];
+            if (!a)
+                continue;
+            var d = b.energy - a.energy;
+            if (d < 0 && b.range > 0)
+                d += b.range;
+            if (d >= 0)
+                list.push({ id: id, label: RAPL_LABELS[b.name] || b.name, watts: d / dt / 1e6, platform: b.name === "psys" });
+        }
+    next.hwmon.concat(next.nvidia).forEach(function (h) {
+        list.push({ id: h.id, label: HWMON_LABELS[h.name] || (h.name === "nvidia" ? "GPU (NVIDIA)" : h.name), watts: h.watts });
+    });
+    var platform = list.filter(function (s) { return s.platform; })[0];
+    var load = platform ? platform.watts : list.filter(function (s) { return !s.platform && s.label !== "Memory"; }).reduce(function (a, s) { return a + s.watts; }, 0);
+    return { list: list, load: load };
+}
+
+// ── Remote host ──────────────────────────────────────────────────────────────
+// "user@host" or an ~/.ssh/config alias; "" for anything else.
+function remoteHost(text) {
+    var h = String(text || "").trim();
+    return /^[A-Za-z0-9._-]+(@[A-Za-z0-9._:-]+)?$/.test(h) ? h : "";
+}
+
+// Runs `command` on `host` over one shared SSH connection (the first call
+// opens it, later ones reuse it for two minutes). BatchMode: keys only, a
+// password prompt would hang the widget.
+function remoteCmd(host, command) {
+    return "ssh -T -o BatchMode=yes -o ConnectTimeout=5 -o ServerAliveInterval=15 -o ControlMaster=auto "
+        + "-o ControlPath=\"${XDG_RUNTIME_DIR:-/tmp}/glassy-ssh-%C\" -o ControlPersist=120 "
+        + host + " " + quote("sh -c " + quote(command));
 }
 
 // ── Sockets (the network window) ─────────────────────────────────────────────

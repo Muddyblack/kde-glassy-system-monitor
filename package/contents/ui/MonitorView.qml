@@ -199,6 +199,40 @@ Item {
             model: SectionModels.processes(view.monitor, view.cfg)
         }
     }
+    Component {
+        id: loadSection
+        LoadSection {
+            monitor: view.monitor
+            cfg: view.cfg
+        }
+    }
+    Component {
+        id: fansSection
+        BarListSection {
+            monitor: view.monitor
+            cfg: view.cfg
+            sectionId: "fans"
+            model: SectionModels.fans(view.monitor, view.cfg)
+        }
+    }
+    Component {
+        id: servicesSection
+        BarListSection {
+            monitor: view.monitor
+            cfg: view.cfg
+            sectionId: "services"
+            model: SectionModels.services(view.monitor, view.cfg)
+        }
+    }
+    Component {
+        id: containersSection
+        BarListSection {
+            monitor: view.monitor
+            cfg: view.cfg
+            sectionId: "containers"
+            model: SectionModels.containers(view.monitor, view.cfg)
+        }
+    }
     readonly property var components: ({
             cpu: cpuSection,
             memory: memorySection,
@@ -211,7 +245,11 @@ Item {
             system: systemSection,
             custom: customSection,
             storage: storageSection,
-            processes: processesSection
+            processes: processesSection,
+            load: loadSection,
+            fans: fansSection,
+            services: servicesSection,
+            containers: containersSection
         })
 
     GridLayout {
@@ -236,7 +274,7 @@ Item {
                     span: 1
                 }
                 // Charts share the spare height; text sections keep theirs.
-                readonly property bool grows: ["sensors", "power", "system"].indexOf(modelData) === -1
+                readonly property bool grows: ["sensors", "power", "system", "fans", "services", "containers"].indexOf(modelData) === -1
                 Layout.row: place.row
                 Layout.column: place.column
                 Layout.columnSpan: place.span
@@ -262,6 +300,29 @@ Item {
                     sourceComponent: view.components[slot.modelData] || null
                 }
             }
+        }
+    }
+
+    // A remote host that does not answer says so over the card.
+    Rectangle {
+        visible: !!view.monitor.remoteError
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        anchors.margins: view.margin
+        height: remoteText.implicitHeight + 10
+        radius: 6
+        color: Qt.rgba(0.6, 0.1, 0.1, 0.85)
+        Text {
+            id: remoteText
+            anchors.centerIn: parent
+            width: parent.width - 12
+            text: view.monitor.remoteError || ""
+            color: "#ffffff"
+            font.family: view.monitor.fontFamily
+            font.pixelSize: 10
+            wrapMode: Text.Wrap
+            horizontalAlignment: Text.AlignHCenter
         }
     }
 }

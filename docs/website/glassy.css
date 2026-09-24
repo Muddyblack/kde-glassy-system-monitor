@@ -123,3 +123,27 @@ textarea.sel{width:100%;font:11px ui-monospace,monospace;resize:vertical}
 .gi-card{display:flex;flex-direction:column;padding:12px;border:1px solid var(--line2);border-radius:10px;background:var(--sunk)}
 .gi h4{margin:4px 0 0}
 .tpv-mat{position:absolute;inset:0;display:grid;place-items:center;background:radial-gradient(40% 70% at 80% 10%,#e0a03c,transparent 70%),linear-gradient(90deg,#5b1d6e,#1d6e8a)}
+
+/* Newer sections: state dots, the power section's glance row, tabs and tiles, the tray pill's icons. */
+.gw-dotrow>span:first-of-type{width:auto;max-width:45%}
+.gw-dotrow small{flex:1;overflow:hidden;text-overflow:ellipsis}
+.gw-dot{width:7px;height:7px;border-radius:50%;flex:none}
+.gw-pglance{display:flex;align-items:center;gap:10px;font-size:10px}
+.gw-pglance>span{display:flex;flex-direction:column;flex:1;min-width:0}
+.gw-pglance>span small{color:color-mix(in srgb,var(--ink) 55%,transparent)}
+.gw-pglance em{font-style:normal;font-weight:700;font-size:20px;display:flex;flex-direction:column;align-items:flex-end;line-height:1.1}
+.gw-pglance em small{font-size:9px;font-weight:400;color:color-mix(in srgb,var(--ink) 50%,transparent)}
+.gw-cell{position:relative;width:24px;height:13px;border:1.5px solid color-mix(in srgb,var(--ink) 60%,transparent);border-radius:3px;padding:1.5px;flex:none}
+.gw-cell i{display:block;height:100%;background:#44dd88;border-radius:1.5px}
+.gw-segs{display:flex;gap:2px;align-items:center;font-size:10px}
+.gw-segs small{color:color-mix(in srgb,var(--ink) 45%,transparent);margin-right:4px}
+.gw-seg{flex:1;text-align:center;padding:3px 0;border-radius:5px;color:color-mix(in srgb,var(--ink) 55%,transparent)}
+.gw-seg.on{background:color-mix(in srgb,var(--ink) 14%,transparent);color:var(--ink);font-weight:700}
+.gw-ptiles{display:grid;grid-template-columns:1fr 1fr;gap:3px;font-size:10px}
+.gw-ptiles span{display:flex;justify-content:space-between;padding:4px 6px;border-radius:4px;background:color-mix(in srgb,var(--ink) 5%,transparent);border:1px solid color-mix(in srgb,var(--ink) 8%,transparent)}
+.gw-ptiles small{font-size:10px;color:color-mix(in srgb,var(--ink) 55%,transparent)}
+.gw-oshead{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.gw-oshead span{display:flex;flex-direction:column}
+.gw-oshead small{font-size:9px;opacity:.4}
+.gw-snow{font-style:normal;font-size:26px;color:#7ebae4;line-height:1}
+.gw-picon{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;margin-right:4px;align-self:center}

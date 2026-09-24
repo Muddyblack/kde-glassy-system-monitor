@@ -20,6 +20,36 @@ Item {
     readonly property bool hovered: hover.hovered
 
     readonly property var ids: Sections.panelIds(cfg)
+    // Tray mode: one reading at a time, turning over every few seconds (the
+    // wheel steps through them). The pill keeps the width of the widest, so
+    // the panel does not re-lay out on every turn.
+    readonly property bool cycling: !!cfg.panelCycle && ids.length > 1
+    property int current: 0
+    readonly property int shown: ids.length ? current % ids.length : 0
+    readonly property real cycleWidth: {
+        let w = 0;
+        for (let i = 0; i < repeater.count; i++) {
+            const item = repeater.itemAt(i);
+            if (item)
+                w = Math.max(w, item.implicitWidth);
+        }
+        return w;
+    }
+    Timer {
+        interval: Math.max(1, compact.cfg.panelCycleSeconds || 4) * 1000
+        running: compact.cycling && !compact.hovered
+        repeat: true
+        onTriggered: compact.current = (compact.current + 1) % compact.ids.length
+    }
+    WheelHandler {
+        enabled: compact.cycling
+        onWheel: event => {
+            const n = compact.ids.length;
+            compact.current = (compact.current + (event.angleDelta.y > 0 ? n - 1 : 1)) % n;
+        }
+    }
+    // Section icons in place of the captions.
+    readonly property bool icons: !!cfg.panelIcons
     readonly property string style: cfg.panelStyle || "values"
     // Too short for a caption above the value: one line per reading.
     readonly property bool thin: !vertical && height > 0 && height < 30
@@ -66,13 +96,14 @@ Item {
     Grid {
         id: readings
         anchors.centerIn: parent
-        columns: compact.vertical ? 1 : compact.ids.length
+        columns: compact.vertical || compact.cycling ? 1 : compact.ids.length
         rowSpacing: compact.gap
         columnSpacing: compact.gap
         horizontalItemAlignment: Grid.AlignHCenter
         verticalItemAlignment: Grid.AlignVCenter
 
         Repeater {
+            id: repeater
             model: compact.ids
             Row {
                 id: reading
@@ -88,9 +119,19 @@ Item {
                 readonly property bool meter: compact.style === "values" && !compact.thin && !twoLines && !!model && model.ratio >= 0
 
                 spacing: 5
-                visible: !!model
+                visible: !!model && (!compact.cycling || index === compact.shown)
                 // In a vertical panel a reading is a column; Row keeps one child.
-                width: compact.vertical ? reading.across : implicitWidth
+                width: compact.vertical ? reading.across : compact.cycling ? compact.cycleWidth : implicitWidth
+
+                // The section's icon before the reading, in the reading's colour.
+                SectionIcon {
+                    visible: compact.icons && !compact.vertical
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: visible ? Math.round(reading.across * (compact.thin ? 0.8 : 0.6)) : 0
+                    height: width
+                    path: Sections.info(reading.modelData).icon
+                    color: compact.tint(reading.model ? reading.model.color : "")
+                }
 
                 Column {
                     id: text
@@ -100,7 +141,7 @@ Item {
 
                     // Caption above one value, or inline before it on a thin panel.
                     Text {
-                        visible: !reading.twoLines && !compact.thin
+                        visible: !reading.twoLines && !compact.thin && !(compact.icons && !compact.vertical)
                         anchors.horizontalCenter: parent.horizontalCenter
                         width: compact.vertical ? parent.width : implicitWidth
                         text: reading.model ? reading.model.label : ""
@@ -131,7 +172,7 @@ Item {
                                     text: reading.model ? reading.model.sample : ""
                                 }
                                 Text {
-                                    visible: compact.thin && !reading.twoLines
+                                    visible: compact.thin && !reading.twoLines && !compact.icons
                                     anchors.verticalCenter: parent.verticalCenter
                                     text: reading.model ? reading.model.label : ""
                                     color: Qt.rgba(compact.monitor.textColor.r, compact.monitor.textColor.g, compact.monitor.textColor.b, 0.55)

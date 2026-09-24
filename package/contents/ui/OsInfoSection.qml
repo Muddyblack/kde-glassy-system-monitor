@@ -46,7 +46,7 @@ ColumnLayout {
     readonly property bool _fetch: section.monitor.osFetchActive
     readonly property bool _plain: _fetch && section.cfg.osPlainText
     readonly property var _rows: _fetch ? section.monitor.osFetchVisibleRows : _builtinRows
-    readonly property bool _showLogo: section.cfg.osShowLogo === true && _fetch
+    readonly property bool _showLogo: section.cfg.osShowLogo !== false
 
     // Label column. Fetch tools emit far longer keys than the built-in four
     // ("Display (AUOE48D)", "Battery (L20L2PF0)"), so the column scales with the
@@ -60,10 +60,10 @@ ColumnLayout {
         visible: section._showLogo
         spacing: 8
 
-        // Distro logo from the icon theme.
-        Image {
-            source: section._showLogo ? "image://icon/" + (section.monitor.osLogoIcon || "computer") : ""
-            sourceSize: Qt.size(68, 68)
+        // Distro logo from the icon theme (os-release LOGO, else ID).
+        ThemeIcon {
+            name: section.monitor.osLogoIcon
+            fallback: "computer"
             Layout.preferredWidth: 34
             Layout.preferredHeight: 34
             Layout.alignment: Qt.AlignVCenter
@@ -85,7 +85,7 @@ ColumnLayout {
             Text {
                 font.family: section.monitor.fontFamily
                 Layout.fillWidth: true
-                text: section.monitor.osFetchTool
+                text: section._fetch ? section.monitor.osFetchTool : section.monitor.osHostname + (section.monitor.remoteHost ? " · over SSH" : "")
                 color: Qt.rgba(section.monitor.textColor.r, section.monitor.textColor.g, section.monitor.textColor.b, 0.40)
                 font.pixelSize: 9
                 elide: Text.ElideRight

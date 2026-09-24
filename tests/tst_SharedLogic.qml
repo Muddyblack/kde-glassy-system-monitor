@@ -1225,4 +1225,164 @@ TestCase {
         const autumnWeek = NetHistory.period(NetHistory.empty(), "week", new Date(2025, 9, 20, 0, 30).getTime(), spring);
         compare(autumnWeek.keys, ["2025-10-20", "2025-10-21", "2025-10-22", "2025-10-23", "2025-10-24", "2025-10-25", "2025-10-26"]);
     }
+
+    // ── Load, fans, services, containers, power, remote ──────────────────────
+    function test_loadParsesAveragesTasksAndUptime() {
+        const l = Probes.parseLoad("1.50 0.75 0.25 3/812 4411\n3725.10 9000.00\n8\n");
+        compare(l.load1, 1.5);
+        compare(l.load15, 0.25);
+        compare(l.running, 2, "the reading's own task is not counted");
+        compare(l.tasks, 812);
+        compare(l.cpus, 8);
+        compare(Format.duration(l.uptime), "1h 2m");
+        compare(Format.duration(90061), "1d 1h");
+        compare(Probes.parseLoad("garbage"), null);
+        const model = SectionModels.load({
+            loadInfo: l,
+            load1History: [1, 1.5],
+            load5History: [],
+            load15History: []
+        }, defaults);
+        compare(model.markers[0].value, 8, "dashed line at every CPU busy");
+        verify(model.maxValue >= 8);
+        compare(model.series("line").length, 3);
+    }
+    function test_fansShowOnlyOnceSeenTurning() {
+        const peaks = {};
+        const json = '{"nct-isa":{"Adapter":"ISA","CPU Fan":{"fan1_input":1200,"fan1_max":2400},"fan2":{"fan2_input":0}},"amdgpu-pci":{"fan1":{"fan1_input":0}}}';
+        compare(Probes.parseFans(json, peaks).map(f => f.label), ["CPU Fan"], "empty headers stay hidden");
+        peaks["amdgpu-pci:fan1"] = 1500;
+        const fans = Probes.parseFans(json, peaks);
+        compare(fans.length, 2, "a GPU fan that spun before shows while stopped");
+        compare(fans[0].max, 2400);
+        const rows = SectionModels.fans({
+            fans: fans,
+            fanPeaks: peaks,
+            fansRead: true
+        }, defaults).rows;
+        compare(rows[0].ratio, 0.5);
+        compare(rows[1].value, "stopped");
+        compare(Probes.parseFans("not json", {}), []);
+    }
+    function test_servicesKeepOnlyUnitNamesAndParse() {
+        compare(Probes.serviceList("sshd, user:syncthing, x;rm -rf ~, $(id)").map(u => (u.user ? "u:" : "") + u.name), ["sshd", "u:syncthing"]);
+        const cmd = Probes.servicesCmd("sshd, user:syncthing");
+        verify(cmd.indexOf("systemctl --user show") !== -1 && cmd.indexOf("'sshd'") !== -1);
+        const s = Probes.parseServices(DemoData.SERVICES);
+        compare(s.failed.map(u => u.name), ["backup-nas.service"]);
+        compare(s.running, 41);
+        compare(s.units.map(u => u.name + ":" + u.active), ["sshd.service:active", "docker.service:active", "syncthing.service:activating"]);
+        const model = SectionModels.services({
+            services: s,
+            servicesRead: true
+        }, defaults);
+        compare(model.reading, "1 failed");
+        compare(model.rows.map(r => r.label), ["backup-nas", "sshd", "docker", "syncthing"]);
+        verify(model.rows.every(r => r.ratio < 0), "state dots, no bars");
+    }
+    function test_containerListReadsEnginesAndPods() {
+        const c = Probes.parseContainerList(DemoData.containersText(3));
+        compare(c.engines, ["docker", "podman", "kubernetes"]);
+        compare(c.context, "default");
+        const byName = {};
+        c.list.forEach(x => byName[x.name] = x);
+        compare(byName["windows-build"].state, "stopped");
+        verify(byName.db.cpu > 0 && byName.db.memory > 200 * 1048576);
+        compare(byName.cache.engine, "podman");
+        compare(byName["worker-5d8b9-q7wnm"].state, "failed");
+        compare(byName["worker-5d8b9-q7wnm"].restarts, 4);
+        compare(byName["api-7c9f6d-x2k4p"].state, "running");
+        verify(byName["api-7c9f6d-x2k4p"].cpu > 0, "kubectl top fills pod CPU");
+        compare(Probes.kubeCpu("250m"), 25);
+        compare(Probes.kubeCpu("2"), 200);
+        const err = Probes.parseContainerList("@@ps docker\npermission denied while trying to connect to the Docker daemon socket\n@@stats docker\n");
+        compare(err.list.length, 0);
+        verify(err.errors[0].indexOf("permission denied") !== -1);
+        const cfg = Object.assign({}, defaults, {
+            containerCount: 10
+        });
+        const model = SectionModels.containers({
+            containerInfo: c,
+            containersRead: true
+        }, cfg);
+        verify(model.rows.every(r => r.label !== "windows-build"), "stopped ones hidden by default");
+        compare(model.rows[model.rows.length - 1].label, "worker-5d8b9-q7wnm");
+        verify(model.reading.indexOf("1 failing") !== -1);
+        const odd = Probes.containersCmd({
+            namespace: "prod; rm"
+        });
+        verify(odd.indexOf("prod") === -1 && odd.indexOf("get pods -A") !== -1, "odd namespaces fall back to all");
+        verify(Probes.containersCmd({
+            namespace: "prod"
+        }).indexOf("get pods -n prod") !== -1);
+    }
+    function test_powerSourcesFromCountersAndSensors() {
+        const a = Probes.parsePower("bat=80\nstatus=Discharging\nac=0\nrapl intel-rapl:0 1000000 262143328850 package-0\nrapl intel-rapl:1 900 5000000 psys\nprofile (<'balanced'>,)\nprofiles (<[{'Profile': <'power-saver'>}, {'Profile': <'performance'>}]>,)");
+        compare(a.battery, 80);
+        compare(a.ac, 0);
+        compare(a.profile, "balanced");
+        compare(a.profiles, ["power-saver", "performance"]);
+        const b = Probes.parsePower("rapl intel-rapl:0 11000000 262143328850 package-0\nrapl intel-rapl:1 4000900 5000000 psys\nhwmon hwmon4 25000000 amdgpu");
+        const p = Probes.powerSources(a, b, 2);
+        compare(p.list.map(x => x.label), ["CPU package", "Platform", "GPU (AMD)"]);
+        compare(p.list[0].watts, 5);
+        compare(p.list[1].watts, 2, "platform counter");
+        compare(p.load, 2, "the platform counter covers the whole machine");
+        const wrapped = Probes.parsePower("rapl intel-rapl:1 900 5000000 psys");
+        compare(Probes.powerSources(Probes.parsePower("rapl intel-rapl:1 4999000 5000000 psys"), wrapped, 1).list[0].watts, 1.9e-3 / 1, "counter wraparound");
+        compare(Probes.setProfileCmd("x'; rm -rf ~"), "");
+        verify(Probes.setProfileCmd("performance").indexOf("<'performance'>") !== -1);
+        compare(SectionModels.profiles({
+            powerProfiles: ["power-saver", "balanced"]
+        }).map(x => x.label), ["Saver", "Balanced"]);
+    }
+    function test_killOnlyNumbersAndRemoteQuoting() {
+        compare(Probes.killCmd([1200, "13; rm", 1, 0], false), "kill -TERM 1200 2>&1");
+        compare(Probes.killCmd([44], true), "kill -KILL 44 2>&1");
+        compare(Probes.killCmd([], false), "");
+        compare(Probes.remoteHost(" me@box.lan "), "me@box.lan");
+        compare(Probes.remoteHost("box -oProxyCommand=x"), "");
+        compare(Probes.remoteHost("$(id)"), "");
+        const cmd = Probes.remoteCmd("box", "echo 'a'");
+        verify(cmd.indexOf("BatchMode=yes") !== -1 && cmd.indexOf(" box ") !== -1);
+        const rows = SectionModels.processes({
+            processes: Probes.topProcesses(DemoData.procSnapshot(1), DemoData.procSnapshot(2), 5, "cpu", true)
+        }, defaults).rows;
+        verify(rows.every(r => r.pids.length >= 1), "every process row can be ended");
+    }
+    function test_newPillReadings() {
+        const m = {
+            loadInfo: Probes.parseLoad("2.00 1.00 1.00 2/100 1\n10 10\n4"),
+            load1History: [1, 2],
+            fans: [
+                {
+                    key: "a",
+                    chip: "X",
+                    label: "CPU",
+                    rpm: 1500,
+                    max: 3000
+                }
+            ],
+            fanPeaks: {
+                a: 1500
+            },
+            services: {
+                failed: [
+                    {
+                        name: "x.service",
+                        user: false,
+                        desc: ""
+                    }
+                ],
+                running: 3,
+                units: []
+            },
+            containerInfo: Probes.parseContainerList(DemoData.containersText(1))
+        };
+        compare(SectionModels.pill("load", m, defaults).lines[0].text, "2.00");
+        compare(SectionModels.pill("load", m, defaults).ratio, 0.5);
+        compare(SectionModels.pill("fans", m, defaults).lines[0].text, "1500");
+        compare(SectionModels.pill("services", m, defaults).lines[0].text, "1 ✕");
+        compare(SectionModels.pill("containers", m, defaults).lines[0].text, "6");
+    }
 }
