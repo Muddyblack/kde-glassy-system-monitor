@@ -68,4 +68,4 @@ make pack              # .plasmoid for the KDE Store
 ```
 
 By contributing you agree that your work is released under the
-[GPL-3.0-or-later](LICENSE).
+[GPL-3.0](LICENSE).
