@@ -225,7 +225,16 @@ vec4 lineSeries(vec2 p, float s, vec4 dst)
         float halo = 0.42 * glow * exp(-outside * outside / (2.0 * sigma * sigma));
         dst = over(dst, lc.rgb, halo * alpha);
     }
-    dst = over(dst, lc.rgb, coverage(dist, halfWidth) * alpha);
+    // Hairlines (the per-core lines) are stroked at least 1.5 device px wide
+    // with the same total ink. At ~1 px the layer's sub-pixel slide flips them
+    // between crisp and smeared every frame, which reads as flicker.
+    float px = 1.0 / max(pixelRatio, 1.0);
+    float strokeHalf = max(halfWidth, 0.75 * px);
+    float ink = halfWidth / strokeHalf;
+    // Box-filtered coverage: a column sums to the same ink wherever the line
+    // falls between pixels.
+    float cover = clamp((min(dist + 0.5 * px, strokeHalf) - max(dist - 0.5 * px, -strokeHalf)) / px, 0.0, 1.0);
+    dst = over(dst, lc.rgb, cover * ink * alpha);
 
     if (hasFlag(flags, FLAG_HEAD)) {
         vec2 head = sampleAt(s, n - 1.0);
