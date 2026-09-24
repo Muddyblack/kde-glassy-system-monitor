@@ -111,6 +111,12 @@ NetDialog {
                 onToggled: on => popup.setAlert("limit", on)
             }
             Toggle {
+                label: "Something looks dangerous"
+                detail: "A serious finding on the Threats page: a listed address, a mining pool, a program running from a temporary folder."
+                checked: popup.alerts.threat
+                onToggled: on => popup.setAlert("threat", on)
+            }
+            Toggle {
                 label: "Desktop notifications"
                 detail: "Through notify-send; off keeps alerts in the window's bell only."
                 checked: popup.alerts.notify

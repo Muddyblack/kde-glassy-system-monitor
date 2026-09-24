@@ -7,8 +7,9 @@ import ".." as Ui
 
 // Countries and owners need two things on this machine: mmdblookup and a
 // .mmdb database. This shows what is there, installs db-ip's free Lite
-// databases on a click (the only download Glassy ever makes, and only
-// here), and says how to get mmdblookup on each distribution and on NixOS.
+// databases on a click (Glassy downloads only here and, when switched on,
+// the Threats page's blocklists), and says how to get mmdblookup on each
+// distribution and on NixOS.
 NetDialog {
     id: setup
     property var status: null

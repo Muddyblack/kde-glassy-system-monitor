@@ -75,7 +75,8 @@ result on live or demo data. Looks can be shared as JSON with the
 </p>
 
 Which apps talk to what: connections, open ports, interfaces, containers, VPNs and a traffic
-history, without root. It opens Wireshark on a connection if you have it.
+history, without root, plus a Threats page (local checks, and opt-in public blocklists matched
+on your machine). It opens Wireshark on a connection if you have it.
 [More about it](docs/network.md).
 
 ## Install

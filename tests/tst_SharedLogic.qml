@@ -13,6 +13,7 @@ import "../package/contents/ui/network/NetHistory.js" as NetHistory
 import "../package/contents/ui/network/BrowserTabs.mjs" as BrowserTabs
 import "../package/contents/ui/network/NetLock.js" as NetLock
 import "../package/contents/ui/network/Wireshark.js" as Wireshark
+import "../package/contents/ui/network/Threats.js" as Threats
 
 // The JavaScript shared by the widget, both studios and the website.
 TestCase {
@@ -1384,5 +1385,99 @@ TestCase {
         compare(SectionModels.pill("fans", m, defaults).lines[0].text, "1500");
         compare(SectionModels.pill("services", m, defaults).lines[0].text, "1 ✕");
         compare(SectionModels.pill("containers", m, defaults).lines[0].text, "6");
+    }
+
+    // ── Threats ──────────────────────────────────────────────────────────────
+    function test_threatIndex() {
+        compare(Threats.expand6("2001:db8::1"), "20010db8000000000000000000000001");
+        compare(Threats.expand6("::"), "00000000000000000000000000000000");
+        compare(Threats.expand6("1.2.3.4"), "");
+        compare(Threats.expand6("1::2::3"), "");
+        const index = Threats.buildIndex(Threats.parseLoad(DemoData.netThreatLists(Date.now())));
+        compare(index.feodo.count, 2);
+        compare(Threats.lookup(index, "203.0.113.66", []).sort(), ["feodo", "ipsum"]);
+        compare(Threats.lookup(index, "198.51.100.200", []), ["feodo"], "inside a /24");
+        compare(Threats.lookup(index, "::ffff:198.51.100.7", []).sort(), ["et", "feodo"], "IPv4-mapped");
+        compare(Threats.lookup(index, "2001:db8:dead:1::5", []), ["spamhaus"], "inside an IPv6 /48");
+        compare(Threats.lookup(index, "2001:db8:beef::5", []), []);
+        compare(Threats.lookup(index, "8.8.8.8", ["cdn.malware-cdn.example."]), ["urlhaus"], "a subdomain of a listed site");
+        compare(Threats.lookup(index, "8.8.8.8", ["example"]), [], "not the bare suffix");
+        // Overlapping ranges merge; the edges count.
+        const merged = Threats.buildIndex({
+            et: {
+                time: 0,
+                lines: ["10.0.0.0/24", "10.0.0.128/25", "10.0.1.0/24", "10.0.3.7"]
+            }
+        });
+        compare(merged.et.v4.starts.length, 2);
+        compare(Threats.lookup(merged, "10.0.1.255", []), ["et"]);
+        compare(Threats.lookup(merged, "10.0.2.0", []), []);
+        compare(Threats.lookup(merged, "10.0.3.7", []), ["et"]);
+    }
+    function test_threatShell() {
+        compare(Threats.enabledIds({}).indexOf("tor"), -1, "Tor exits are not in the default set");
+        verify(Threats.enabledIds({
+            tor: true,
+            feodo: false
+        }).indexOf("tor") !== -1);
+        verify(Threats.downloadCmd("$HOME/x", ["feodo", "nope"]).indexOf("nope") === -1);
+        verify(Threats.loadCmd("$HOME/x", ["feodo", "a;rm"]).indexOf("rm") === -1, "only plain ids reach the shell");
+        compare(Threats.parseDownload("feodo ok 5\nurlhaus failed\nbogus ok 1"), {
+            ok: ["feodo"],
+            failed: ["urlhaus"]
+        });
+        compare(Threats.exeCmd([12, "x", -3, 4.5]), "for p in 12; do printf '%s\\t%s\\n' \"$p\" \"$(readlink /proc/$p/exe 2>/dev/null)\"; done");
+        compare(Threats.exeVerdict("/tmp/.x/miner"), "temp");
+        compare(Threats.exeVerdict("/dev/shm/a"), "temp");
+        compare(Threats.exeVerdict("/tmp/.mount_Obsid1/obsidian"), "", "AppImages run from /tmp");
+        compare(Threats.exeVerdict("/usr/bin/foo (deleted)"), "deleted");
+        compare(Threats.exeVerdict("/usr/bin/foo"), "");
+    }
+    function test_threatFindings() {
+        const ctx = {
+            index: Probes.appIndex(Probes.parseDesktopEntries(DemoData.NET_DESKTOP))
+        };
+        let s = null, parts = null;
+        for (let i = 58; i < 64; i++) {
+            parts = Probes.sections(DemoData.netPoll(i));
+            ctx.tree = Probes.parseProcTree(parts.proc);
+            ctx.ports = Probes.listenPorts(Probes.parseSockets(parts[""]));
+            s = NetModel.track(s, Probes.parseConnections(parts[""]), i * 1000, ctx);
+        }
+        const appOf = (pid, name) => Probes.appFor(pid, name, ctx.tree, ctx.index);
+        const base = {
+            conns: s.list,
+            listening: Probes.parseListening(parts[""]),
+            exes: DemoData.NET_EXES,
+            firewall: Probes.parseFirewall(DemoData.NET_FIREWALL),
+            describe: c => NetModel.describe(c, DemoData.NET_HOSTS, {}),
+            appOf: appOf
+        };
+        const off = Threats.findings(base);
+        verify(!off.some(f => f.kind === "listed"), "no lists, no list findings");
+        const f = Threats.findings(Object.assign({}, base, {
+            index: Threats.buildIndex(Threats.parseLoad(DemoData.netThreatLists(Date.now())))
+        }));
+        compare(f[0].level, "high", "the most serious first");
+        const listed = f.find(x => x.kind === "listed");
+        compare(listed.lists.sort(), ["feodo", "ipsum"]);
+        compare(listed.title, "Botnet command server");
+        verify(f.some(x => x.kind === "exe" && x.level === "high" && x.pid === 6120), "runs from /tmp");
+        verify(f.some(x => x.kind === "exe" && x.level === "low" && x.pid === 3120), "runs from a deleted file");
+        verify(f.some(x => x.kind === "mining"), "a mining port");
+        verify(f.some(x => x.kind === "plain" && x.level === "info"), "plain HTTP");
+        verify(!f.some(x => x.key === "open:tcp:8080"), "the firewall blocks 8080");
+        verify(f.some(x => x.key === "open:tcp:22" && x.level === "low"), "the firewall lets 22 in");
+        const counts = Threats.counts(f);
+        compare(counts.high + counts.medium + counts.low + counts.info, f.length);
+        // Trust silences the checks, never the lists.
+        const trusted = {};
+        trusted[listed.app.key] = true;
+        const t = Threats.findings(Object.assign({}, base, {
+            index: Threats.buildIndex(Threats.parseLoad(DemoData.netThreatLists(Date.now()))),
+            trusted: trusted
+        }));
+        verify(t.some(x => x.kind === "listed"));
+        verify(!t.some(x => x.kind === "mining" || (x.kind === "exe" && x.pid === 6120)));
     }
 }

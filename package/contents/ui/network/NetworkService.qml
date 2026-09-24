@@ -33,7 +33,8 @@ Item {
     // { tab, dark, width, height, x, y,
     //   record: "on" (also while the window is closed) | "window" | "off",
     //   keep: "session" (memory only) | "30d" | "90d" | "1y" | "2y" | "all",
-    //   tabs (bool), alerts { newApp, openPort, vpnDown, limit, notify },
+    //   tabs (bool), alerts { newApp, openPort, vpnDown, limit, threat, notify },
+    //   threats { lists (bool, off by default), choice { listId: bool } },
     //   trusted { appKey: name }, limits { appKey: { name, bytes } },
     //   lock { salt, iter, hash } | null }
     property var state: ({})
@@ -49,6 +50,7 @@ Item {
         openPort: false,
         vpnDown: true,
         limit: true,
+        threat: true,
         notify: true
     }, state.alerts || {})
     readonly property var trusted: state.trusted || ({})
@@ -78,9 +80,16 @@ Item {
     property var _vpnUp: ({})
     property var _limitHit: ({})
     property real _notifiedAt: 0
+    property var _seenThreats: null
 
     readonly property alias monitor: net
     readonly property alias store: store
+    readonly property alias threats: threatWatch
+
+    ThreatWatch {
+        id: threatWatch
+        service: service
+    }
 
     // The "netapps" pill reading (MonitorCore.netApps), only when a pill shows it.
     readonly property var pillApps: {
@@ -334,6 +343,20 @@ Item {
             if (!up[iface])
                 alert("vpnDown", "VPN disconnected: " + _vpnUp[iface], iface + " is down; traffic now leaves directly");
         _vpnUp = up;
+        // Something dangerous (Threats page), once per finding. The first
+        // look after a start only learns what is there, except the serious
+        // ones: those are worth hearing about again after a restart.
+        const serious = threatWatch.findings.filter(f => f.level === "high" || (f.level === "medium" && f.kind !== "plain"));
+        const firstLook = _seenThreats === null;
+        const seenThreats = firstLook ? {} : _seenThreats;
+        for (const f of serious) {
+            if (seenThreats[f.key])
+                continue;
+            seenThreats[f.key] = true;
+            if (!firstLook || f.level === "high")
+                alert("threat", f.title, f.detail);
+        }
+        _seenThreats = seenThreats;
         // Daily limits, once a day each.
         const today = NetHistory.dayKey(now);
         for (const key in limits) {

@@ -16,7 +16,7 @@ Glassy is a glassy, [b]riceable[/b] system monitor for KDE Plasma 6, and now als
 [*] [b]GPU Charts:[/b] Line, area, bars, donut, pie and meters, with an optional glow.
 [*] [b]Glass Materials:[/b] Tint, glass, liquid glass, solid and atmosphere, with wallpaper blur and refraction.
 [*] [b]Power & Battery:[/b] Charge, time left, health, cycles, real watts from CPU and GPU sensors, and one-click power profiles.
-[*] [b]Network Window:[/b] Connections per app, open ports, containers, VPN and traffic history, all without root.
+[*] [b]Network Window:[/b] Connections per app, open ports, containers, VPN, traffic history and a Threats page (opt-in blocklists), all without root.
 [*] [b]Panel Pill:[/b] Values, sparklines or mini bars in your panel, or tray mode that cycles through them.
 [*] [b]Remote Machines:[/b] Watch a server or another PC over SSH with the same card.
 [*] [b]Plasma and Hyprland:[/b] A Plasma 6 widget, or a desktop layer and bar pill with Quickshell.

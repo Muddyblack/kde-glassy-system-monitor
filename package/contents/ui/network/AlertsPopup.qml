@@ -11,7 +11,8 @@ Controls.Popup {
             newApp: "✦",
             openPort: "⚠",
             vpnDown: "⛨",
-            limit: "◔"
+            limit: "◔",
+            threat: "⛔"
         })
     parent: page
     x: page.width - width - 18

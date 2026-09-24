@@ -52,6 +52,10 @@ Rectangle {
         {
             id: "history",
             label: "History"
+        },
+        {
+            id: "threats",
+            label: "Threats"
         }
     ]
     property int currentTab: Math.max(0, tabs.findIndex(t => t.id === savedState.tab))
@@ -199,7 +203,7 @@ Rectangle {
     Binding {
         target: page.net
         property: "firewallShown"
-        value: page.visible && page.tabs[page.currentTab].id === "listening"
+        value: page.visible && (page.tabs[page.currentTab].id === "listening" || page.tabs[page.currentTab].id === "threats")
     }
     Binding {
         target: page.net
@@ -242,6 +246,10 @@ Rectangle {
     Shortcut {
         sequences: ["Ctrl+7"]
         onActivated: page.selectTab(6)
+    }
+    Shortcut {
+        sequences: ["Ctrl+8"]
+        onActivated: page.selectTab(7)
     }
     Shortcut {
         sequences: ["Ctrl+Tab", "Ctrl+PgDown"]
@@ -474,6 +482,8 @@ Rectangle {
                                 return String(Object.values(net.containers).reduce((a, e) => a + e.containers.length, 0));
                             case "history":
                                 return page.service.recording ? "●" : "";
+                            case "threats":
+                                return String(page.service.threats.counts.high + page.service.threats.counts.medium);
                             }
                             return "";
                         }
@@ -497,7 +507,7 @@ Rectangle {
                             Text {
                                 visible: tab.count !== "" && tab.count !== "0"
                                 text: tab.count
-                                color: page.theme.dim
+                                color: tab.modelData.id === "threats" ? (page.service.threats.counts.high > 0 ? page.theme.danger : page.theme.warn) : page.theme.dim
                                 font.family: page.theme.fontFamily
                                 font.pixelSize: 10
                                 anchors.baseline: parent.children[0].baseline
@@ -605,6 +615,9 @@ Rectangle {
         HistoryPage {
             page: page
         }
+        ThreatsPage {
+            page: page
+        }
     }
 
     // ── Footer ───────────────────────────────────────────────────────────────
@@ -646,7 +659,7 @@ Rectangle {
             anchors.right: parent.right
             anchors.rightMargin: 18
             anchors.verticalCenter: parent.verticalCenter
-            text: "Ctrl+1–7 tabs · / search · ↑↓ rows · Menu actions · Esc"
+            text: "Ctrl+1–8 tabs · / search · ↑↓ rows · Menu actions · Esc"
             color: page.theme.dim
             font.family: page.theme.fontFamily
             font.pixelSize: 10

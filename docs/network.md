@@ -26,8 +26,9 @@ Portmaster. It is read-only (Glassy never blocks anything) and runs without root
 - **History**: a day by hour, a week or month by day, a year or everything by month; ◀ ▶ to step
   back and forth, a click on a bar to open it; per app, domain, country and interface (usage per
   link, handy for metered connections)
+- **Threats**: what looks dangerous, from high to info (see below)
 
-Search, filters, pause, light / dark and keyboard navigation (Ctrl+1–7, `/`, arrows, Menu) work
+Search, filters, pause, light / dark and keyboard navigation (Ctrl+1–8, `/`, arrows, Menu) work
 everywhere. Every chart shows the values under the pointer. The panel pill can show the busiest
 network app too (Layout › In a panel › Network apps).
 
@@ -56,10 +57,31 @@ a damaged or newer file is never overwritten. The files are `700` / `600`; today
 KB) is saved every five minutes and older days once a day. Export writes the connections as CSV
 and the history as CSV or JSON into Downloads.
 
+## Threats
+
+Hints for a closer look, not verdicts; Glassy still blocks nothing. Two sources:
+
+- **Checks on this machine** (always on, nothing leaves it): a program behind a socket that runs
+  from `/tmp`, `/var/tmp` or `/dev/shm` (AppImages excepted) or from a deleted file (also normal
+  after an update until the app restarts), crypto-mining pools and their ports, ports that backdoors
+  favour, IRC, FTP / Telnet / POP3 / IMAP without encryption, plain HTTP, Tor, and ports open to the
+  network that the firewall lets in.
+- **Blocklists** (off by default): switched on in the page, public lists are downloaded with
+  curl or wget (under 1 MB, once a day while on) and matched locally: Feodo Tracker and URLhaus
+  (abuse.ch), Spamhaus DROP, Emerging Threats' compromised hosts, IPsum level 3, and optionally Tor
+  exit nodes. Each can be switched off. Only the lists come down; no address is sent anywhere.
+  They live in `~/.local/share/glassy-system-monitor/threats/`, and switching the lists off
+  deletes that folder.
+
+A finding opens the usual row menu (whois, Wireshark, trust, end the process). Trusting an app
+silences the checks for it, never the lists. Serious findings raise an alert (Settings ›
+Something looks dangerous).
+
 ## Alerts
 
 Each can be switched off, as desktop notifications and in the window's bell: a new app goes
-online, a port opens to the network, a VPN drops, an app reaches its daily limit. Trusted apps
+online, a port opens to the network (off by default), a VPN drops, an app reaches its daily
+limit, something looks dangerous (Threats). Trusted apps
 get a ✓ and stay quiet; apps first seen lately are marked NEW.
 
 An optional password locks the window (a salted hash is kept, never the password).
@@ -113,6 +135,8 @@ them built in.
 ## What it reads
 
 `ss` for sockets, `/proc` for processes and traffic, `.desktop` files for app names and icons,
-`getent` and the GeoIP database for names and places, `resolvectl --no-ask-password` for DNS.
+`getent` and the GeoIP database for names and places, `resolvectl --no-ask-password` for DNS,
+`readlink /proc/PID/exe` once per process behind a socket (Threats), and the blocklists only when
+switched on.
 The process table is read only when a new process appears. Nothing asks for a password and
 nothing talks to NetworkManager.

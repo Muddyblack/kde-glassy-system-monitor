@@ -170,7 +170,10 @@ var NET_CONNS = [
     ["tcp", "127.0.0.1:48888", "127.0.0.1:5173", "firefox", 2211, 20, 2, 0, 0],
     ["tcp", NET_LOCAL + ":45510", "91.189.91.49:80", "", 0, 0, 0, 0, 0],
     ["tcp", "10.8.0.2:51022", "104.18.27.120:443", "Isolated Web Co", 2290, 60, 4, 0, 0],
-    ["tcp", "10.8.0.2:51040", "146.75.121.140:443", "spotify", 3310, 25, 1, 0, 0]
+    ["tcp", "10.8.0.2:51040", "146.75.121.140:443", "spotify", 3310, 25, 1, 0, 0],
+    // Something for the Threats page: a miner from /tmp and its "pool" (a
+    // documentation address, so no real host is named).
+    ["tcp", NET_LOCAL + ":49880", "203.0.113.66:3333", "kworkerd", 6120, 0.3, 0.2, 60, 0]
 ];
 var NET_LISTEN = [
     ["tcp", "0.0.0.0:22", "", 0],
@@ -196,8 +199,21 @@ var NET_PROCS = [
     [1, 0, "systemd"], [1400, 1, "systemd"], [1500, 1400, "plasmashell"], [1702, 1400, "kdeconnectd"], [1880, 1400, "syncthing"],
     [2211, 1500, "firefox"], [2290, 2211, "Isolated Web Co"], [2291, 2211, "Isolated Web Co"], [2301, 2211, "Socket Process"],
     [2870, 1500, "steam"], [2910, 2870, "steamwebhelper"], [3120, 1500, "Discord"], [3144, 3120, "Discord"], [3310, 1500, "spotify"],
-    [4102, 1500, "code"], [4120, 4102, "code"], [4400, 1500, "konsole"], [4401, 4400, "zsh"], [4410, 4401, "node"], [5120, 4401, "ssh"], [980, 1, "mullvad-daemon"]
+    [4102, 1500, "code"], [4120, 4102, "code"], [4400, 1500, "konsole"], [4401, 4400, "zsh"], [4410, 4401, "node"], [5120, 4401, "ssh"], [980, 1, "mullvad-daemon"],
+    [6120, 1400, "kworkerd"]
 ];
+// `readlink /proc/PID/exe` of some of them (Threats.exeCmd).
+var NET_EXES = { "6120": "/tmp/.X11-cache/kworkerd", "3120": "/opt/discord/Discord (deleted)", "2211": "/usr/lib/firefox/firefox" };
+
+// Downloaded blocklists as Threats.loadCmd() prints them.
+function netThreatLists(now) {
+    var t = Math.round(now / 1000) - 5 * 3600;
+    return ["@@feodo " + t, "203.0.113.66", "198.51.100.0/24",
+        "@@urlhaus " + t, "malware-cdn.example",
+        "@@spamhaus " + t, "192.0.2.0/24", "2001:db8:dead::/48",
+        "@@et " + t, "198.51.100.7",
+        "@@ipsum " + t, "203.0.113.66", "203.0.113.90"].join("\n");
+}
 
 function netSs(i) {
     var lines = [];
@@ -437,6 +453,7 @@ var NET_FIREWALL = ["unit firewalld inactive", "unit ufw inactive", "unit nftabl
 // A few alerts for the demo's bell.
 function netAlerts(now) {
     return [
+        { time: now - 60000, kind: "threat", title: "Botnet command server", body: "kworkerd → 203.0.113.66:3333" },
         { time: now - 4 * 60000, kind: "newApp", title: "New app online: Discord", body: "First connection to discord.gg (US), port 443" },
         { time: now - 52 * 60000, kind: "openPort", title: "Port open to the network: 8080/tcp", body: "web · Docker listens on all addresses" },
         { time: now - 3 * 3600000, kind: "limit", title: "Daily limit reached: Steam", body: "5.12 GiB today, limit 5.00 GiB" },
