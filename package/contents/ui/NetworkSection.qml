@@ -17,6 +17,16 @@ ColumnLayout {
 
     spacing: 4
 
+    // The header links drop their words once they would not all fit, so
+    // "window" is never cut off behind the reading.
+    TextMetrics {
+        id: fullLinks
+        font.family: section.monitor.fontFamily
+        font.pixelSize: 10
+        text: (section.monitor.activeIface !== "" ? section.monitor.activeIface + " ▾" : "") + "○ connections⧉ window"
+    }
+    readonly property bool shortLinks: fullLinks.advanceWidth + 20 > header.room
+
     component Link: Text {
         id: link
         font.family: section.monitor.fontFamily
@@ -64,7 +74,7 @@ ColumnLayout {
         Link {
             id: connectionsLink
             anchors.verticalCenter: parent.verticalCenter
-            text: connections.opened ? "● connections" : "○ connections"
+            text: (connections.opened ? "●" : "○") + (section.shortLinks ? "" : " connections")
             onActivated: {
                 if (connections.opened) {
                     connections.close();
@@ -76,7 +86,7 @@ ColumnLayout {
         }
         Link {
             anchors.verticalCenter: parent.verticalCenter
-            text: "⧉ window"
+            text: section.shortLinks ? "⧉" : "⧉ window"
             onActivated: section.monitor.networkWindowRequested()
         }
         Text {

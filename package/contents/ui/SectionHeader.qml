@@ -11,6 +11,8 @@ Item {
     property string fontFamily: Qt.application.font.family
     // Optional extra content between title and reading (chips, totals).
     default property alias extra: middle.data
+    // Width left for that extra content between title and reading.
+    readonly property real room: middle.width
 
     implicitHeight: Math.max(titleText.implicitHeight, readingText.implicitHeight)
 

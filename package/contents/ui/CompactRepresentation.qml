@@ -114,7 +114,10 @@ Item {
                 readonly property bool charted: compact.style !== "values" && !!model && model.history.length > 1
                 // Room across the panel, and the type sizes that fill it.
                 readonly property real across: compact.vertical ? compact.width - compact.hPad * 2 : compact.height - compact.vPad * 2
-                readonly property int valuePx: compact.vertical ? Math.max(8, Math.min(14, Math.round(across * 0.26))) : compact.thin ? Math.max(8, Math.round(across * 0.6)) : twoLines ? Math.max(8, Math.floor(across / 2 / 1.25)) : Math.max(10, Math.round(across * 0.42))
+                // Two readings (↓/↑) stack like the tray's own network meter;
+                // only a panel too short for two lines puts them side by side.
+                readonly property bool sideBySide: twoLines && compact.thin && across < 16
+                readonly property int valuePx: compact.vertical ? Math.max(8, Math.min(14, Math.round(across * 0.26))) : twoLines && !sideBySide ? Math.max(8, Math.floor(across / 2 / 1.25)) : compact.thin ? Math.max(8, Math.round(across * 0.6)) : Math.max(10, Math.round(across * 0.42))
                 readonly property int labelPx: compact.vertical ? Math.max(7, valuePx - 3) : compact.thin ? valuePx : Math.max(7, Math.round(across * 0.25))
                 readonly property bool meter: compact.style === "values" && !compact.thin && !twoLines && !!model && model.ratio >= 0
 
@@ -151,10 +154,10 @@ Item {
                         font.family: compact.fontFamily
                         font.pixelSize: reading.labelPx
                     }
-                    // Two readings stack, or sit side by side on a thin panel.
+                    // Two readings stack, or sit side by side on a very thin panel.
                     Grid {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        columns: compact.thin ? 2 : 1
+                        columns: reading.sideBySide ? 2 : 1
                         columnSpacing: 6
                         Repeater {
                             model: reading.model ? reading.model.lines : []

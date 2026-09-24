@@ -1,4 +1,5 @@
 import QtQuick
+import ".." as Ui
 
 // The app's theme icon (by .desktop Icon= or process name), else a letter.
 Item {
@@ -10,18 +11,22 @@ Item {
     implicitWidth: size
     implicitHeight: size
 
-    Image {
+    // Only created for rows that name an icon; no fallback, so a name the
+    // theme lacks leaves it not ready and the letter shows instead.
+    Loader {
         id: image
         anchors.fill: parent
-        source: icon.iconName === "" || !icon.theme.icons ? "" : icon.iconName.charAt(0) === "/" ? "file://" + icon.iconName : "image://icon/" + icon.iconName
-        sourceSize: Qt.size(icon.size * 2, icon.size * 2)
-        asynchronous: true
-        smooth: true
-        visible: status === Image.Ready
+        active: icon.iconName !== "" && !!icon.theme.icons
+        readonly property bool ready: !!item && item.ready
+        sourceComponent: Ui.ThemeIcon {
+            name: icon.iconName
+            fallback: ""
+            opacity: ready ? 1 : 0
+        }
     }
     Rectangle {
         anchors.fill: parent
-        visible: image.status !== Image.Ready
+        visible: !image.ready
         radius: icon.size * 0.28
         readonly property real hue: {
             let h = 0;

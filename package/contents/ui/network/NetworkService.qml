@@ -45,7 +45,8 @@ Item {
     readonly property bool tabsEnabled: state.tabs !== false
     readonly property var alertSettings: Object.assign({
         newApp: true,
-        openPort: true,
+        // Off by default: every service that listens would raise one.
+        openPort: false,
         vpnDown: true,
         limit: true,
         notify: true

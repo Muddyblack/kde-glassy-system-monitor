@@ -137,12 +137,18 @@ QQC2.Popup {
                     spacing: 7
 
                     // Application icon by process name, where the theme has one.
-                    Image {
-                        source: "image://icon/" + modelData.procName
-                        sourceSize: Qt.size(36, 36)
-                        Layout.preferredWidth: 18
+                    // Kept loaded (not hidden) so the lookup runs; takes no room without a match.
+                    Item {
+                        Layout.preferredWidth: appIcon.ready ? 18 : 0
                         Layout.preferredHeight: 18
-                        visible: status === Image.Ready
+                        ThemeIcon {
+                            id: appIcon
+                            width: 18
+                            height: 18
+                            name: modelData.procName
+                            fallback: ""
+                            opacity: ready ? 1 : 0
+                        }
                     }
 
                     ColumnLayout {
