@@ -1,87 +1,66 @@
 import QtQuick
 import "Theme.js" as Theme
 import "ProjectInfo.js" as Project
+import "ProjectInfoRequests.js" as InfoRequests
 
 Column {
     id: info
     required property var studio
     property var counts: ({})
     property var contributorList: []
-    property var requests: []
-    property bool requested: false
+    property var client: null
+    property bool canRefresh: false
     readonly property string currentVersion: Project.currentVersion
     property string latestVersion: ""
     property string releaseCheckState: "Not checked"
     readonly property string versionStatus: latestVersion ? Project.releaseStatus(currentVersion, latestVersion) : releaseCheckState
 
-    function checkRelease() {
-        if (!onlineEnabled || releaseCheckState === "Checking…")
-            return;
-        latestVersion = "";
-        releaseCheckState = "Checking…";
-        const request = new XMLHttpRequest();
-        requests.push(request);
-        request.open("GET", Project.latestReleaseUrl);
-        request.onreadystatechange = function () {
-            if (request.readyState !== XMLHttpRequest.DONE)
-                return;
-            info.latestVersion = request.status === 200 ? Project.releaseVersion(request.responseText) : "";
-            info.releaseCheckState = info.latestVersion ? "Checked" : "Could not check for updates";
-        };
-        request.send();
-        timeout.restart();
-    }
     readonly property bool onlineEnabled: studio.onScreen
     spacing: 16
 
-    function loadCounts() {
-        if (!onlineEnabled || requested)
-            return;
-        requested = true;
-        checkRelease();
-        Project.statistics.forEach(function (stat) {
-            const request = new XMLHttpRequest();
-            info.requests.push(request);
-            request.open("GET", stat.url);
-            request.onreadystatechange = function () {
-                if (request.readyState !== XMLHttpRequest.DONE || request.status !== 200)
-                    return;
-                const value = Project.count(request.responseText);
-                if (value) {
-                    const next = Object.assign({}, info.counts);
-                    next[stat.id] = value;
-                    info.counts = next;
-                }
-            };
-            request.send();
-        });
-        const contributorsRequest = new XMLHttpRequest();
-        requests.push(contributorsRequest);
-        contributorsRequest.open("GET", Project.contributorsUrl);
-        contributorsRequest.onreadystatechange = function () {
-            if (contributorsRequest.readyState === XMLHttpRequest.DONE && contributorsRequest.status === 200)
-                info.contributorList = Project.contributors(contributorsRequest.responseText);
-        };
-        contributorsRequest.send();
-        timeout.restart();
+    function applyNetworkState(state) {
+        counts = state.counts;
+        contributorList = state.contributors;
+        latestVersion = state.latestVersion;
+        releaseCheckState = state.releaseState;
+        canRefresh = state.canRefresh;
     }
-    function cancelRequests() {
-        requests.forEach(function (request) {
-            request.onreadystatechange = null;
-            request.abort();
-        });
-        requests = [];
-        if (releaseCheckState === "Checking…")
-            releaseCheckState = "Could not check for updates";
+
+    onOnlineEnabledChanged: {
+        if (client) {
+            if (visible && onlineEnabled)
+                client.tick();
+            else
+                client.pause();
+        }
     }
-    onOnlineEnabledChanged: if (onlineEnabled)
-        loadCounts()
-    Component.onCompleted: loadCounts()
-    Component.onDestruction: cancelRequests()
+    onVisibleChanged: {
+        if (client) {
+            if (visible && onlineEnabled)
+                client.tick();
+            else
+                client.pause();
+        }
+    }
+    Component.onCompleted: {
+        client = InfoRequests.create(Project, function () {
+            return new XMLHttpRequest();
+        }, function () {
+            return Date.now();
+        }, applyNetworkState);
+        if (visible && onlineEnabled)
+            client.tick();
+    }
+    Component.onDestruction: {
+        if (client)
+            client.dispose();
+    }
+
     Timer {
-        id: timeout
-        interval: 8000
-        onTriggered: info.cancelRequests()
+        interval: 1000
+        repeat: true
+        running: info.visible && info.onlineEnabled && info.client !== null
+        onTriggered: info.client.tick()
     }
 
     Row {
@@ -197,8 +176,8 @@ Column {
                 StudioButton {
                     text: "Check again"
                     compact: true
-                    enabled: info.onlineEnabled && info.releaseCheckState !== "Checking…"
-                    onClicked: info.checkRelease()
+                    enabled: info.onlineEnabled && info.canRefresh
+                    onClicked: info.client.refresh()
                 }
             }
         }
