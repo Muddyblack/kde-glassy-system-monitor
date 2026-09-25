@@ -13,6 +13,11 @@ Item {
     default property alias extra: middle.data
     // Width left for that extra content between title and reading.
     readonly property real room: middle.width
+    // With a monitor and a line key the reading acts as that line's legend
+    // entry: hover highlights the line, click hides it.
+    property var monitor: null
+    property string lineKey: ""
+    readonly property bool lineShown: !monitor || lineKey === "" || !monitor.isLineDisabled(lineKey)
 
     implicitHeight: Math.max(titleText.implicitHeight, readingText.implicitHeight)
 
@@ -46,12 +51,24 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
         text: header.reading
         color: header.readingColor
+        opacity: header.lineShown ? 1 : 0.3
         font.pixelSize: 14
         font.bold: true
+        font.strikeout: !header.lineShown
         Behavior on color {
             ColorAnimation {
                 duration: 300
             }
+        }
+        MouseArea {
+            anchors.fill: parent
+            enabled: !!header.monitor && header.lineKey !== ""
+            cursorShape: Qt.PointingHandCursor
+            hoverEnabled: true
+            onClicked: header.monitor.toggleLineDisabled(header.lineKey)
+            onEntered: header.monitor.hoveredLine = header.lineKey
+            onExited: if (header.monitor.hoveredLine === header.lineKey)
+                header.monitor.hoveredLine = ""
         }
     }
 }

@@ -24,6 +24,8 @@ ColumnLayout {
         reading: section.model.reading
         readingColor: section.model.readingColor || section.monitor.textColor
         textColor: section.monitor.textColor
+        monitor: section.monitor
+        lineKey: "cpuTotal"
     }
 
     MetricChart {

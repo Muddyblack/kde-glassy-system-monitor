@@ -86,8 +86,12 @@ PlasmoidItem {
         // Plasma never sizes the card below what its sections need.
         Layout.minimumWidth: minimumWidth
         Layout.minimumHeight: minimumHeight
-        Layout.preferredWidth: preferredWidth
-        Layout.preferredHeight: preferredHeight
+        // The desktop grows a widget to its preferred size whenever that hint
+        // changes (it does on every load), overriding the size the user gave
+        // it. There the preferred size is just the minimum; the popup keeps
+        // the roomier one.
+        Layout.preferredWidth: root.isInPanel ? preferredWidth : minimumWidth
+        Layout.preferredHeight: root.isInPanel ? preferredHeight : minimumHeight
         // In a panel this is created on first expand and then only hidden, so
         // visibility, not existence, says whether anything is worth drawing.
         onVisibleChanged: root.fullShown = visible
