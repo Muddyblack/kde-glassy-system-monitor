@@ -31,6 +31,11 @@ shell's Qt fails to load), on the software backend and offscreen.
   history (recording, summaries, refusing foreign or newer files, pruning)
   and the browser-tab matching (a real mozlz4 session, Chromium lists,
   shell-safe commands).
+- `tst_Sensors.qml` — hardware readings with cores folded into one row, defaults, selection,
+  names and undetected readings, the picker's grouping and filter, which probes run, CPU power
+  without the Power section (no duplicates, zero is a reading) and position validation.
+- `tst_Cards.qml` — several Quickshell cards: how `hyprland.json` holds them, what they
+  share, and the settings window's card switcher.
 - `tst_SampleClock.qml`, `tst_ScrollTicker.qml` — sample timing and the
   frame-rate cap.
 

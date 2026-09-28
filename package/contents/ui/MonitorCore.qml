@@ -3,6 +3,7 @@ import "OsFetch.js" as OsFetch
 import "Sections.js" as Sections
 import "Format.js" as Format
 import "Probes.js" as Probes
+import "SensorConfig.js" as Sensors
 
 // Everything Glassy measures, with no UI and no desktop dependency. Hosts
 // supply the configuration (Plasma's KConfig map, or a plain object on
@@ -47,6 +48,13 @@ Item {
     readonly property bool showServices: sampledIds.indexOf("services") !== -1
     readonly property bool showContainers: sampledIds.indexOf("containers") !== -1
 
+    // Probes the chosen sensor readings need; the settings list every
+    // reading (discoverSensors) whichever sections are shown.
+    property bool discoverSensors: false
+    readonly property var sensorNeeds: Sensors.needs(cfg.sensorSelection, sampledIds)
+    readonly property bool readHardwareSensors: discoverSensors || showHwSensors || sensorNeeds.hardware
+    readonly property bool readPowerSensors: discoverSensors || showPowerSection || sensorNeeds.power
+
     // ── remote host ───────────────────────────────────────────────────────────
     // With `remoteHost` set every probe runs there over one shared SSH
     // connection (CommandSource wraps the commands) and the local
@@ -67,6 +75,8 @@ Item {
         // Readings from the other machine must not run into this one's.
         _procSnapshot = null;
         _powerPrev = null;
+        powerSources = [];
+        hardwareSensors = [];
         lastCpuStats = null;
         lastNetBytes = null;
         _lastDiskStats = null;
@@ -1645,15 +1655,8 @@ Item {
     }
 
     // ── Hardware Sensors state ────────────────────────────────────────────────
-    // Flat ListModel of rows (header + sensor). A stable ListModel (rather
-    // than a JS array we reassign every 3s) keeps delegates alive across
-    // refreshes — so `Behavior on width` animates from previous width to
-    // the new one, instead of recreating delegates that snap to 0.
-    ListModel {
-        id: hwSensorRowsModel
-        dynamicRoles: true
-    }
-    property alias hwSensorRows: hwSensorRowsModel
+    property var hardwareSensors: []
+    readonly property var sensorCatalog: Sensors.catalog(hardwareSensors, powerSources)
     property bool isReadingHwSensors: false
     property real hwMaxTemp: 0
     property real hwMaxTempCrit: 0
@@ -1666,7 +1669,7 @@ Item {
             core.isReadingHwSensors = false;
             hwSensorsSource.disconnectSource(sourceName);
             const text = data["stdout"] || "";
-            if (core.showHwSensors)
+            if (core.readHardwareSensors)
                 core.applyHwSensorUpdate(core.parseHwSensorsJson(text));
             if (core.showFans) {
                 const peaks = Object.assign({}, core.fanPeaks);
@@ -1679,7 +1682,7 @@ Item {
 
     Timer {
         interval: core._pollBase * 3
-        running: (core.showHwSensors || core.showFans) && core.active && core.live
+        running: (core.readHardwareSensors || core.showFans) && core.active && core.live
         repeat: true
         triggeredOnStart: true
         onTriggered: {
@@ -1703,13 +1706,14 @@ Item {
         } catch (e) {
             return [];
         }
+        if (!data || typeof data !== "object" || Array.isArray(data))
+            return [];
         const groups = [];
         for (const chipKey in data) {
             const chipData = data[chipKey];
-            if (typeof chipData !== "object")
+            if (!chipData || typeof chipData !== "object")
                 continue;
             const sensors = [];
-            const cores = [];
             let maxTemp = 0;
             let maxTempCrit = 0;
 
@@ -1717,16 +1721,19 @@ Item {
                 if (sensorKey === "Adapter")
                     continue;
                 const sd = chipData[sensorKey];
-                if (typeof sd !== "object")
+                if (!sd || typeof sd !== "object")
                     continue;
 
                 for (const key in sd) {
-                    if (!key.endsWith("_input"))
+                    const average = key.endsWith("_average");
+                    if (!key.endsWith("_input") && !average)
                         continue;
-                    const prefix = key.slice(0, -6);
+                    const prefix = key.slice(0, average ? -8 : -6);
+                    if (average && sd[prefix + "_input"] !== undefined)
+                        continue;
                     const value = sd[key];
-                    if (typeof value !== "number")
-                        break;
+                    if (typeof value !== "number" || !isFinite(value))
+                        continue;
 
                     if (prefix.startsWith("temp")) {
                         const crit = sd[prefix + "_crit"] || sd[prefix + "_max"] || 0;
@@ -1734,65 +1741,32 @@ Item {
                             maxTemp = value;
                             maxTempCrit = crit;
                         }
-                        if (/^Core \d+/.test(sensorKey)) {
-                            cores.push({
+                        sensors.push({
+                            key: sensorKey + ":" + key,
+                            label: sensorKey,
+                            value: value,
+                            crit: crit,
+                            type: 'temp'
+                        });
+                    } else {
+                        const units = {
+                            fan: "RPM",
+                            power: "W",
+                            in: "V",
+                            curr: "A",
+                            humidity: "%"
+                        };
+                        const kind = prefix.replace(/[0-9]+$/, "");
+                        if (units[kind])
+                            sensors.push({
+                                key: sensorKey + ":" + key,
                                 label: sensorKey,
                                 value: value,
-                                crit: crit
+                                type: kind,
+                                unit: units[kind]
                             });
-                        } else {
-                            let label = sensorKey;
-                            if (/^Package id/.test(label))
-                                label = "Package";
-                            sensors.push({
-                                label: label,
-                                value: value,
-                                crit: crit,
-                                type: 'temp'
-                            });
-                        }
-                        break;
-                    } else if (prefix.startsWith("fan")) {
-                        if (value > 0)
-                            sensors.push({
-                                label: sensorKey,
-                                value: Math.round(value),
-                                type: 'fan'
-                            });
-                        break;
                     }
                 }
-            }
-
-            // Aggregate cores when there are multiple
-            if (cores.length > 1) {
-                const values = cores.map(function (c) {
-                    return c.value;
-                });
-                let sum = 0, mn = values[0], mx = values[0];
-                for (let i = 0; i < values.length; i++) {
-                    sum += values[i];
-                    if (values[i] < mn)
-                        mn = values[i];
-                    if (values[i] > mx)
-                        mx = values[i];
-                }
-                sensors.push({
-                    label: cores.length + " cores",
-                    value: sum / values.length,
-                    min: mn,
-                    max: mx,
-                    crit: cores[0].crit,
-                    coreValues: values,
-                    type: 'cores'
-                });
-            } else if (cores.length === 1) {
-                sensors.push({
-                    label: cores[0].label,
-                    value: cores[0].value,
-                    crit: cores[0].crit,
-                    type: 'temp'
-                });
             }
 
             if (sensors.length > 0) {
@@ -1808,86 +1782,12 @@ Item {
         return groups;
     }
 
-    // Flatten groups into ListModel rows. If row count + key sequence matches
-    // the existing model, update values in place (so delegates persist and
-    // bar widths animate smoothly). Otherwise, rebuild from scratch.
     function applyHwSensorUpdate(groups) {
-        let globalMaxTemp = 0;
-        let globalMaxTempCrit = 0;
-        const newRows = [];
-        for (let gi = 0; gi < groups.length; gi++) {
-            const g = groups[gi];
-            if (g.maxTemp > globalMaxTemp) {
-                globalMaxTemp = g.maxTemp;
-                globalMaxTempCrit = g.maxTempCrit;
-            }
-            newRows.push({
-                rowType: 'header',
-                key: 'h:' + g.chip,
-                chipDisplay: g.chipDisplay,
-                maxTemp: g.maxTemp,
-                maxTempCrit: g.maxTempCrit || 0,
-                // sensor-row fields filled with defaults so ListModel role
-                // schema stays uniform across rows
-                label: '',
-                value: 0,
-                sensorKind: '',
-                crit: 0,
-                coreMin: 0,
-                coreMax: 0,
-                coreValues: []
-            });
-            for (let si = 0; si < g.sensors.length; si++) {
-                const s = g.sensors[si];
-                newRows.push({
-                    rowType: 'sensor',
-                    key: 's:' + g.chip + ':' + s.label,
-                    chipDisplay: '',
-                    maxTemp: 0,
-                    maxTempCrit: 0,
-                    label: s.label,
-                    value: s.value,
-                    sensorKind: s.type,
-                    crit: s.crit || 0,
-                    coreMin: s.min || 0,
-                    coreMax: s.max || 0,
-                    coreValues: s.coreValues || []
-                });
-            }
-        }
-
-        // Does the existing model have the same row structure?
-        let same = (hwSensorRowsModel.count === newRows.length);
-        if (same) {
-            for (let i = 0; i < newRows.length; i++) {
-                if (hwSensorRowsModel.get(i).key !== newRows[i].key) {
-                    same = false;
-                    break;
-                }
-            }
-        }
-
-        if (same) {
-            // In-place update — delegates stay alive, Behavior on width animates
-            for (let i = 0; i < newRows.length; i++) {
-                const r = newRows[i];
-                if (r.rowType === 'header') {
-                    hwSensorRowsModel.setProperty(i, 'maxTemp', r.maxTemp);
-                    hwSensorRowsModel.setProperty(i, 'maxTempCrit', r.maxTempCrit);
-                } else {
-                    hwSensorRowsModel.setProperty(i, 'value', r.value);
-                    hwSensorRowsModel.setProperty(i, 'coreMin', r.coreMin);
-                    hwSensorRowsModel.setProperty(i, 'coreMax', r.coreMax);
-                    hwSensorRowsModel.setProperty(i, 'coreValues', r.coreValues);
-                }
-            }
-        } else {
-            hwSensorRowsModel.clear();
-            for (let i = 0; i < newRows.length; i++)
-                hwSensorRowsModel.append(newRows[i]);
-        }
-        core.hwMaxTemp = globalMaxTemp;
-        core.hwMaxTempCrit = globalMaxTempCrit;
+        hardwareSensors = Sensors.hardware(groups);
+        const temperatures = hardwareSensors.filter(s => s.type === "temp");
+        const hottest = temperatures.reduce((a, b) => !a || b.value > a.value ? b : a, null);
+        hwMaxTemp = hottest ? hottest.value : 0;
+        hwMaxTempCrit = hottest ? hottest.crit : 0;
     }
 
     // ── OS Info state ─────────────────────────────────────────────────────────
@@ -2019,18 +1919,18 @@ Item {
     }
 
     function triggerPower() {
-        if (core.isReadingPower || !core.showPowerSection || !core.live)
+        if (core.isReadingPower || !core.readPowerSensors || !core.live)
             return;
         core.isReadingPower = true;
         powerSource.connectSource(OsFetch.shellCmd(Probes.powerCmd({
-            nvidia: core.gpuMode === "nvidia",
+            nvidia: core.gpuMode === "nvidia" || core.discoverSensors || core.sensorNeeds.nvidia,
             profiles: core.powerProfiles.length === 0
         })));
     }
     Timer {
         id: powerTimer
         interval: Math.max(2000, core._pollBase * 3)
-        running: core.showPowerSection && core.active && core.live
+        running: core.readPowerSensors && core.active && core.live
         repeat: true
         triggeredOnStart: true
         onTriggered: core.triggerPower()
@@ -2080,13 +1980,11 @@ Item {
             p: p,
             t: now
         };
-        // The first read has counters but no rate yet: keep the old list.
-        if (sources.list.length || !prev) {
-            core.powerSources = sources.list;
-            core.powerLoadW = sources.load;
-            if (sources.list.length)
-                core.powerLoadHistory = core.appendHistory(core.powerLoadHistory, sources.load);
-        }
+        // Missing/failed probes invalidate the reading instead of freezing old watts.
+        core.powerSources = sources.list;
+        core.powerLoadW = sources.load;
+        if (sources.list.length)
+            core.powerLoadHistory = core.appendHistory(core.powerLoadHistory, sources.load);
 
         if (p.profile)
             core.powerProfile = p.profile;

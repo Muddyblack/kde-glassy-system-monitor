@@ -3,6 +3,7 @@ import QtQuick.Controls.Basic as Controls
 import ".."
 import "Theme.js" as Theme
 import "StudioCatalog.js" as Catalog
+import "../Sections.js" as Sections
 
 // Live preview: the real widget, reading this machine, with the draft
 // settings, over a choice of wallpapers — as a desktop card or a panel pill.
@@ -33,6 +34,10 @@ Rectangle {
     DemoFeeder {
         monitor: demoMonitor
         running: !pane.live && pane.studio.onScreen
+    }
+    // Where the widget has each section now (see MonitorView.geometry).
+    function geometry() {
+        return card.geometry();
     }
     readonly property real cardWidth: Math.max(220, card.preferredWidth)
     readonly property real cardHeight: card.preferredHeight
@@ -82,6 +87,10 @@ Rectangle {
                 monitor: pane.monitor
                 cfg: pane.draft
                 backdrop: backdropImage
+                arranging: pane.draft.layoutMode === "manual"
+                onSectionMoved: (id, place) => pane.studio.update({
+                        sectionPositions: Sections.position(pane.draft.sectionPositions, id, place)
+                    })
             }
         }
     }

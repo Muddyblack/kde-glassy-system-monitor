@@ -475,10 +475,10 @@ function powerCmd(opts) {
         + "if [ -z \"$pw\" ]; then v=$(cat $p/voltage_now 2>/dev/null); c=$(cat $p/current_now 2>/dev/null); "
         + "[ -n \"$v\" ] && [ -n \"$c\" ] && pw=$(awk -v v=\"$v\" -v c=\"$c\" 'BEGIN{printf \"%d\", v*c/1000000}'); fi; "
         + "echo power=${pw:-0}; echo model=$(cat $p/model_name 2>/dev/null); break; done; "
-        + "for r in /sys/class/powercap/intel-rapl:[0-9]*; do case ${r##*/} in *:*:*) continue;; esac; [ -r $r/energy_uj ] || continue; "
+        + "for r in /sys/class/powercap/*rapl:[0-9]*; do case ${r##*/} in *:*:*) continue;; esac; [ -r $r/energy_uj ] || continue; "
         + "echo \"rapl ${r##*/} $(cat $r/energy_uj 2>/dev/null) $(cat $r/max_energy_range_uj 2>/dev/null) $(cat $r/name 2>/dev/null)\"; done; "
         + "for h in /sys/class/hwmon/hwmon*; do n=$(cat $h/name 2>/dev/null); case $n in BAT*|ADP*|AC*|ucsi*|macsmc*) continue;; esac; "
-        + "for f in $h/power1_average $h/power1_input; do [ -r $f ] && { echo \"hwmon ${h##*/} $(cat $f 2>/dev/null) $n\"; break; }; done; done; "
+        + "d=$(readlink -f $h); d=${d%/hwmon/hwmon*}; for f in $h/power1_average $h/power1_input; do [ -r $f ] && { echo \"hwmon $n:$d $(cat $f 2>/dev/null) $n\"; break; }; done; done; "
         + (opts.nvidia ? "nvidia-smi --query-gpu=index,power.draw --format=csv,noheader,nounits 2>/dev/null | sed 's/^/nvidia /'; " : "")
         + "[ -f /proc/pressure/cpu ] && sed 's/^/cpu /' /proc/pressure/cpu 2>/dev/null | head -1; "
         + "[ -f /proc/pressure/memory ] && sed 's/^/mem /' /proc/pressure/memory 2>/dev/null | head -1; "
@@ -525,9 +525,9 @@ function parsePower(text) {
             out.powerUW = n;
         else if (k === "model")
             out.model = v;
-        else if (f[0] === "rapl" && f.length >= 3 && !isNaN(Number(f[2])))
+        else if (f[0] === "rapl" && f.length >= 3 && isFinite(Number(f[2])) && Number(f[2]) >= 0)
             out.rapl[f[1]] = { energy: Number(f[2]), range: Number(f[3]) || 0, name: f.slice(4).join(" ") || f[1] };
-        else if (f[0] === "hwmon" && f.length >= 3 && Number(f[2]) > 0)
+        else if (f[0] === "hwmon" && f.length >= 3 && isFinite(Number(f[2])) && Number(f[2]) >= 0)
             out.hwmon.push({ id: f[1], watts: Number(f[2]) / 1e6, name: f.slice(3).join(" ") || f[1] });
         else if (f[0] === "nvidia" && f.length >= 3 && !isNaN(parseFloat(f[2])))
             out.nvidia.push({ id: "nvidia" + parseInt(f[1]), watts: parseFloat(f[2]), name: "nvidia" });
@@ -565,10 +565,10 @@ function powerSources(prev, next, dt) {
             if (d < 0 && b.range > 0)
                 d += b.range;
             if (d >= 0)
-                list.push({ id: id, label: RAPL_LABELS[b.name] || b.name, watts: d / dt / 1e6, platform: b.name === "psys" });
+                list.push({ id: id, label: RAPL_LABELS[b.name] || b.name, watts: d / dt / 1e6, platform: b.name === "psys", kind: /^package-/.test(b.name) ? "cpu" : "", counter: true });
         }
     next.hwmon.concat(next.nvidia).forEach(function (h) {
-        list.push({ id: h.id, label: HWMON_LABELS[h.name] || (h.name === "nvidia" ? "GPU (NVIDIA)" : h.name), watts: h.watts });
+        list.push({ id: h.id, label: HWMON_LABELS[h.name] || (h.name === "nvidia" ? "GPU (NVIDIA)" : h.name), watts: h.watts, kind: /^(zenpower|zenpower3|amd_energy|coretemp)$/.test(h.name) ? "cpu" : /^(amdgpu|nouveau|xe|i915|nvidia)$/.test(h.name) ? "gpu" : "" });
     });
     var platform = list.filter(function (s) { return s.platform; })[0];
     var load = platform ? platform.watts : list.filter(function (s) { return !s.platform && s.label !== "Memory"; }).reduce(function (a, s) { return a + s.watts; }, 0);

@@ -32,7 +32,8 @@ var MEM_TOTAL = 32 * 1073741824;
 var SWAP_TOTAL = 8 * 1073741824;
 
 var SENSORS = [
-    { chip: "k10temp", chipDisplay: "CPU (AMD)", maxTemp: 62, maxTempCrit: 95, sensors: [{ label: "Tctl", value: 62, crit: 95, type: "temp" }] },
+    { chip: "coretemp-isa-0000", chipDisplay: "CPU (Intel)", maxTemp: 66, maxTempCrit: 100, sensors: [{ label: "Package id 0", value: 66, crit: 100, type: "temp" }].concat(
+        [58, 61, 66, 55, 52, 54].map(function (t, i) { return { key: "Core " + i + ":temp" + (i + 2) + "_input", label: "Core " + i, value: t, crit: 100, type: "temp" }; })) },
     { chip: "amdgpu", chipDisplay: "GPU (AMD)", maxTemp: 54, maxTempCrit: 100, sensors: [{ label: "edge", value: 54, crit: 100, type: "temp" }, { label: "fan1", value: 1180, type: "fan" }] },
     { chip: "nvme", chipDisplay: "NVMe SSD", maxTemp: 41, maxTempCrit: 85, sensors: [{ label: "Composite", value: 41, crit: 85, type: "temp" }] }
 ];
@@ -95,7 +96,7 @@ function containersText(i) {
 // Measured draw and power profiles for the Power section.
 function powerSources(i) {
     var cpu = 9 + 5 * Math.abs(Math.sin(i / 7)), gpu = 14 + 20 * Math.abs(Math.sin(i / 11));
-    return [{ id: "intel-rapl:0", label: "CPU package", watts: cpu }, { id: "hwmon3", label: "GPU (AMD)", watts: gpu }];
+    return [{ id: "intel-rapl:0", label: "CPU package", kind: "cpu", counter: true, watts: cpu }, { id: "hwmon3", label: "GPU (AMD)", kind: "gpu", watts: gpu }];
 }
 var PROFILES = ["power-saver", "balanced", "performance"];
 var BATTERY = { percent: 76, status: "Discharging", health: 94, cycles: 212, temp: 31, hours: 4.6 };

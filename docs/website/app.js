@@ -10,10 +10,10 @@
  * builds the studio UI from the schema, in the Audio Visualizer site's style.
  */
 'use strict';
-const { Schema, Looks, Sections, Data, Format, DemoData, Probes, Catalog, Project, SectionModels } = Glassy;
+const { Schema, Looks, Sections, Data, Format, DemoData, Probes, Sensors, Catalog, Project, SectionModels } = Glassy;
 const DEFAULTS = Glassy.defaults;
 // Placement exists on Hyprland only (see hyprland/GlassyShell.qml).
-const HYPR = { monitor: '', hAnchor: 'right', verticalPosition: 0.08, screenMargin: 24, widgetWidth: 0, desktopLayer: true };
+const HYPR = { monitor: '', hAnchor: 'right', verticalPosition: 0.08, screenMargin: 24, widgetWidth: 0, widgetHeight: 0, desktopLayer: true, cardX: 0, cardY: 0 };
 const BASE = { ...DEFAULTS, ...HYPR };
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
@@ -81,6 +81,7 @@ const monitor = {
             cpuPressureAvg10: r.cpu / 12, memPressureAvg10: 0.4,
             hoveredLine: '', hoveredCore: -1
         });
+        this.sensorCatalog = Sensors.catalog(Sensors.hardware(DemoData.SENSORS), this.powerSources);
         this.powerLoadW = this.powerSources.reduce((a, s) => a + s.watts, 0);
         // Load average through the widget's own parser, one reading per step.
         const loads = L.map((x, k) => Probes.parseLoad(DemoData.loadText(this.t - L.length + 1 + k)));
@@ -282,7 +283,7 @@ function modelSection(cfg, id, below = '', extra = '') {
     const plotLeft = pl(cfg, id);
     return head(model.title, model.reading, model.readingColor || INK, extra) +
         chartHTML(cfg, id, style => ({ ...model, series: model.series(style) })) + below(model, plotLeft) +
-        legend(cfg, plotLeft, model.legend);
+        legend(cfg, plotLeft, model.legend) + (['cpu', 'gpu'].includes(id) ? sensorReadings(cfg, id) : '');
 }
 // BarListSection in HTML: storage and processes. The rows go through the
 // widget's parsers and ranking with this card's settings, as DemoFeeder does.
@@ -309,6 +310,25 @@ function barList(cfg, id) {
         : `<div class="gw-brow"><span>${esc(r.label)}</span><span class="gw-mtrack"><i style="width:${Math.min(1, r.ratio) * 100}%;background:${tint(r)}"></i></span><small>${esc(r.detail)}</small><b style="color:${tint(r)}">${esc(r.value)}</b></div>`).join('') : `<div class="gw-brow gw-dim">${esc(model.empty)}</div>`;
     return head(model.title, model.reading, model.readingColor || INK) + `<div class="gw-bars">${rows}</div>`;
 }
+// SensorReadings.qml in HTML: a compact grid (CPU, GPU), bars (Power) or
+// rows under a header per device (Sensors).
+function sensorReadings(cfg, section) {
+    const shown = Sensors.rows(m.sensorCatalog, cfg, section);
+    const tint = s => Sensors.tint(s, cfg) || INK;
+    if (section === 'cpu' || section === 'gpu')
+        return shown.length ? `<div class="gw-cores">${shown.map(s => `<span><i style="background:${tint(s)}"></i>${esc(s.label)}<b style="color:${tint(s)}">${esc(Sensors.reading(s))}</b></span>`).join('')}</div>` : '';
+    const maxWatts = Math.max(1, ...shown.filter(s => s.type === 'power').map(s => s.value || 0));
+    const middle = s => {
+        if (s.type === 'cores') return `<span class="gw-corebars">${s.values.map(v => { const t = { type: 'temp', value: v, crit: s.crit }; return `<i style="height:${Sensors.ratio(t, cfg) * 100}%;background:${Sensors.tint(t, cfg)}"></i>`; }).join('')}</span>`;
+        if (s.type === 'fan') return `<span class="gw-mtrack"><i style="width:100%;background:${tint(s)}55"></i></span>`;
+        const r = Sensors.ratio(s, cfg, maxWatts);
+        return r < 0 ? '<span></span>' : `<span class="gw-mtrack"><i style="width:${r * 100}%;background:${tint(s)}"></i></span>`;
+    };
+    const rows = section === 'sensors' ? Sensors.grouped(shown) : shown;
+    return rows.map(s => s.header
+        ? `<div class="gw-chipname"><b>${esc(s.label)}</b><i></i>${s.value > 0 ? `<small style="color:${Sensors.tint({ type: 'temp', value: s.value, crit: s.crit }, cfg)}">max ${s.value.toFixed(0)}°C</small>` : ''}</div>`
+        : `<div class="gw-srow"><span>${esc(s.label)}</span>${middle(s)}<b style="color:${tint(s)}">${esc(Sensors.reading(s))}</b></div>`).join('');
+}
 const SECTION = {
     cpu: cfg => modelSection(cfg, 'cpu', model => model.cores
         ? `<div class="gw-cores">${m.corePercents.map((p, i) => { const c = model.coreColors[i % model.coreColors.length]; return `<span><i style="background:${c}"></i>Core ${i + 1}<b style="color:${c}">${p.toFixed(0)}%</b></span>`; }).join('')}</div>` : ''),
@@ -320,10 +340,10 @@ const SECTION = {
     gpu: cfg => { const c = colorOf(cfg, 'gpuColor', '#ff6e40'); return modelSection(cfg, 'gpu', (model, left) => cfg.gpuShowEngines ? `<div class="gw-engines" style="padding-left:${left}px"><div class="gw-vram"><b>VRAM</b><span class="gw-mtrack"><i style="width:32%;background:${c}"></i></span><span>5.20 GiB / 16.00 GiB</span></div><div class="gw-eng"><span><i style="background:${c}"></i>Compute <b style="color:${c}">${m.gpuPercent.toFixed(0)}%</b></span><span><i style="background:${c}"></i>Decode <b style="color:${c}">4%</b></span><span><i style="background:${alpha(c, 0.35)}"></i>Encode 0%</span></div></div>` : '', `<span class="gw-badge">AMD</span><span class="gw-dim">${Math.round(1200 + m.gpuPercent * 12)} MHz</span>`); },
     custom: cfg => modelSection(cfg, 'custom', () => ''),
     sensors(cfg) {
-        const col = (v, crit) => { const r = Math.max(0, (v - 30) / Math.max(20, (crit || cfg.hwTempCrit || 90) - 30)); return r >= 0.85 ? '#ff4444' : r >= 0.72 ? '#ff8844' : r >= 0.55 ? '#ffaa22' : '#44ddaa'; };
-        return head(title(cfg, 'sensors'), '62°C', INK) + `<div class="gw-sensors">${DemoData.SENSORS.map(g => `<div class="gw-chipname"><b>${esc(g.chipDisplay)}</b><i></i><small style="color:${col(g.maxTemp, g.maxTempCrit)}">max ${g.maxTemp}°C</small></div>${g.sensors.map(s => s.type === 'fan'
-            ? `<div class="gw-srow"><span>${esc(s.label)}</span><span class="gw-mtrack"><i style="width:100%;background:#22aaff55"></i></span><b style="color:#22aaff">${s.value} RPM</b></div>`
-            : `<div class="gw-srow"><span>${esc(s.label)}</span><span class="gw-mtrack"><i style="width:${s.value / s.crit * 100}%;background:${col(s.value, s.crit)}"></i></span><b style="color:${col(s.value, s.crit)}">${s.value.toFixed(1)}°C</b></div>`).join('')}`).join('')}</div>`;
+        const temps = Sensors.rows(m.sensorCatalog, cfg, 'sensors').filter(s => s.type === 'temp' || s.type === 'cores');
+        const hot = temps.reduce((a, s) => !a || s.value > a.value ? s : a, null);
+        return head(title(cfg, 'sensors'), hot ? hot.value.toFixed(0) + '°C' : '', hot ? Sensors.tint(hot, cfg) : INK) +
+            `<div class="gw-sensors">${sensorReadings(cfg, 'sensors') || '<div class="gw-dim">No sensors chosen.</div>'}</div>`;
     },
     // PowerSection in HTML: glance row, chart tabs, profile, tiles, sources.
     power(cfg) {
@@ -340,7 +360,7 @@ const SECTION = {
             legend(cfg, pl(cfg, 'power'), model.legend) + profiles +
             `<div class="gw-ptiles">${tile('Battery', b.percent + '%', '#44dd88')}${tile('Status', b.status)}${tile('Temperature', b.temp + '°C')}${tile('Cycle count', b.cycles)}</div>` +
             bar('Battery health', b.health, 100, '#44dd88', b.health.toFixed(1) + '%') +
-            (cfg.powerShowSources !== false ? m.powerSources.map(s => bar(esc(s.label), s.watts, model.maxValue, load, Format.watts(s.watts))).join('') : '') +
+            (cfg.powerShowSources !== false ? sensorReadings(cfg, 'power') : '') +
             (cfg.powerShowPressure !== false ? bar('CPU pressure', m.cpuPressureAvg10, 20, '#ff6644', m.cpuPressureAvg10.toFixed(2) + '%') + bar('Memory pressure', 0.4, 20, '#aa66ff', '0.40%') : '');
     },
     load: cfg => modelSection(cfg, 'load', (model, left) => `<div class="gw-stats" style="padding-left:${left}px">${model.stats.map(st => `<span><small>${st.label}</small><b style="color:${st.color || INK}">${esc(st.value)}</b></span>`).join('')}</div>`),
@@ -358,6 +378,7 @@ const SECTION = {
 // Card size the widget asks for, as MonitorView.preferredWidth does.
 function cardWidth(cfg) {
     const ids = Sections.parse(cfg.sections, cfg.activeSection), cols = clamp(cfg.layoutColumns || 1, 1, 3);
+    if (cfg.layoutMode === 'manual') { const positions = Sections.positions(cfg.sectionPositions); return Math.max(...ids.map(id => (positions[id]?.x || 0) + (positions[id]?.width || 300))) + 2 * (({compact: 6, roomy: 14})[cfg.density] || 10); }
     if (env === 'hypr' && cfg.widgetWidth > 0) return cfg.widgetWidth;
     return cols > 1 ? cols * 290 : ids.length === 1 && ids[0] === 'memory' ? 240 : 320;
 }
@@ -384,7 +405,7 @@ function widgetHTML(cfg) {
     const pad = ({ compact: 6, roomy: 14 })[cfg.density] || 10;
     const shadow = cfg.cardShadow === 'soft' || cfg.cardShadow === 'lifted' ? ' sh-' + cfg.cardShadow : '';
     const specular = material === 'liquid' && cfg.glassSpecular !== false ? ' specular' : '';
-    return `<div class="gw${shadow}${specular}" style="width:${cardWidth(cfg)}px;border-radius:${r};--ink:${inkOf(cfg)};--font:${cfg.fontFamily === 'monospace' ? 'ui-monospace,monospace' : 'Noto Sans,Inter,system-ui,sans-serif'};padding:${pad}px;gap:${pad}px 16px;grid-template-columns:repeat(${cols},1fr)">${surfaceHTML(cfg, ids)}${ids.map((id, i) => `<section class="gw-sec" style="grid-row:${place[i].row + 1};grid-column:${place[i].column + 1} / span ${place[i].span}">${SECTION[id](cfg)}</section>`).join('')}</div>`;
+    return `<div class="gw${shadow}${specular}" ${cfg.layoutMode === 'manual' ? 'data-manual="true"' : ''} style="width:${cardWidth(cfg)}px;border-radius:${r};--ink:${inkOf(cfg)};--font:${cfg.fontFamily === 'monospace' ? 'ui-monospace,monospace' : 'Noto Sans,Inter,system-ui,sans-serif'};padding:${pad}px;gap:${pad}px 16px;grid-template-columns:repeat(${cols},1fr)">${surfaceHTML(cfg, ids)}${ids.map((id, i) => `<section class="gw-sec" data-section="${id}" data-position="${esc(JSON.stringify(cfg.layoutMode === 'manual' ? Sections.positions(cfg.sectionPositions)[id] || {} : {}))}" style="grid-row:${place[i].row + 1};grid-column:${place[i].column + 1} / span ${place[i].span}">${SECTION[id](cfg)}</section>`).join('')}</div>`;
 }
 // The panel pill from SectionModels.pill, like CompactRepresentation, and
 // the card it shows on hover (pinned by a click) under the panel.
@@ -424,7 +445,24 @@ $('#mainWidget').addEventListener('pointerleave', () => { if (pillHover) { pillH
 $('#mainWidget').addEventListener('click', e => { if (e.target.closest('.gw-pill')) { pillPinned = !pillPinned; renderMain(); } });
 
 /* ─── mounting and fitting ─────────────────────────────────────── */
-function mount(el, html) { el.innerHTML = html; drawCharts(el); }
+function mount(el, html) {
+    el.innerHTML = html;
+    for (const card of $$('[data-manual]', el)) {
+        const pad = parseFloat(getComputedStyle(card).paddingLeft);
+        let bottom = 0;
+        for (const section of $$('.gw-sec', card)) {
+            const p = JSON.parse(section.dataset.position);
+            const y = p.y ?? bottom;
+            // gridArea: an absolute grid item would be placed from its grid cell.
+            Object.assign(section.style, {position: 'absolute', gridArea: 'auto', left: (pad + (p.x || 0)) + 'px', top: (pad + y) + 'px', width: (p.width || 300) + 'px'});
+            // A set height, never below what the content needs.
+            if (p.height) section.style.height = Math.max(p.height, section.scrollHeight) + 'px';
+            bottom = Math.max(bottom, y + section.offsetHeight + pad);
+        }
+        card.style.height = (bottom + pad) + 'px';
+    }
+    drawCharts(el);
+}
 function fit(box, inner, max = 1) {
     const W = inner.offsetWidth, H = inner.offsetHeight;
     if (!W || !H) return 1;
@@ -555,6 +593,10 @@ function buildRow(r) {
     } else if (r.type === 'note') {
         el.innerHTML = '<div class="nt"></div>';
         sync = () => { $('.nt', el).innerHTML = `<div class="note"><i>◇</i><div><b>${env === 'kde' ? 'On Plasma' : 'On Hyprland'}</b> — ${esc(Schema.NOTES[r.note][env] || '')}</div></div>`; };
+    } else if (r.type === 'sensors') {
+        sync = renderSensorPicker(el, headHTML, r.sensorSection);
+    } else if (r.type === 'positions') {
+        sync = renderSectionPositions(el, headHTML);
     } else if (r.type === 'sections') {
         sync = renderSectionList(el, headHTML);
     } else if (r.type === 'looks') {
@@ -565,6 +607,97 @@ function buildRow(r) {
     return { el, r, sync };
 }
 
+// SensorPicker.qml in HTML: a filter, then one collapsible group per device
+// with a checkbox for all of it; a chip's cores fold under its Cores reading.
+function renderSensorPicker(el, headHTML, section) {
+    const state = { query: '', opened: {}, editing: '' };
+    el.innerHTML = headHTML + `<div class="rdg"><div class="rdg-tools"><input class="sel txt" placeholder="Filter by name or device" aria-label="Filter readings"><button class="ghost small" data-act="defaults">Defaults</button><button class="ghost small" data-act="clear">Clear</button></div><div class="rd rdg-sum"></div><div class="rdg-groups"></div></div>`;
+    const filter = $('.rdg-tools input', el), groupsEl = $('.rdg-groups', el);
+    const selected = () => Sensors.ids(m.sensorCatalog, S.sensorSelection, section);
+    const choose = ids => update({ sensorSelection: Sensors.select(S.sensorSelection, section, ids) });
+    const sensor = id => Sensors.byId(m.sensorCatalog)[id] || Sensors.placeholder(id);
+    const isOpen = (key, fallback) => state.query !== '' || (key in state.opened ? state.opened[key] : fallback);
+    let last = null;
+    function draw(s) {
+        const chosen = Sensors.ids(m.sensorCatalog, s.sensorSelection, section), names = Sensors.object(s.sensorNames);
+        const automatic = Sensors.selection(s.sensorSelection, section) === null;
+        const groups = Sensors.groups(m.sensorCatalog, chosen, names, state.query);
+        $('[data-act=defaults]', el).disabled = automatic;
+        $('[data-act=clear]', el).disabled = !chosen.length;
+        $('.rdg-sum', el).textContent = (automatic ? 'Automatic choice' : chosen.length + ' chosen') + ' · double-click a name or use the pencil to rename it everywhere it shows';
+        const line = (id, members, indent) => {
+            const x = sensor(id), custom = names[id] || '', on = chosen.includes(id);
+            const some = members.some(k => chosen.includes(k));
+            const name = state.editing === id
+                ? `<input class="sel txt rdg-edit" data-rename="${esc(id)}" value="${esc(custom || x.label)}" aria-label="Name for ${esc(x.label)}">`
+                : `<span class="rdg-name" data-id="${esc(id)}"><span>${esc(custom || x.label)}</span>${custom || x.missing ? `<small>${esc(x.missing ? 'not detected' : x.label)}</small>` : ''}</span>`;
+            return `<div class="rdg-row" style="padding-left:${28 + indent}px"><input type="checkbox" class="rdg-check" data-sensor="${esc(id)}" ${on ? 'checked' : ''} data-partial="${!on && some}" aria-label="Show ${esc(x.label)}">${name}${members.length ? `<button class="rdg-cores" data-cores="${esc(id)}">${members.length} cores ${isOpen(id, false) ? '▴' : '▾'}</button>` : ''}<b class="rdg-val${on ? ' on' : ''}">${esc(Sensors.reading(x))}</b><button class="rdg-pen" data-pen="${esc(id)}" title="Rename" aria-label="Rename ${esc(x.label)}"><svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4"/></svg></button></div>`;
+        };
+        groupsEl.innerHTML = groups.map(g => {
+            const ids = Sensors.groupIds(g), n = ids.filter(id => chosen.includes(id)).length;
+            if (!(g.key in state.opened) && state.query === '') state.opened[g.key] = n > 0 || groups.length === 1;
+            const open = isOpen(g.key, false);
+            return `<div class="rdg-g${open ? ' open' : ''}"><div class="rdg-head" data-group="${esc(g.key)}"><span class="rdg-chev">›</span><input type="checkbox" class="rdg-check" data-all="${esc(g.key)}" ${n && n === ids.length ? 'checked' : ''} data-partial="${n > 0 && n < ids.length}" aria-label="All of ${esc(g.title)}"><b>${esc(g.title)}</b><small>${esc(g.detail)}</small><em class="${n ? 'on' : ''}">${n} / ${ids.length}</em></div>${open ? g.items.map(item => line(item.id, item.members, 0) + (isOpen(item.id, false) ? item.members.map(k => line(k, [], 22)).join('') : '')).join('') : ''}</div>`;
+        }).join('') || `<div class="rd">${state.query ? 'No reading matches “' + esc(filter.value) + '”.' : 'Waiting for sensors.'}</div>`;
+        $$('[data-partial=true]', groupsEl).forEach(c => { c.indeterminate = true; });
+        const edit = $('.rdg-edit', groupsEl);
+        if (edit) { edit.focus(); edit.select(); }
+        el._groups = groups;
+    }
+    const redraw = () => draw(S);
+    filter.oninput = () => { state.query = filter.value.trim().toLowerCase(); redraw(); };
+    el.addEventListener('click', e => {
+        const t = e.target, act = t.closest('[data-act]');
+        if (act) { choose(act.dataset.act === 'defaults' ? null : []); return; }
+        if (t.dataset.sensor) { choose(Sensors.toggle(selected(), [t.dataset.sensor], t.checked)); return; }
+        if (t.dataset.all) { choose(Sensors.toggle(selected(), Sensors.groupIds(el._groups.find(g => g.key === t.dataset.all)), t.checked)); return; }
+        const cores = t.closest('[data-cores]'), pen = t.closest('[data-pen]'), head = t.closest('[data-group]');
+        if (cores) { state.opened[cores.dataset.cores] = !isOpen(cores.dataset.cores, false); redraw(); }
+        else if (pen) { state.editing = state.editing === pen.dataset.pen ? '' : pen.dataset.pen; redraw(); }
+        else if (head && t.tagName !== 'INPUT') { state.opened[head.dataset.group] = !isOpen(head.dataset.group, false); redraw(); }
+        else if (t.closest('.rdg-name')) { const id = t.closest('.rdg-name').dataset.id; choose(Sensors.toggle(selected(), [id], !selected().includes(id))); }
+    });
+    el.addEventListener('dblclick', e => { const n = e.target.closest('.rdg-name'); if (n) { state.editing = n.dataset.id; redraw(); } });
+    const finish = input => {
+        if (!input || state.editing !== input.dataset.rename) return;
+        const id = input.dataset.rename, name = input.value.trim();
+        state.editing = '';
+        update({ sensorNames: Sensors.rename(S.sensorNames, id, name === sensor(id).label ? '' : name) });
+        redraw();
+    };
+    el.addEventListener('keydown', e => {
+        if (!e.target.dataset.rename) return;
+        if (e.key === 'Enter') finish(e.target);
+        else if (e.key === 'Escape') { state.editing = ''; redraw(); }
+    });
+    el.addEventListener('focusout', e => { if (e.target.dataset.rename) finish(e.target); });
+    return s => {
+        const next = JSON.stringify([s.sensorSelection, s.sensorNames]);
+        if (next !== last) { last = next; draw(s); }
+    };
+}
+// SectionPositions.qml in HTML: x, y and width per section, one line each.
+function renderSectionPositions(el, headHTML) {
+    let signature = '';
+    el.onchange = e => {
+        const input = e.target;
+        if (!input.dataset.section || !Number.isFinite(input.valueAsNumber)) return;
+        update({ sectionPositions: Sections.position(S.sectionPositions, input.dataset.section, { [input.dataset.coord]: input.valueAsNumber }) });
+    };
+    // Back to the grid, then Manual again from where it put the sections.
+    el.onclick = e => {
+        if (!e.target.closest('[data-regrid]')) return;
+        update({ layoutMode: 'auto', sectionPositions: '{}' });
+        setTimeout(() => update({ layoutMode: 'manual' }), 50);
+    };
+    return s => {
+        const next = JSON.stringify([s.sections, s.sectionPositions]);
+        if (signature === next) return;
+        signature = next;
+        const positions = Sections.positions(s.sectionPositions);
+        el.innerHTML = headHTML + `<div class="pos"><div class="rd">Drag a section in the preview to move it; drag its right edge, bottom edge or corner to resize it. Positions are in pixels from the card's top-left corner and snap to 4 px. An empty H follows the content; a section never gets shorter than it needs.</div>${Sections.parse(s.sections, s.activeSection).map(id => `<div class="pos-row"><span>${esc(Sections.title(id, s))}</span>${[['x', 'X'], ['y', 'Y'], ['width', 'W'], ['height', 'H']].map(([key, label]) => `<label>${label}<input class="sel txt" type="number" min="${({ width: 180, height: 40 })[key] || 0}" max="16384" data-section="${id}" data-coord="${key}" value="${positions[id]?.[key] ?? ''}" placeholder="auto" aria-label="${esc(Sections.title(id, s))} ${label}"></label>`).join('')}</div>`).join('')}<button class="ghost small" data-regrid>Start again from the grid</button></div>`;
+    };
+}
 // Layout › sections: switch, drag grip, size, style, full width.
 function renderSectionList(el, headHTML) {
     el.innerHTML = headHTML + '<div class="gs-list"></div>';
@@ -694,6 +827,7 @@ function syncSettings() {
     const q = query.trim().toLowerCase();
     for (const row of rows) {
         row.el.hidden = !Schema.rowVisible(row.r, {}, S, env, q);
+        row.el.classList.toggle('disabled', !!(row.r.disabled && row.r.disabled(S)));
         if (!row.el.hidden) row.sync(S);
     }
     let any = false;
@@ -749,7 +883,45 @@ $('#resetAll').onclick = () => { S = { ...BASE }; onChange(); toast('Back to def
 /* ─── pages, updates, animation ────────────────────────────────── */
 let toastTimer;
 function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('on'), 2200); }
-function update(patch) { S = { ...S, ...patch }; onChange(); }
+function update(patch) {
+    // Manual arrangement starts from where the grid has each section (Studio.qml).
+    if (patch.layoutMode === 'manual' && S.layoutMode !== 'manual' && !('sectionPositions' in patch) && !Object.keys(Sections.positions(S.sectionPositions)).length)
+        patch = { ...patch, sectionPositions: JSON.stringify(gridGeometry()) };
+    S = { ...S, ...patch }; onChange();
+}
+// MonitorView.geometry(): each section's place in the preview card.
+function gridGeometry() {
+    const card = $('#mainWidget .gw'), out = {};
+    if (!card) return out;
+    const pad = parseFloat(getComputedStyle(card).paddingLeft);
+    for (const s of $$('.gw-sec', card)) out[s.dataset.section] = { x: Math.round(s.offsetLeft - pad), y: Math.round(s.offsetTop - pad), width: Math.round(s.offsetWidth) };
+    return out;
+}
+// Manual arrangement: drag a section in the preview, or its right edge to
+// resize it, as in the widget's studio.
+$('#mainWidget').addEventListener('pointerdown', e => {
+    const sec = e.target.closest('[data-manual] .gw-sec');
+    if (!sec || e.button !== 0) return;
+    e.preventDefault();
+    const k = sec.getBoundingClientRect().width / sec.offsetWidth, box = sec.getBoundingClientRect();
+    const right = e.clientX > box.right - 10, down = e.clientY > box.bottom - 10, resize = right || down;
+    const from = { x: e.clientX, y: e.clientY, left: sec.offsetLeft, top: sec.offsetTop, width: sec.offsetWidth, height: sec.offsetHeight };
+    const pad = parseFloat(getComputedStyle(sec.parentElement).paddingLeft), snap = v => Math.round(v / 4) * 4;
+    let place = null;
+    const move = ev => {
+        const dx = (ev.clientX - from.x) / k, dy = (ev.clientY - from.y) / k;
+        place = resize ? { ...(right ? { width: Math.max(180, snap(from.width + dx)) } : {}), ...(down ? { height: Math.max(40, snap(from.height + dy)) } : {}) } : { x: Math.max(0, snap(from.left - pad + dx)), y: Math.max(0, snap(from.top - pad + dy)) };
+        if (place.width) sec.style.width = place.width + 'px';
+        if (place.height) sec.style.height = place.height + 'px';
+        else Object.assign(sec.style, { left: pad + place.x + 'px', top: pad + place.y + 'px' });
+        sec.dataset.drag = resize ? `${place.width || from.width} × ${place.height || from.height} px` : `${place.x}, ${place.y}`;
+    };
+    const up = () => {
+        removeEventListener('pointermove', move); removeEventListener('pointerup', up);
+        if (place) update({ sectionPositions: Sections.position(S.sectionPositions, sec.dataset.section, place) });
+    };
+    addEventListener('pointermove', move); addEventListener('pointerup', up);
+});
 function onChange() { save(); charts.clear(); syncSettings(); renderConfig(); renderMain(); renderPresets(); renderHero(); }
 function renderHero() { mount($('#heroFi'), widgetHTML(lookState(Looks.BUILT_IN[1]))); fitCards(); }
 function showPage(page) {

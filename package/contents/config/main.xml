@@ -5,6 +5,18 @@
       http://www.kde.org/standards/kcfg/1.0/kcfg.xsd">
     <kcfgfile name=""/>
     <group name="General">
+        <entry name="sensorSelection" type="String">
+            <default>{}</default>
+        </entry>
+        <entry name="sensorNames" type="String">
+            <default>{}</default>
+        </entry>
+        <entry name="layoutMode" type="String">
+            <default>auto</default>
+        </entry>
+        <entry name="sectionPositions" type="String">
+            <default>{}</default>
+        </entry>
         <!-- Sections shown, in order: cpu,memory,network,ping,disk,gpu,sensors,power,system,storage,processes,load,fans,services,containers,custom.
              Empty falls back to the single legacy activeSection below. -->
         <entry name="sections" type="String">

@@ -221,7 +221,7 @@ TestCase {
         compare(Schema.formatStyles(map), "cpu:line,memory:donut");
     }
     function test_everyRowKeyExistsInDefaultsOrHyprland() {
-        const hypr = ["monitor", "hAnchor", "verticalPosition", "screenMargin", "widgetWidth", "desktopLayer"];
+        const hypr = ["monitor", "hAnchor", "verticalPosition", "screenMargin", "widgetWidth", "widgetHeight", "desktopLayer", "cardX", "cardY"];
         const xml = (() => {
                 const x = new XMLHttpRequest();
                 x.open("GET", Qt.resolvedUrl("../package/contents/config/main.xml"), false);

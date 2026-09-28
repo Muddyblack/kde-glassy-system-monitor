@@ -2,6 +2,7 @@ import QtQuick
 import QtTest
 import "../package/contents/ui" as Ui
 import "../package/contents/ui/diagram" as D
+import "../package/contents/ui/Sections.js" as Sections
 
 // The card: sections in the chosen order and grid, sizes that never cut
 // content off, and charts that fall back to the canvas renderer.
@@ -123,6 +124,142 @@ Item {
             collect(cpu);
             verify(texts.some(item => item.text === "CPU"));
             verify(texts.every(item => item.font.family === "monospace"));
+        }
+
+        function test_manualPositionsAndReturnToGrid() {
+            const v = view({
+                sections: "cpu,gpu",
+                layoutMode: "manual",
+                sectionPositions: '{"cpu":{"x":20,"y":30,"width":250},"gpu":{"x":400,"y":80,"width":300}}'
+            });
+            const [cpu, gpu] = sections(v);
+            compare(cpu.mapToItem(v, 0, 0).x, v.margin + 20);
+            compare(cpu.mapToItem(v, 0, 0).y, v.margin + 30);
+            compare(cpu.width, 250);
+            compare(gpu.mapToItem(v, 0, 0).x, v.margin + 400);
+            compare(gpu.mapToItem(v, 0, 0).y, v.margin + 80);
+            compare(v.minimumWidth, 700 + 2 * v.margin);
+            verify(v.minimumHeight >= 80 + gpu.minimumHeight + 2 * v.margin);
+            root.cfg = Object.assign({}, root.cfg, {
+                layoutMode: "auto",
+                layoutColumns: 2
+            });
+            wait(50);
+            const automatic = sections(v);
+            compare(automatic[0].mapToItem(v, 0, 0).y, automatic[1].mapToItem(v, 0, 0).y);
+            verify(automatic[0].width > 250);
+        }
+
+        function find(item, name) {
+            if (item.objectName === name)
+                return item;
+            for (const child of item.children) {
+                const hit = find(child, name);
+                if (hit)
+                    return hit;
+            }
+            return null;
+        }
+        // What the hosts do with a drag: save it, so the card follows.
+        function drag(v, from, to) {
+            const moves = [];
+            const save = (id, place) => {
+                moves.push([id, place]);
+                root.cfg = Object.assign({}, root.cfg, {
+                    sectionPositions: Sections.position(root.cfg.sectionPositions, id, place)
+                });
+            };
+            v.sectionMoved.connect(save);
+            mousePress(v, from.x, from.y);
+            for (let i = 1; i <= 4; ++i)
+                mouseMove(v, from.x + (to.x - from.x) * i / 4, from.y + (to.y - from.y) * i / 4, -1, Qt.LeftButton);
+            mouseRelease(v, to.x, to.y);
+            v.sectionMoved.disconnect(save);
+            wait(30);
+            return moves;
+        }
+        function test_arrangingDragsAndResizesWithTheMouse() {
+            const v = view({
+                sections: "cpu,memory",
+                layoutMode: "manual",
+                sectionPositions: '{"cpu":{"x":0,"y":0,"width":300},"memory":{"x":320,"y":0,"width":260}}'
+            });
+            v.arranging = true;
+            wait(30);
+            const m = v.margin;
+            // Move: grab the middle of CPU.
+            let moves = drag(v, Qt.point(m + 100, m + 30), Qt.point(m + 140, m + 70));
+            compare(moves.length, 1);
+            compare(moves[0][0], "cpu");
+            compare(moves[0][1], {
+                x: 40,
+                y: 40,
+                width: 300
+            }, "moved by the drag, no height set");
+            const [cpu, memory] = sections(v);
+            compare(cpu.parent.mapToItem(v, 0, 0).x, m + 40, "the card follows the saved position");
+            // Corner: width and height at once.
+            const h = memory.parent.height;
+            moves = drag(v, Qt.point(m + 320 + 260 - 1, m + h - 1), Qt.point(m + 320 + 300 - 1, m + h + 59));
+            compare(moves.length, 1);
+            compare(moves[0][0], "memory");
+            compare(moves[0][1].width, 300);
+            compare(moves[0][1].height, Math.round((h + 60) / 4) * 4);
+            compare(memory.parent.height, moves[0][1].height);
+            // Bottom edge: height only, and never below what the section needs.
+            const least = memory.minimumHeight;
+            const h2 = memory.parent.height;
+            moves = drag(v, Qt.point(m + 400, m + h2 - 1), Qt.point(m + 400, m + 5));
+            compare(moves[0][1].width, 300, "width unchanged");
+            compare(memory.parent.height, Math.max(40, least), "never shorter than it needs");
+            // Not arranging: the same press is the section's own again.
+            v.arranging = false;
+            wait(30);
+            compare(drag(v, Qt.point(m + 100, m + 60), Qt.point(m + 200, m + 90)).length, 0);
+        }
+        function test_arrangeFreelyStartsFromTheGrid() {
+            const v = view({
+                sections: "cpu,memory",
+                layoutColumns: 2,
+                sectionPositions: '{"gpu":{"x":500,"y":500,"width":300}}'
+            });
+            v.arranging = true;
+            wait(30);
+            const button = find(v, "arrangeFreely");
+            verify(button && button.visible);
+            let asked = null;
+            v.manualRequested.connect(p => asked = JSON.parse(p));
+            const c = button.mapToItem(v, button.width / 2, button.height / 2);
+            mouseClick(v, c.x, c.y);
+            verify(asked);
+            compare(Object.keys(asked).sort(), ["cpu", "memory"], "only this card's sections, not another's saved ones");
+            compare(asked.cpu.y, asked.memory.y, "side by side, as in the grid");
+        }
+
+        function test_manualHeightNeverCutsOff() {
+            const v = view({
+                sections: "cpu,memory",
+                layoutMode: "manual",
+                sectionPositions: '{"cpu":{"x":0,"y":0,"width":300,"height":400},"memory":{"x":320,"y":0,"width":300,"height":40}}'
+            });
+            const [cpu, memory] = sections(v);
+            compare(cpu.parent.height, 400, "a set height is kept");
+            compare(memory.parent.height, Math.max(40, memory.minimumHeight), "but never below what the section needs");
+            verify(v.minimumHeight >= 400 + 2 * v.margin);
+        }
+
+        function test_sensorRowsUseDraftAndUpdateImmediately() {
+            const v = view({
+                sections: "cpu",
+                sensorSelection: '{"cpu":[]}'
+            });
+            const height = v.preferredHeight;
+            root.cfg = Object.assign({}, root.cfg, {
+                sensorSelection: '{"cpu":["cpu:power"]}',
+                sensorNames: '{"cpu:power":"Package watts"}'
+            });
+            wait(50);
+            verify(v.preferredHeight > height);
         }
 
         function test_twoColumnsPlaceSideBySide() {

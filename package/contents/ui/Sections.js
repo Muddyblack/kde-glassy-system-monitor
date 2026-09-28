@@ -121,3 +121,43 @@ function placement(ids, columns, spans) {
     });
     return out;
 }
+
+// Manual coordinates are in logical pixels from the dashboard's content edge.
+function positions(text) {
+    var out = {};
+    try {
+        var data = JSON.parse(text || "{}");
+        if (!data || typeof data !== "object" || Array.isArray(data))
+            return out;
+        IDS.forEach(function (id) {
+            var p = data[id];
+            if (!p || typeof p !== "object")
+                return;
+            var clean = {};
+            ["x", "y", "width", "height"].forEach(function (key) {
+                if (typeof p[key] === "number" && isFinite(p[key]))
+                    clean[key] = Math.round(Math.max(({ width: 180, height: 40 })[key] || 0, Math.min(16384, p[key])));
+            });
+            out[id] = clean;
+        });
+    } catch (e) {}
+    return out;
+}
+
+// `sectionPositions` with some of one section's x, y and width changed.
+function position(text, id, change) {
+    var map = positions(text);
+    map[id] = Object.assign({}, map[id] || {}, change);
+    return JSON.stringify(positions(JSON.stringify(map)));
+}
+
+// Positions to switch to Manual with, for the sections in `geometry` (from
+// MonitorView.geometry(): where the grid has each one now): a section's
+// saved position where it has one, else its place in the grid.
+function seedPositions(text, geometry) {
+    var saved = positions(text), out = {};
+    Object.keys(geometry).forEach(function (id) {
+        out[id] = saved[id] || geometry[id];
+    });
+    return JSON.stringify(positions(JSON.stringify(out)));
+}

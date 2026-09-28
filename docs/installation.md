@@ -69,3 +69,19 @@ Defaults go in [`shell.qml`](../shell.qml) under their Plasma names; the studio'
 changes to `~/.config/glassy-system-monitor/hyprland.json`. Placement (screen, side, height,
 margin, width, layer) is in the studio's Layout tab. For a bar, put
 [`hyprland/MonitorPill.qml`](../hyprland/MonitorPill.qml) in your Quickshell bar.
+
+**Several cards**: **+ Card** at the bottom of the settings window adds another card with its
+own sections, look, layout and place on screen (like adding the widget twice on Plasma); the
+buttons beside it switch between cards, and right-clicking a card opens its settings. Devices,
+hosts, commands and sensor choices are shared, and one set of probes feeds every card. In
+`hyprland.json` the first card is saved as before and the others under `"cards"`, each with
+only what it changes:
+
+```json
+{ "sections": "cpu,memory", "cards": [{ "sections": "sensors,power", "hAnchor": "left" }] }
+```
+
+**Arrange on desktop** (or `qs ipc call settings arrange`, and `… settings done`) lets you drag
+each card by the bar above it, resize it by its right or bottom edge or its corner, and drag
+and resize its sections; a dragged card keeps its exact position (Placement › Side › Exact,
+with X and Y).

@@ -89,6 +89,8 @@ Item {
                     text: textComponent,
                     number: numberComponent,
                     sections: sectionsComponent,
+                    sensors: sensorsComponent,
+                    positions: positionsComponent,
                     looks: looksComponent,
                     ifaces: ifacesComponent,
                     projectInfo: projectInfoComponent
@@ -233,6 +235,19 @@ Item {
     Component {
         id: sectionsComponent
         SectionList {
+            studio: row.studio
+        }
+    }
+    Component {
+        id: sensorsComponent
+        SensorPicker {
+            studio: row.studio
+            targetSection: row.rowData.sensorSection
+        }
+    }
+    Component {
+        id: positionsComponent
+        SectionPositions {
             studio: row.studio
         }
     }
