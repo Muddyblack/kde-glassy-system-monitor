@@ -13,10 +13,11 @@ var license = License.label;
 var licenseId = License.spdx;
 var contributorsUrl = "https://api.github.com/repos/Muddyblack/kde-glassy-system-monitor/contributors?per_page=12";
 var contributorsPage = repository + "/graphs/contributors";
+// Narrow the store search by category and author: Shields disables JSONPath filters.
 var statistics = [
     {id: "stars", label: "GitHub stars", icon: "star.svg", href: repository + "/stargazers", url: "https://img.shields.io/github/stars/Muddyblack/kde-glassy-system-monitor.json"},
     {id: "downloads", label: "GitHub downloads", icon: "download.svg", href: repository + "/releases", url: "https://img.shields.io/github/downloads/Muddyblack/kde-glassy-system-monitor/total.json"},
-    {id: "kde", label: "OpenDesktop downloads", icon: "download.svg", href: store, url: "https://img.shields.io/badge/dynamic/json.json?url=" + encodeURIComponent("https://api.pling.com/ocs/v1/content/data?search=glassy+system+monitor&format=json") + "&query=" + encodeURIComponent("$.data[0].downloads") + "&label=Downloads"}
+    {id: "kde", label: "OpenDesktop downloads", icon: "download.svg", href: store, url: "https://img.shields.io/badge/dynamic/json.json?url=" + encodeURIComponent("https://api.pling.com/ocs/v1/content/data?search=glassy+system+monitor&categories=710&user=Muddyblack&format=json") + "&query=" + encodeURIComponent("$.data[0].downloads") + "&label=Downloads"}
 ];
 function count(text) {
     try {
