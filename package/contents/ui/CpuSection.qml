@@ -11,7 +11,7 @@ ColumnLayout {
     // Shared with the website studio; see SectionModels.js.
     readonly property var model: SectionModels.cpu(monitor, cfg)
     readonly property bool coresShown: model.cores
-    readonly property real preferredHeight: header.implicitHeight + chart.wantedHeight + legend.implicitHeight + (coresShown ? coreGrid.implicitHeight : 0) + 12
+    readonly property real preferredHeight: header.implicitHeight + chart.wantedHeight + legend.implicitHeight + (coresShown ? coreGrid.implicitHeight : 0) + (sensorReadings.visible ? sensorReadings.implicitHeight + 4 : 0) + 12
     readonly property real minimumHeight: preferredHeight - chart.slack
 
     spacing: 4
@@ -120,5 +120,12 @@ ColumnLayout {
                 }
             }
         }
+    }
+    SensorReadings {
+        id: sensorReadings
+        Layout.fillWidth: true
+        monitor: section.monitor
+        cfg: section.cfg
+        targetSection: "cpu"
     }
 }

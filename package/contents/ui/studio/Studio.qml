@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls.Basic as Controls
 import "Theme.js" as Theme
 import "Schema.js" as Schema
+import "../Sections.js" as Sections
 
 // The settings studio for Plasma and Hyprland, in the design of the Plasma
 // Audio Visualizer's. Hosts own the draft: every change is emitted through
@@ -17,6 +18,7 @@ Rectangle {
     // A MonitorCore reading this machine with the draft settings; drives the
     // preview and the device lists. Null shows no preview.
     property var liveMonitor: null
+    readonly property var sensorMonitor: liveMonitor || pane.monitor
     // Output names, for Hyprland placement.
     property var screenNames: []
     property color previewAccent: "#3daee9"
@@ -54,7 +56,27 @@ Rectangle {
         query = "";
     }
     function update(patch) {
-        edited(Object.assign({}, draft, Schema.normalize(patch)));
+        patch = Schema.normalize(patch);
+        // Manual arrangement starts from where the grid has each section.
+        if (patch.layoutMode === "manual" && draft.layoutMode !== "manual" && patch.sectionPositions === undefined)
+            patch.sectionPositions = Sections.seedPositions(draft.sectionPositions, pane.geometry());
+        edited(Object.assign({}, draft, patch));
+    }
+    // Manual positions again from the automatic grid: back to the grid,
+    // and to Manual once it has laid the sections out.
+    function regrid() {
+        update({
+            layoutMode: "auto",
+            sectionPositions: "{}"
+        });
+        regridTimer.start();
+    }
+    Timer {
+        id: regridTimer
+        interval: 50
+        onTriggered: studioRoot.update({
+            layoutMode: "manual"
+        })
     }
     // Choices only this machine knows, plus the saved value if it is gone.
     function dynamicOptions(kind, current) {

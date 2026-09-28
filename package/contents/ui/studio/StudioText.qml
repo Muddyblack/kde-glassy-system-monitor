@@ -9,10 +9,16 @@ Rectangle {
     property string placeholder: ""
     property bool numeric: false
     signal committed(var value)
+    // Editing ended: Enter, Escape or focus left.
+    signal finished
     // What is typed right now, committed or not.
     readonly property alias text: input.text
     function clear() {
         input.text = "";
+    }
+    function edit() {
+        input.forceActiveFocus();
+        input.selectAll();
     }
 
     implicitWidth: 220
@@ -61,11 +67,14 @@ Rectangle {
         selectByMouse: true
         inputMethodHints: control.numeric ? Qt.ImhFormattedNumbersOnly : Qt.ImhNone
         onAccepted: control.commit()
-        onActiveFocusChanged: if (!activeFocus)
-            control.commit()
+        onActiveFocusChanged: if (!activeFocus) {
+            control.commit();
+            control.finished();
+        }
         Keys.onEscapePressed: {
             text = control.value;
             focus = false;
+            control.finished();
         }
     }
     Text {

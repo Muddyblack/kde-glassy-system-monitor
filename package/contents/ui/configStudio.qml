@@ -12,6 +12,14 @@ Kirigami.Page {
     implicitWidth: Kirigami.Units.gridUnit * 60
     implicitHeight: Kirigami.Units.gridUnit * 40
 
+    property string cfg_sensorSelection
+    property string cfg_sensorSelectionDefault
+    property string cfg_sensorNames
+    property string cfg_sensorNamesDefault
+    property string cfg_layoutMode
+    property string cfg_layoutModeDefault
+    property string cfg_sectionPositions
+    property string cfg_sectionPositionsDefault
     property string cfg_sections
     property string cfg_sectionsDefault
     property int cfg_layoutColumns
@@ -373,6 +381,7 @@ Kirigami.Page {
         id: previewMonitor
         cfg: root.draft
         onScreen: studio.onScreen
+        discoverSensors: studio.onScreen
         active: studio.onScreen
         commandSourceComponent: Component {
             P5Support.DataSource {

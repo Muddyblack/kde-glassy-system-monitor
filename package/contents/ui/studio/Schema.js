@@ -106,14 +106,21 @@ var SECTIONS = [
     tab("layout", "Sections", [
         { id: "sections", type: "sections", full: true, label: "What the widget shows", desc: "Switch sections on, drag them into order by the grip, and give each chart section its own size and style. One widget shows them all; a panel pill shows the first, or the ones picked under Layout › In a panel." },
         { k: "density", type: "seg", label: "Spacing", desc: "Room around and between sections.", opts: [["compact", "Compact"], ["normal", "Normal"], ["roomy", "Roomy"]] },
-        { k: "layoutColumns", type: "seg", label: "Columns", desc: "Sections fill the columns left to right. Mark a section full width to give it a row of its own.", opts: [[1, "One"], [2, "Two"], [3, "Three"]] }
+        { k: "layoutColumns", type: "seg", label: "Columns", desc: "Sections fill the columns left to right. Mark a section full width to give it a row of its own.", opts: [[1, "One"], [2, "Two"], [3, "Three"]], disabled: function (s) { return s.layoutMode === "manual"; } }
+    ]),
+    tab("layout", "Section positions", [
+        { k: "layoutMode", type: "seg", label: "Arrangement", desc: "Automatic fills the columns above; Manual places each section where you put it, starting from the grid.", opts: [["auto", "Automatic"], ["manual", "Manual"]] },
+        { k: "sectionPositions", type: "positions", full: true, label: "Position each section", desc: "Move the whole card on the desktop as usual; this places the sections inside it.", when: function (s) { return s.layoutMode === "manual"; } }
     ]),
     tab("layout", "Placement", [
         { k: "monitor", type: "select", label: "Screen", opts: "screens" },
-        { k: "hAnchor", type: "seg", label: "Side", opts: [["left", "Left"], ["center", "Centre"], ["right", "Right"]] },
-        { k: "verticalPosition", type: "range", label: "Height on screen", desc: "Distance of the top edge from the top of the screen.", min: 0, max: 0.9, step: 0.01, fmt: "pct" },
-        { k: "screenMargin", type: "range", label: "Edge margin", min: 0, max: 120, step: 2, fmt: "px" },
+        { k: "hAnchor", type: "seg", label: "Side", desc: "Exact keeps the card where you drag it with Arrange on desktop, at the bottom of this window.", opts: [["left", "Left"], ["center", "Centre"], ["right", "Right"], ["free", "Exact"]] },
+        { k: "cardX", type: "number", label: "X on screen", desc: "Pixels from the screen's left edge.", when: function (s) { return s.hAnchor === "free"; } },
+        { k: "cardY", type: "number", label: "Y on screen", desc: "Pixels from the screen's top edge.", when: function (s) { return s.hAnchor === "free"; } },
+        { k: "verticalPosition", type: "range", label: "Height on screen", desc: "Distance of the top edge from the top of the screen.", min: 0, max: 0.9, step: 0.01, fmt: "pct", when: function (s) { return s.hAnchor !== "free"; } },
+        { k: "screenMargin", type: "range", label: "Edge margin", min: 0, max: 120, step: 2, fmt: "px", when: function (s) { return s.hAnchor !== "free"; } },
         { k: "widgetWidth", type: "range", label: "Width", desc: "0 sizes the card to its sections.", min: 0, max: 800, step: 10, fmt: "px" },
+        { k: "widgetHeight", type: "range", label: "Height", desc: "0 sizes the card to its sections; taller gives charts more room.", min: 0, max: 1400, step: 10, fmt: "px" },
         { k: "desktopLayer", type: "switch", label: "Below windows", desc: "Off keeps the card above application windows." }
     ], function (s, env) { return env === "hypr"; }),
     tab("layout", "In a panel", [
@@ -342,6 +349,14 @@ var SECTIONS = [
 
     tab("about", "About the project", [{ id: "projectInfo", type: "projectInfo", full: true, label: "", desc: "Muddyblack GitHub KDE Store downloads stars support project version license" }])
 ];
+
+// Sensor readings per section (studio/SensorPicker.qml).
+[["sensors", "Readings", "What the Sensors section lists, grouped by device."],
+    ["cpu", "Sensor readings", "Shown under the CPU chart, e.g. package temperature or measured CPU power. None by default."],
+    ["gpu", "Sensor readings", "Shown under the GPU chart. GPU power is on by default."],
+    ["power", "Where the power goes", "The rows under the Power chart; every measured source by default.", function (s) { return s.powerShowSources !== false; }]].forEach(function (t) {
+    SECTIONS.push(tab(t[0], t[1], [{ id: t[0] + "Sensors", type: "sensors", full: true, label: "Choose readings", desc: t[2] + " A new name shows in every section.", sensorSection: t[0] }], t[3]));
+});
 
 // A switched-off section's settings stay out of the way, search included.
 SECTIONS.forEach(function (section) {

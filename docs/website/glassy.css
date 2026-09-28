@@ -14,6 +14,7 @@
 .gw .grain{position:absolute;inset:0;border-radius:inherit;pointer-events:none;opacity:.14;mix-blend-mode:overlay;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E")}
 .gw-sec{min-width:0;display:flex;flex-direction:column;gap:4px;position:relative}
 .gw-sec+.gw-sec::before{content:"";position:absolute;left:0;right:0;top:-5px;height:1px;background:color-mix(in srgb,var(--ink) 10%,transparent)}
+.gw[data-manual] .gw-sec+.gw-sec::before{display:none}
 .gw-head{display:flex;align-items:center;gap:10px;min-width:0}
 .gw-head>b{font-size:13px;font-weight:700;letter-spacing:.3px;opacity:.85;white-space:nowrap}
 .gw-head>em{margin-left:auto;font-style:normal;font-weight:700;font-size:14px;white-space:nowrap}
@@ -147,3 +148,5 @@ textarea.sel{width:100%;font:11px ui-monospace,monospace;resize:vertical}
 .gw-oshead small{font-size:9px;opacity:.4}
 .gw-snow{font-style:normal;font-size:26px;color:#7ebae4;line-height:1}
 .gw-picon{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;margin-right:4px;align-self:center}
+.gw-corebars{flex:1;display:flex;gap:1px;align-items:flex-end;height:12px}
+.gw-corebars i{flex:1;min-height:2px;border-radius:1px;opacity:.92}

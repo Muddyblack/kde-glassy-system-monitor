@@ -5,6 +5,7 @@ import org.kde.plasma.core as PlasmaCore
 import org.kde.plasma.plasma5support as P5Support
 import org.kde.kirigami as Kirigami
 import "network" as Network
+import "Sections.js" as Sections
 
 // Plasma host: hands KConfig, the executable engine and the theme to the
 // shared MonitorCore, and shows MonitorView (desktop) or the pill (panel).
@@ -34,6 +35,17 @@ PlasmoidItem {
     }
 
     preferredRepresentation: isInPanel ? compactRepresentation : fullRepresentation
+
+    // Right-click › Arrange sections: drag and resize them on the desktop.
+    property bool arranging: false
+    Plasmoid.contextualActions: [
+        PlasmaCore.Action {
+            text: root.arranging ? "Stop arranging" : "Arrange sections"
+            icon.name: "transform-move"
+            visible: !root.isInPanel
+            onTriggered: root.arranging = !root.arranging
+        }
+    ]
     // Plasma's own blur behind glass, when asked for; otherwise no frame.
     Plasmoid.backgroundHints: plasmoid.configuration.compositorGlass && ["glass", "liquid"].indexOf(plasmoid.configuration.surfaceStyle) !== -1 ? "TranslucentBackground" : "NoBackground"
 
@@ -83,6 +95,14 @@ PlasmoidItem {
         monitor: core
         cfg: plasmoid.configuration
         backdrop: root.desktopWallpaper
+        arranging: root.arranging && !root.isInPanel
+        offerDone: true
+        onArrangeDone: root.arranging = false
+        onManualRequested: positions => {
+            plasmoid.configuration.sectionPositions = positions;
+            plasmoid.configuration.layoutMode = "manual";
+        }
+        onSectionMoved: (id, place) => plasmoid.configuration.sectionPositions = Sections.position(plasmoid.configuration.sectionPositions, id, place)
         // Plasma never sizes the card below what its sections need.
         Layout.minimumWidth: minimumWidth
         Layout.minimumHeight: minimumHeight

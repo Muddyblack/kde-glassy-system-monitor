@@ -6,7 +6,7 @@
 // else must not be able to run anything on this machine.
 
 var FORMAT = "glassy-system-monitor-look";
-var NOT_LOOK = ["customCmd", "osFetchCmd", "targets", "pingInterval", "pingTimeout", "networkInterface", "diskDevice", "gpuDevice",
+var NOT_LOOK = ["cardX", "cardY", "widgetHeight", "sensorSelection", "sensorNames", "layoutMode", "sectionPositions", "customCmd", "osFetchCmd", "targets", "pingInterval", "pingTimeout", "networkInterface", "diskDevice", "gpuDevice",
     "customCmdUnit", "customCmdMax", "customCmdInterval", "osUseFetch", "updateInterval", "chartRenderer", "currentTargetIndex",
     "disabledLinesStr", "disabledCoresStr", "userPresets", "activeSection", "latencyThreshold", "lossThreshold", "jitterThreshold",
     "hwTempWarn", "hwTempCrit", "accurateGeo", "panelMode", "monitor", "hAnchor", "verticalPosition", "screenMargin", "widgetWidth",

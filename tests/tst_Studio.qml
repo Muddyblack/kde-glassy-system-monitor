@@ -67,6 +67,79 @@ Item {
             return list;
         }
 
+        function test_sensorPickerEditsAndKeepsDelegatesDuringSamples() {
+            studio.selectTab("cpu");
+            wait(50);
+            const picker = find("sensorPicker_cpu");
+            verify(picker);
+            compare(picker.selected, [], "CPU shows no extra readings by default");
+            picker.choose(["cpu:power"]);
+            picker.setOpen("Power draw", true);
+            wait(30);
+            picker.rename("cpu:power", "CPU package draw");
+            compare(JSON.parse(root.draft.sensorNames)["cpu:power"], "CPU package draw");
+            const control = find("sensor_cpu:power");
+            verify(control);
+            const original = studio.sensorMonitor.powerSources;
+            studio.sensorMonitor.powerSources = original.map(s => Object.assign({}, s, {
+                    watts: 42
+                }));
+            wait(30);
+            const current = find("sensor_cpu:power");
+            studio.sensorMonitor.powerSources = original.map(s => Object.assign({}, s, {
+                    watts: 43
+                }));
+            wait(30);
+            compare(find("sensor_cpu:power"), current, "a new reading preserves the input delegate");
+            picker.choose([]);
+            compare(JSON.parse(root.draft.sensorSelection).cpu, []);
+            picker.choose(null);
+            verify(picker.automatic);
+            // A device's checkbox chooses all of its readings.
+            find("sensorGroup_Power draw").toggled(true);
+            compare(picker.selected.length, 3);
+            find("sensorGroup_Power draw").toggled(false);
+            compare(picker.selected, []);
+        }
+
+        function test_manualStartsFromTheGridAndDrags() {
+            root.draft = Object.assign({}, root.draft, {
+                layoutColumns: 2
+            });
+            wait(50);
+            studio.update({
+                layoutMode: "manual"
+            });
+            wait(50);
+            verify(find("row_sectionPositions"));
+            const seeded = JSON.parse(root.draft.sectionPositions);
+            compare(Object.keys(seeded).sort(), ["cpu", "memory", "network"]);
+            compare(seeded.cpu.y, seeded.memory.y, "side by side as in the grid");
+            verify(seeded.memory.x > seeded.cpu.x);
+            // The preview writes a drag as the new position.
+            find("previewWidget").sectionMoved("cpu", {
+                x: 40,
+                y: 12,
+                width: 260
+            });
+            compare(JSON.parse(root.draft.sectionPositions).cpu, {
+                x: 40,
+                y: 12,
+                width: 260
+            });
+            const x = find("position_cpu_x");
+            verify(x);
+            compare(x.value, "40");
+            // Back to automatic and Manual again keeps what was placed.
+            studio.update({
+                layoutMode: "auto"
+            });
+            studio.update({
+                layoutMode: "manual"
+            });
+            compare(JSON.parse(root.draft.sectionPositions).cpu.x, 40);
+        }
+
         function test_everyTabIsReachable() {
             root.draft = Object.assign({}, root.draft, {
                 sections: Schema.GROUPS.sections.join(",")

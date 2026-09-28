@@ -356,44 +356,13 @@ ColumnLayout {
     }
 
     // ── Where the power goes ─────────────────────────────────────────────────
-    Repeater {
-        model: section.cfg.powerShowSources === false ? [] : section.monitor.powerSources
-        RowLayout {
-            required property var modelData
-            Layout.fillWidth: true
-            spacing: 6
-            Text {
-                Layout.preferredWidth: 90
-                font.family: section.monitor.fontFamily
-                text: parent.modelData.label
-                color: section.inkAlpha(0.55)
-                font.pixelSize: 10
-                elide: Text.ElideRight
-            }
-            Rectangle {
-                Layout.fillWidth: true
-                implicitHeight: 4
-                radius: 2
-                color: section.inkAlpha(0.10)
-                Rectangle {
-                    width: Math.max(4, parent.width * Math.min(1, parent.parent.modelData.watts / Math.max(1, section.chartModel.maxValue || 1)))
-                    height: parent.height
-                    radius: 2
-                    color: SectionModels.color(section.cfg, "powerLoadColor", "#ffaa22")
-                    opacity: 0.85
-                }
-            }
-            Text {
-                Layout.preferredWidth: 52
-                horizontalAlignment: Text.AlignRight
-                font.family: section.monitor.fontFamily
-                text: Format.watts(parent.modelData.watts)
-                color: section.ink
-                opacity: 0.8
-                font.pixelSize: 10
-                font.bold: true
-            }
-        }
+    SensorReadings {
+        Layout.fillWidth: true
+        monitor: section.monitor
+        cfg: section.cfg
+        targetSection: "power"
+        layout: "bars"
+        visible: section.cfg.powerShowSources !== false && count > 0
     }
 
     // ── Pressure stall info ──────────────────────────────────────────────────

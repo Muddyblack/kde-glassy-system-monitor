@@ -12,7 +12,7 @@ ColumnLayout {
     // Shared with the website studio; see SectionModels.js.
     readonly property var model: SectionModels.gpu(monitor, cfg)
     readonly property bool enginesShown: !!cfg.gpuShowEngines && (monitor.gpuComputePercent >= 0 || monitor.gpuDecPercent >= 0 || monitor.gpuEncPercent >= 0 || monitor.gpuVramUsed >= 0)
-    readonly property real preferredHeight: header.implicitHeight + chart.wantedHeight + (enginesShown ? engines.implicitHeight : 0) + 12
+    readonly property real preferredHeight: header.implicitHeight + chart.wantedHeight + (enginesShown ? engines.implicitHeight : 0) + (sensorReadings.visible ? sensorReadings.implicitHeight + 4 : 0) + 12
     readonly property real minimumHeight: preferredHeight - chart.slack
     readonly property color dimText: Qt.rgba(monitor.textColor.r, monitor.textColor.g, monitor.textColor.b, 0.55)
     readonly property var vendor: ({
@@ -167,5 +167,12 @@ ColumnLayout {
                 }
             }
         }
+    }
+    SensorReadings {
+        id: sensorReadings
+        Layout.fillWidth: true
+        monitor: section.monitor
+        cfg: section.cfg
+        targetSection: "gpu"
     }
 }
