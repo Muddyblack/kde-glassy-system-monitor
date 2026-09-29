@@ -17,11 +17,25 @@ Item {
     property bool busy: false
     property real _sentAt: 0
 
+    function cancel() {
+        source.reset();
+        busy = false;
+        _sentAt = 0;
+    }
+
+    onRunningChanged: if (!running)
+        cancel()
+    onCommandChanged: if (!command)
+        cancel()
+    onRemoteChanged: cancel()
+
     function poll() {
+        if (!command || !source.item)
+            return;
         if (busy) {
             if (Date.now() - _sentAt < interval * 4)
                 return;
-            source.reset();
+            cancel();
         }
         busy = true;
         _sentAt = Date.now();

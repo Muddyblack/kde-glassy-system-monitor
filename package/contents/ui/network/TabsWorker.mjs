@@ -14,5 +14,5 @@ WorkerScript.onMessage = function (message) {
             results.push({ key: key, tabs: [], error: String(e) });
         }
     }
-    WorkerScript.sendMessage({ results: results });
+    WorkerScript.sendMessage({ generation: message.generation, results: results });
 };

@@ -334,13 +334,12 @@ Item {
     // module is not installed — the Loader turns that into a status we can read.
     Loader {
         id: sensorLoader
-        active: core.remoteHost === ""
+        active: core.live && core.remoteHost === ""
         // setSource rather than a source binding: the backend declares `host` as
         // a required property, which has to be supplied at creation time.
-        Component.onCompleted: if (core.live)
-            setSource("SensorBackend.qml", {
-                host: core
-            })
+        Component.onCompleted: setSource("SensorBackend.qml", {
+            host: core
+        })
         onStatusChanged: if (status === Loader.Error)
             console.log("glassy: libksysguard sensors unavailable, falling back to /proc polling")
     }
@@ -494,13 +493,13 @@ Item {
 
     Timer {
         interval: Math.max(1, cfg.pingInterval) * 1000
-        running: core.showPingSection
+        running: core.showPingSection && core.live
         repeat: true
         onTriggered: core.triggerPing()
     }
 
     function triggerPing() {
-        if (!core.showPingSection || isPinging || targetList.length === 0)
+        if (!core.live || !core.showPingSection || isPinging || targetList.length === 0)
             return;
         const host = targetList[activeTarget];
         if (!host)
@@ -692,7 +691,7 @@ Item {
         // CPU and memory have nothing to enumerate, so a widget showing either of
         // them stops running this timer altogether rather than waking up to
         // build an empty file list.
-        running: core.sensorsActive ? (core.showDiskSection || core.showNetworkSpeed) : (core.showDiskSection || core.showCpuSection || core.showMemorySection || core.showNetworkSpeed)
+        running: core.live && (core.sensorsActive ? (core.showDiskSection || core.showNetworkSpeed) : (core.showDiskSection || core.showCpuSection || core.showMemorySection || core.showNetworkSpeed))
         repeat: true
         onTriggered: {
             if (core.isReadingSys) {
@@ -772,7 +771,7 @@ Item {
     }
     Timer {
         interval: core._pollBase * 8
-        running: core.showNetworkSpeed && !!cfg.netShowInfo
+        running: core.showNetworkSpeed && core.live && !!cfg.netShowInfo
         repeat: true
         triggeredOnStart: true
         onTriggered: {
@@ -1208,7 +1207,7 @@ Item {
     }
     Timer {
         interval: Math.max(1, cfg.customCmdInterval) * 1000
-        running: core.showCustomSection && core.active
+        running: core.showCustomSection && core.active && core.live
         repeat: true
         onTriggered: {
             if (!core.isReadingCustom && cfg.customCmd) {
@@ -1436,7 +1435,7 @@ Item {
         // usual rate: a slower GPU gauge is a fair trade for not walking every
         // process's file descriptors every two seconds.
         interval: core._pollBase * (core._gpuScanIsSoleSource ? 6 : 2)
-        running: core.showGpuSection
+        running: core.showGpuSection && core.live
         repeat: true
         onTriggered: {
             if (!core.isReadingGpu && core.gpuMode !== "") {
@@ -1816,7 +1815,7 @@ Item {
 
     Timer {
         interval: core._pollBase * 30
-        running: core.showOsInfo && core.active
+        running: core.showOsInfo && core.active && core.live
         repeat: true
         triggeredOnStart: true
         onTriggered: {
@@ -1856,7 +1855,7 @@ Item {
         // Deliberately slower than the built-in reader: a full fetch run forks a
         // sizeable process (~0.5 s on some distros, package counting dominates).
         interval: core._pollBase * 60
-        running: core.showOsInfo && core.active && !!cfg.osUseFetch
+        running: core.showOsInfo && core.active && core.live && !!cfg.osUseFetch
         repeat: true
         triggeredOnStart: true
         onTriggered: {

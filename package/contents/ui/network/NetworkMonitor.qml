@@ -100,6 +100,7 @@ Item {
     property var _pending: ({})
     property int _demoStep: 0
     property var _sessionFiles: ({})
+    property int _tabsGeneration: 0
     property real _forwardAt: 0
 
     function reset() {
@@ -222,7 +223,7 @@ Item {
     // Look these up too (trace route hops).
     property var _extraIps: []
     function resolveIps(ips) {
-        _extraIps = _extraIps.concat(ips.filter(ip => !hosts[ip] && Probes.safeIp(ip)));
+        _extraIps = Array.from(new Set(_extraIps.concat(ips))).filter(ip => !hosts[ip] && Probes.safeIp(ip)).slice(-256);
         resolveNew();
     }
     // Names for addresses not seen yet, a batch at a time; the UI never waits.
@@ -262,6 +263,12 @@ Item {
         for (const t of list)
             if (hosts.indexOf(t.host) === -1 && BrowserTabs.safeHost(t.host))
                 hosts.push(t.host);
+        // Closed tabs must not leave every hostname visited in memory.
+        const addresses = {};
+        for (const host of hosts)
+            if (tabAddresses[host])
+                addresses[host] = tabAddresses[host];
+        tabAddresses = addresses;
         const stale = Date.now() - _forwardAt > 300000;
         const missing = hosts.filter(h => !tabAddresses[h]);
         const ask = (stale ? hosts : missing).slice(0, 40);
@@ -404,8 +411,10 @@ Item {
                     changed.push(s);
             }
             net._sessionFiles = keep;
+            ++net._tabsGeneration;
             if (changed.length)
                 tabsWorker.sendMessage({
+                    generation: net._tabsGeneration,
                     sessions: changed
                 });
             else
@@ -416,6 +425,8 @@ Item {
         id: tabsWorker
         source: "TabsWorker.mjs"
         onMessage: message => {
+            if (!net.tabsEnabled || message.generation !== net._tabsGeneration)
+                return;
             const files = Object.assign({}, net._sessionFiles);
             let error = "";
             for (const r of message.results) {
@@ -432,7 +443,13 @@ Item {
         sourceComponent: net.commandSourceComponent
         onNewData: function (sourceName, data) {
             forward.disconnectSource(sourceName);
-            net.tabAddresses = Object.assign({}, net.tabAddresses, BrowserTabs.parseForward(data["stdout"] || ""));
+            const resolved = BrowserTabs.parseForward(data["stdout"] || "");
+            const addresses = Object.assign({}, net.tabAddresses);
+            // A tab can close while its lookup is still in flight.
+            for (const tab of net.tabs)
+                if (resolved[tab.host])
+                    addresses[tab.host] = resolved[tab.host];
+            net.tabAddresses = addresses;
             net.sites = BrowserTabs.siteIndex(net.tabs, net.tabAddresses);
         }
     }
@@ -490,8 +507,11 @@ Item {
         containerSeries = series;
     }
     onTabsEnabledChanged: if (!tabsEnabled) {
+        ++_tabsGeneration;
         tabs = [];
         sites = {};
+        tabAddresses = {};
+        forward.reset();
         _sessionFiles = {};
     }
     Ui.CommandSource {

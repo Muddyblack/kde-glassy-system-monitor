@@ -48,10 +48,7 @@ Item {
         readonly property var inputs: [gpu.diagram.normalized, gpu.diagram.maxValue, gpu.diagram.style]
         property int pendingSerial: gpu.diagram.sampleSerial
         property int paintedSerial: 0
-        // One ImageData per texture size, refilled on every paint. A fresh one
-        // per paint froze the GPU path: after a few dozen studio edits the JS
-        // engine ran a full garbage collection on every allocation, stalling
-        // the GUI thread for ~30 s per edit.
+        // One pixel buffer per texture size, refilled on every paint.
         property var image: null
         width: gpu.encoded.width
         height: gpu.encoded.height
@@ -71,8 +68,15 @@ Item {
             }
             gpu.encoded = next;
             const ctx = getContext("2d");
-            if (!image || image.width !== next.width || image.height !== next.height)
-                image = ctx.createImageData(next.width, next.height);
+            if (!image || image.width !== next.width || image.height !== next.height) {
+                // Qt 6.11's createImageData(w, h) accounts for an empty image
+                // at allocation but subtracts the full buffer when collected.
+                // Repeated chart destruction underflows the GC's memory count
+                // and causes a full collection on every allocation. Reading a
+                // real canvas image keeps that accounting balanced.
+                ctx.fillRect(0, 0, next.width, next.height);
+                image = ctx.getImageData(0, 0, next.width, next.height);
+            }
             const bytes = next.bytes;
             const pixels = image.data;
             for (let i = 0; i < bytes.length; i++)

@@ -1,6 +1,5 @@
 import QtQuick
 import org.kde.kirigami as Kirigami
-import org.kde.plasma.plasma5support as P5Support
 import "studio" as Studio
 
 // Plasma settings page hosting the studio. Plasma sets every cfg_* property
@@ -384,9 +383,7 @@ Kirigami.Page {
         discoverSensors: studio.onScreen
         active: studio.onScreen
         commandSourceComponent: Component {
-            P5Support.DataSource {
-                engine: "executable"
-            }
+            PlasmaCommandSource {}
         }
         writeConfig: (key, value) => root.assign({
                 [key]: value

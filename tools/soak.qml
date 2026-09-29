@@ -6,10 +6,10 @@ import "../package/contents/ui/studio/Looks.js" as Looks
 // `make soak`: the studio in a real window, a built-in look applied every
 // 250 ms. Fails (exit 1) when one edit blocks the GUI thread for over a
 // second. Only a real window on the GPU catches the freeze this guards
-// against (DiagramShader's data canvas allocating a fresh ImageData per
-// paint made the JS engine collect on every allocation from about the 12th
-// edit on, ~30 s per edit); offscreen or software runs never stalled, so
-// `make test` cannot stand in for this.
+// against (createImageData's memory accounting in Qt 6.11 underflows when
+// the buffers are collected, causing ~30 s per edit). Reusing buffers only
+// delayed the stall until the 59th edit, so run well past that point.
+// Offscreen or software runs never stalled; `make test` cannot replace this.
 //   tools/qml.sh tools/soak.qml -- [--edits N] [--tab presets] [--limit-ms 1000]
 Window {
     id: win
@@ -24,7 +24,7 @@ Window {
         const at = args.indexOf(name);
         return at >= 0 && at + 1 < args.length ? args[at + 1] : fallback;
     }
-    readonly property int editCount: Number(arg("--edits", 40))
+    readonly property int editCount: Number(arg("--edits", 120))
     readonly property int limitMs: Number(arg("--limit-ms", 1000))
     property var defaults: ({})
     property int edits: 0

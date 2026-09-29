@@ -69,11 +69,11 @@ benchmark: ## CPU of GPU shader vs Canvas renderer (opens windows; keep them vis
 	  nix develop --command tools/benchmark.sh $(or $(SECONDS),20); \
 	fi
 
-soak: ## studio edits in a real GPU window; fails if one stalls (EDITS=40; not offscreen/software)
+soak: ## studio edits in a real GPU window; fails if one stalls (EDITS=120; not offscreen/software)
 	@if command -v qml >/dev/null 2>&1; then \
-	  QML_XHR_ALLOW_FILE_READ=1 tools/qml.sh tools/soak.qml -- --edits $(or $(EDITS),40); \
+	  QML_XHR_ALLOW_FILE_READ=1 tools/qml.sh tools/soak.qml -- --edits $(or $(EDITS),120); \
 	else \
-	  nix develop --command env QML_XHR_ALLOW_FILE_READ=1 tools/qml.sh tools/soak.qml -- --edits $(or $(EDITS),40); \
+	  nix develop --command env QML_XHR_ALLOW_FILE_READ=1 tools/qml.sh tools/soak.qml -- --edits $(or $(EDITS),120); \
 	fi
 
 gallery: ## capture the README screenshots into docs/readme (opens windows)

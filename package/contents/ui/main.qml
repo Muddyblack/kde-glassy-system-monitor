@@ -2,7 +2,6 @@ import QtQuick
 import QtQuick.Layouts
 import org.kde.plasma.plasmoid
 import org.kde.plasma.core as PlasmaCore
-import org.kde.plasma.plasma5support as P5Support
 import org.kde.kirigami as Kirigami
 import "network" as Network
 import "Sections.js" as Sections
@@ -64,9 +63,7 @@ PlasmoidItem {
         id: core
         cfg: plasmoid.configuration
         commandSourceComponent: Component {
-            P5Support.DataSource {
-                engine: "executable"
-            }
+            PlasmaCommandSource {}
         }
         writeConfig: (key, value) => plasmoid.configuration[key] = value
         onScreen: root.fullShown || root.hoverShown
@@ -126,9 +123,7 @@ PlasmoidItem {
     Network.NetworkService {
         id: networkService
         commandSourceComponent: Component {
-            P5Support.DataSource {
-                engine: "executable"
-            }
+            PlasmaCommandSource {}
         }
         windowOpen: networkWindow.active
         pillActive: core.showNetApps

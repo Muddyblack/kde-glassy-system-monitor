@@ -38,6 +38,13 @@ shell's Qt fails to load), on the software backend and offscreen.
   share, and the settings window's card switcher.
 - `tst_SampleClock.qml`, `tst_ScrollTicker.qml` — sample timing and the
   frame-rate cap.
+- `tst_ResourceLifecycle.qml` — stopped and timed-out probes, idle demo monitors,
+  and bounded network lookup caches.
+
+With Quickshell installed, `QML_XHR_ALLOW_FILE_READ=1 qs -p test_processes.qml`
+checks real process cleanup: 100 cancellations with child processes, immediate
+retries of the same command, and normal completion. It prints `process lifecycle: PASS`
+when all checks pass.
 
 The software backend cannot run the fragment shader. `make parity` shows the
 GPU and canvas renderers side by side on a real GPU; `make benchmark`
