@@ -98,6 +98,7 @@ config: ## regenerate the Plasma settings page's key list from main.xml
 
 test: ## run the full test suite
 	@python3 tools/config_keys.py --check
+	@python3 tools/check_command_sources.py
 	@if command -v qmltestrunner >/dev/null 2>&1; then \
 	  QT_TOOL=qmltestrunner QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software QML_XHR_ALLOW_FILE_READ=1 tools/qml.sh -input tests; \
 	else \
