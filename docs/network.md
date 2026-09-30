@@ -47,7 +47,10 @@ are read, they stay in memory, and it can be switched off.
 
 ## History
 
-Recorded in the background (a slow poll) while the widget runs. You choose whether it records
+Recorded in the background (a slow poll) while the Network Speed section is active, or while
+the network window is open. Removing the section stops background recording; saved history
+stays on disk until you clear it. The network-app panel reading polls only while shown. You
+choose whether it records
 (always, only while the window is open, or not at all), whether it is saved or only kept in
 memory, and for how long (30 / 90 days, 1 or 2 years, forever; one year by default).
 
@@ -79,9 +82,11 @@ Something looks dangerous).
 
 ## Alerts
 
-Each can be switched off, as desktop notifications and in the window's bell: a new app goes
-online, a port opens to the network (off by default), a VPN drops, an app reaches its daily
-limit, something looks dangerous (Threats). Trusted apps
+Each can be switched on or off: a new app goes online (off by default), a port opens to the
+network (off by default), a VPN drops, an app reaches its daily limit, or something looks
+dangerous (Threats). Desktop notifications are off by default; enabled alerts still appear
+in the window's bell. Alerts can run while the window is closed when background recording is
+on and a network reading is active. Trusted apps
 get a ✓ and stay quiet; apps first seen lately are marked NEW.
 
 An optional password locks the window (a salted hash is kept, never the password).

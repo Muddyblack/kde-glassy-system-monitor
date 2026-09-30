@@ -119,13 +119,14 @@ PlasmoidItem {
     // The network window: a normal top-level window (own taskbar entry),
     // created when the network section's "window" link is clicked and
     // destroyed when it closes. The service outlives it: it keeps the saved
-    // state and, with the history on, records traffic in the background.
+    // state and records traffic in the background while a network reading is shown.
     Network.NetworkService {
         id: networkService
         commandSourceComponent: Component {
             PlasmaCommandSource {}
         }
         windowOpen: networkWindow.active
+        featureActive: core.showNetworkSpeed
         pillActive: core.showNetApps
     }
     Binding {

@@ -89,7 +89,7 @@ NetDialog {
             }
             Toggle {
                 label: "A new app goes online"
-                detail: "The first connection of an app never seen before (trusted apps stay quiet)."
+                detail: "Off by default. The first connection of an app never seen before (trusted apps stay quiet)."
                 checked: popup.alerts.newApp
                 onToggled: on => popup.setAlert("newApp", on)
             }
@@ -118,7 +118,7 @@ NetDialog {
             }
             Toggle {
                 label: "Desktop notifications"
-                detail: "Through notify-send; off keeps alerts in the window's bell only."
+                detail: "Off by default. Through notify-send; off keeps alerts in the window's bell only."
                 checked: popup.alerts.notify
                 onToggled: on => popup.setAlert("notify", on)
             }

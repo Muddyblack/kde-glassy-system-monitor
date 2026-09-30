@@ -54,6 +54,12 @@ Item {
             commandSourceComponent: runner
         }
     }
+    Component {
+        id: networkServiceComponent
+        Network.NetworkService {
+            commandSourceComponent: runner
+        }
+    }
 
     TestCase {
         name: "ResourceLifecycle"
@@ -64,6 +70,63 @@ Item {
         }
         function outstanding() {
             return root.sources.reduce((n, s) => n + s.connectedSources.length, 0);
+        }
+        function notificationCommands() {
+            return root.sources.reduce((commands, s) => commands.concat(s.connectedSources), []).filter(c => String(c).indexOf("notify-send") !== -1);
+        }
+        function test_networkAlertsRequireExplicitOptIn() {
+            const service = createTemporaryObject(networkServiceComponent, root);
+            verify(service !== null);
+            compare(service.alertSettings.newApp, false);
+            compare(service.alertSettings.notify, false);
+            service.alert("newApp", "New app online", "Example connection");
+            compare(service.alertLog.length, 0);
+            compare(notificationCommands().length, 0);
+
+            service.state = {
+                alerts: {
+                    newApp: true
+                }
+            };
+            service.alert("newApp", "New app online", "Example connection");
+            compare(service.alertLog.length, 1);
+            compare(notificationCommands().length, 0);
+
+            service.state = {
+                alerts: {
+                    newApp: true,
+                    notify: true
+                }
+            };
+            service.alert("newApp", "New app online", "Example connection");
+            compare(service.alertLog.length, 2);
+            compare(notificationCommands().length, 1);
+        }
+        function test_networkCollectionFollowsVisibleFeatures() {
+            const service = createTemporaryObject(networkServiceComponent, root);
+            verify(service !== null);
+            compare(service.collectingEnabled, false);
+            compare(service.monitor.running, false);
+
+            service.featureActive = true;
+            service.recording = true;
+            compare(service.historyActive, true);
+            compare(service.monitor.running, true);
+            service.featureActive = false;
+            compare(service.historyActive, false);
+            compare(service.recording, false);
+            compare(service.monitor.running, false);
+
+            service.windowOpen = true;
+            compare(service.monitor.running, true);
+            service.windowOpen = false;
+            compare(service.monitor.running, false);
+
+            service.pillActive = true;
+            compare(service.monitor.running, true);
+            compare(service.historyActive, false);
+            service.pillActive = false;
+            compare(service.monitor.running, false);
         }
         function test_probeStopsAndRestartsWithoutKeepingCommands() {
             const probe = createTemporaryObject(probeComponent, root);

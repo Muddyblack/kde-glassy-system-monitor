@@ -26,8 +26,13 @@ Item {
     property bool demo: false
     // The host shows the network window.
     property bool windowOpen: false
+    // A card or panel shows the network section. No background connection
+    // polling is needed when the user removes it.
+    property bool featureActive: false
     // A panel pill shows the network apps: poll every 5 s in the background.
     property bool pillActive: false
+    readonly property bool collectingEnabled: windowOpen || featureActive || pillActive
+    readonly property bool historyActive: windowOpen || featureActive
 
     // Saved settings and window state (network-window.json):
     // { tab, dark, width, height, x, y,
@@ -45,13 +50,15 @@ Item {
     readonly property bool persist: keep !== "session"
     readonly property bool tabsEnabled: state.tabs !== false
     readonly property var alertSettings: Object.assign({
-        newApp: true,
+        // New applications are common; let the user opt in to these alerts.
+        newApp: false,
         // Off by default: every service that listens would raise one.
         openPort: false,
         vpnDown: true,
         limit: true,
         threat: true,
-        notify: true
+        // Keep desktop notifications quiet unless explicitly enabled.
+        notify: false
     }, state.alerts || {})
     readonly property var trusted: state.trusted || ({})
     readonly property var limits: state.limits || ({})
@@ -380,7 +387,7 @@ Item {
         tabsEnabled: service.tabsEnabled
         background: !service.windowOpen
         backgroundInterval: service.pillActive ? 5000 : 15000
-        running: service.windowOpen || service.pillActive || (service.recordMode === "on" && service.recording)
+        running: service.windowOpen || service.pillActive || (service.featureActive && service.recordMode === "on" && service.recording)
         onPolled: sample => {
             // Alerts come from the widget that holds the lease (or the
             // window, when no widget records).
@@ -423,6 +430,12 @@ Item {
             flush();
         }
     }
+    onHistoryActiveChanged: if (!historyActive) {
+        flush();
+        recording = false;
+    }
+    onCollectingEnabledChanged: if (!collectingEnabled)
+        net.reset()
     onKeepChanged: {
         _dirty = true;
         flush();
@@ -442,7 +455,7 @@ Item {
         interval: 20000
         repeat: true
         triggeredOnStart: true
-        running: !service.demo && service.recordMode !== "off" && service.historyLoaded && service.historyWritable
+        running: !service.demo && service.historyActive && service.recordMode !== "off" && service.historyLoaded && service.historyWritable
         onTriggered: lease.connectSource(OsFetch.shellCmd("umask 077; D=\"" + store.dirExpr + "\"; L=\"$D/network-history.lock\"; now=$(date +%s); mkdir -p \"$D\"; " + "if [ -f \"$L\" ]; then read id at < \"$L\"; else id=; at=0; fi; " + "if [ \"$id\" = \"" + service.instanceId + "\" ] || [ $((now - at)) -gt 50 ]; then echo \"" + service.instanceId + " $now\" > \"$L\"; echo owner; else echo busy; fi"))
     }
     onRecordModeChanged: if (recordMode === "off")
@@ -456,7 +469,7 @@ Item {
             // Taking over from another widget: start from what it saved.
             if (owner && !service.recording)
                 service.reloadHistory();
-            service.recording = owner && service.recordMode !== "off";
+            service.recording = owner && service.historyActive && service.recordMode !== "off";
         }
     }
     Component.onCompleted: {

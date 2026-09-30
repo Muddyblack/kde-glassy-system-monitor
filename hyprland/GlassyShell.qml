@@ -183,6 +183,7 @@ ShellRoot {
             CommandProcess {}
         }
         windowOpen: root.networkOpen
+        featureActive: core.showNetworkSpeed
         pillActive: core.showNetApps
     }
     Binding {
