@@ -371,7 +371,10 @@ const SECTION = {
     processes: cfg => barList(cfg, 'processes'),
     system(cfg) {
         const s = DemoData.SYSTEM;
-        return head(title(cfg, 'system'), s.uptime, INK) + (cfg.osShowLogo !== false ? `<div class="gw-oshead"><i class="gw-snow">❄</i><span><b>${esc(s.distro)}</b><small>${esc(s.hostname)}</small></span></div>` : '') + `<div class="gw-kv">${[['OS', s.distro], ['Kernel', s.kernel], ['Host', s.hostname], ['Uptime', s.uptime]].map(([k, v]) => `<span>${k}</span><b>${esc(v)}</b>`).join('')}</div>`;
+        const rows = [['OS', s.distro]];
+        if (s.version) rows.push(['Version', s.version]);
+        rows.push(['Kernel', s.kernel], ['Host', s.hostname], ['Uptime', s.uptime]);
+        return head(title(cfg, 'system'), s.uptime, INK) + (cfg.osShowLogo !== false ? `<div class="gw-oshead"><i class="gw-snow">❄</i><span><b>${esc(s.distro)}</b><small>${esc(s.hostname)}</small></span></div>` : '') + `<div class="gw-kv">${rows.map(([k, v]) => `<span>${k}</span><b>${esc(v)}</b>`).join('')}</div>`;
     }
 };
 

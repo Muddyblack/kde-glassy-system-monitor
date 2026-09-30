@@ -354,6 +354,21 @@ Item {
             }))[0].preferredHeight;
             compare(withChart - textOnly, 90, "only the medium chart's height goes");
         }
+
+        function test_systemInfoShowsVersionWhenAvailable() {
+            core.osVersion = "202609290254";
+            const v = view({
+                sections: "system",
+                osUseFetch: false
+            });
+            const s = sections(v)[0];
+            compare(s._rows.map(r => r.lbl), ["OS", "Version", "Kernel", "Host", "Uptime"]);
+            compare(s._rows.find(r => r.lbl === "Version").val, "202609290254");
+
+            // When no version is reported (e.g. Arch Linux), the row is omitted.
+            core.osVersion = "";
+            compare(s._rows.map(r => r.lbl), ["OS", "Kernel", "Host", "Uptime"]);
+        }
     }
 
     Component {

@@ -125,6 +125,7 @@ QtObject {
         m.sessionDlBytes = 3.4 * 1073741824;
         m.sessionUlBytes = 0.6 * 1073741824;
         m.osDistro = DemoData.SYSTEM.distro;
+        m.osVersion = DemoData.SYSTEM.version;
         m.osKernel = DemoData.SYSTEM.kernel;
         m.osHostname = DemoData.SYSTEM.hostname;
         m.osUptime = DemoData.SYSTEM.uptime;

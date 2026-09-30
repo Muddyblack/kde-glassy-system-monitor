@@ -1791,6 +1791,7 @@ Item {
 
     // ── OS Info state ─────────────────────────────────────────────────────────
     property string osDistro: ""
+    property string osVersion: ""
     property string osKernel: ""
     property string osHostname: ""
     property string osUptime: ""
@@ -1806,6 +1807,7 @@ Item {
             core.osKernel = (lines[1] || "").trim();
             core.osHostname = (lines[2] || "").trim();
             core.osUptime = (lines[3] || "").trim();
+            core.osVersion = (lines[5] || "").trim();
             // The fetch tool reports the same name; either may come first.
             const logo = (lines[4] || "").trim();
             if (/^[A-Za-z0-9._-]+$/.test(logo))
@@ -1819,7 +1821,7 @@ Item {
         repeat: true
         triggeredOnStart: true
         onTriggered: {
-            const cmd = "grep -m1 PRETTY_NAME /etc/os-release 2>/dev/null | cut -d= -f2 | tr -d '\"'; " + "uname -r 2>/dev/null; " + "cat /etc/hostname 2>/dev/null || hostname 2>/dev/null; " + "awk '{d=int($1/86400);h=int(($1%86400)/3600);m=int(($1%3600)/60);" + "if(d>0)printf \"%dd %dh %dm\\n\",d,h,m;" + "else if(h>0)printf \"%dh %dm\\n\",h,m;" + "else printf \"%dm\\n\",m}' /proc/uptime 2>/dev/null; " + "(. /etc/os-release 2>/dev/null; echo \"${LOGO:-$ID}\")";
+            const cmd = "grep -m1 PRETTY_NAME /etc/os-release 2>/dev/null | cut -d= -f2 | tr -d '\"'; " + "uname -r 2>/dev/null; " + "cat /etc/hostname 2>/dev/null || hostname 2>/dev/null; " + "awk '{d=int($1/86400);h=int(($1%86400)/3600);m=int(($1%3600)/60);" + "if(d>0)printf \"%dd %dh %dm\\n\",d,h,m;" + "else if(h>0)printf \"%dh %dm\\n\",h,m;" + "else printf \"%dm\\n\",m}' /proc/uptime 2>/dev/null; " + "(. /etc/os-release 2>/dev/null; echo \"${LOGO:-$ID}\"; echo \"${VERSION_ID:-$VERSION}\")";
             osInfoSource.connectSource(OsFetch.shellCmd(cmd));
         }
     }

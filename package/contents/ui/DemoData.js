@@ -38,7 +38,7 @@ var SENSORS = [
     { chip: "nvme", chipDisplay: "NVMe SSD", maxTemp: 41, maxTempCrit: 85, sensors: [{ label: "Composite", value: 41, crit: 85, type: "temp" }] }
 ];
 
-var SYSTEM = { distro: "NixOS 26.05", kernel: "7.2.4", hostname: "glassbox", uptime: "3h 12m", logo: "nix-snowflake" };
+var SYSTEM = { distro: "NixOS 26.05", version: "26.05", kernel: "7.2.4", hostname: "glassbox", uptime: "3h 12m", logo: "nix-snowflake" };
 
 // Load average at step `i`, as Probes.LOAD_CMD prints it (8 CPUs).
 function loadText(i) {

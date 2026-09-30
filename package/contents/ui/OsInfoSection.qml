@@ -23,12 +23,16 @@ ColumnLayout {
 
     // Built-in fallback rows, used when no fetch tool is available (or the
     // integration is switched off). Kept in sync by the cheap /etc/os-release
-    // reader in main.qml, which runs regardless of the fetch setting.
+    // reader in MonitorCore.qml, which runs regardless of the fetch setting.
     readonly property var _builtinRows: [
         {
             lbl: "OS",
             val: section.monitor.osDistro
         },
+        section.monitor.osVersion ? {
+            lbl: "Version",
+            val: section.monitor.osVersion
+        } : null,
         {
             lbl: "Kernel",
             val: section.monitor.osKernel
@@ -41,14 +45,14 @@ ColumnLayout {
             lbl: "Uptime",
             val: section.monitor.osUptime
         }
-    ]
+    ].filter(Boolean)
 
     readonly property bool _fetch: section.monitor.osFetchActive
     readonly property bool _plain: _fetch && section.cfg.osPlainText
     readonly property var _rows: _fetch ? section.monitor.osFetchVisibleRows : _builtinRows
     readonly property bool _showLogo: section.cfg.osShowLogo !== false
 
-    // Label column. Fetch tools emit far longer keys than the built-in four
+    // Label column. Fetch tools emit far longer keys than the built-in labels
     // ("Display (AUOE48D)", "Battery (L20L2PF0)"), so the column scales with the
     // widget instead of being fixed at the built-in 46 px.
     readonly property int _labelW: _fetch ? Math.max(52, Math.min(118, Math.round(width * 0.40))) : 46
