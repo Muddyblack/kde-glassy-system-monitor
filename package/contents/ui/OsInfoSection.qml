@@ -50,6 +50,13 @@ ColumnLayout {
     readonly property bool _fetch: section.monitor.osFetchActive
     readonly property bool _plain: _fetch && section.cfg.osPlainText
     readonly property var _rows: _fetch ? section.monitor.osFetchVisibleRows : _builtinRows
+    readonly property string _rawText: {
+        const raw = section.monitor.osFetchRaw;
+        if (!section.monitor.osVersion)
+            return raw;
+        const version = "Version: " + section.monitor.osVersion;
+        return /^Version:.*$/m.test(raw) ? raw.replace(/^Version:.*$/m, () => version) : raw + "\n" + version;
+    }
     readonly property bool _showLogo: section.cfg.osShowLogo !== false
 
     // Label column. Fetch tools emit far longer keys than the built-in labels
@@ -112,7 +119,7 @@ ColumnLayout {
         Text {
             id: rawText
             font.family: section.monitor.fontFamily
-            text: section.monitor.osFetchRaw
+            text: section._rawText
             color: section.monitor.textColor
             font.pixelSize: 10
             textFormat: Text.PlainText

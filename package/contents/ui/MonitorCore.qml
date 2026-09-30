@@ -1827,7 +1827,7 @@ Item {
     }
 
     // ── OS Info: "fetch" tool integration ─────────────────────────────────────
-    // The four values above always come from the cheap built-in reader (the
+    // The values above always come from the cheap built-in reader (the
     // compact representation depends on osUptime). When a fetch tool is present
     // it additionally fills osFetchRows / osFetchRaw, which the section prefers.
     property var osFetchRows: []       // [{lbl, val}] parsed from the tool
@@ -1840,7 +1840,21 @@ Item {
     // Rows after the user's exclude/reorder rules. Keys the user has never seen
     // are kept and appended in tool order, so a tool update that adds a field
     // surfaces it instead of silently dropping it.
-    readonly property var osFetchVisibleRows: OsFetch.applyRules(core.osFetchRows, cfg.osFieldRules || [])
+    readonly property var osFetchVisibleRows: {
+        const rows = core.osFetchRows.slice();
+        if (core.osVersion) {
+            const version = {
+                lbl: "Version",
+                val: core.osVersion
+            };
+            const index = rows.findIndex(row => row.lbl === "Version");
+            if (index >= 0)
+                rows[index] = version;
+            else
+                rows.splice(rows.findIndex(row => row.lbl === "OS") + 1, 0, version);
+        }
+        return OsFetch.applyRules(rows, cfg.osFieldRules || []);
+    }
 
     CommandSource {
         id: osFetchSource

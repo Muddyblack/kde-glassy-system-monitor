@@ -41,6 +41,7 @@ Item {
             frostedGlass: false,
             cardBorder: true,
             osUseFetch: false,
+            osPlainText: false,
             useSystemTextColor: true,
             disabledLinesStr: "",
             disabledCoresStr: ""
@@ -355,19 +356,89 @@ Item {
             compare(withChart - textOnly, 90, "only the medium chart's height goes");
         }
 
-        function test_systemInfoShowsVersionWhenAvailable() {
-            core.osVersion = "202609290254";
+        function test_systemInfoShowsVersionWhenAvailable_data() {
+            return [
+                {
+                    tag: "built-in",
+                    fetch: false,
+                    plain: false
+                },
+                {
+                    tag: "fetch rows",
+                    fetch: true,
+                    plain: false
+                },
+                {
+                    tag: "fetch text",
+                    fetch: true,
+                    plain: true
+                }
+            ];
+        }
+
+        function test_systemInfoShowsVersionWhenAvailable(data) {
+            const originalVersion = core.osVersion;
+            core.osVersion = "";
+            core.parseOsFetch("__TOOL__fastfetch\nOS: KDE Linux\nKernel: 6.12.0\nHost: kde-linux\nUptime: 1h 30m");
             const v = view({
                 sections: "system",
-                osUseFetch: false
+                osUseFetch: data.fetch,
+                osPlainText: data.plain
             });
             const s = sections(v)[0];
-            compare(s._rows.map(r => r.lbl), ["OS", "Version", "Kernel", "Host", "Uptime"]);
-            compare(s._rows.find(r => r.lbl === "Version").val, "202609290254");
+            try {
+                compare(s._plain, data.plain);
+                compare(s._rows.map(r => r.lbl), ["OS", "Kernel", "Host", "Uptime"]);
+                compare(s._rawText, core.osFetchRaw);
 
-            // When no version is reported (e.g. Arch Linux), the row is omitted.
-            core.osVersion = "";
-            compare(s._rows.map(r => r.lbl), ["OS", "Kernel", "Host", "Uptime"]);
+                // The built-in probe can finish after the fetch tool.
+                core.osVersion = "202609290254";
+                compare(s._rows.map(r => r.lbl), ["OS", "Version", "Kernel", "Host", "Uptime"]);
+                compare(s._rows.find(r => r.lbl === "Version").val, "202609290254");
+                verify(s._rawText.includes("Version: 202609290254"));
+
+                // When no version is reported (e.g. Arch Linux), omit the row.
+                core.osVersion = "";
+                compare(s._rows.map(r => r.lbl), ["OS", "Kernel", "Host", "Uptime"]);
+                compare(s._rawText, core.osFetchRaw);
+            } finally {
+                core.osVersion = originalVersion;
+                core.parseOsFetch("");
+            }
+        }
+
+        function test_systemInfoFetchVersionRespectsRules() {
+            const originalVersion = core.osVersion;
+            core.osVersion = "202609290254";
+            core.parseOsFetch("__TOOL__fastfetch\nOS: KDE Linux\nVersion: 202609290254\nKernel: 6.12.0");
+            const s = sections(view({
+                sections: "system",
+                osUseFetch: true
+            }))[0];
+            try {
+                compare(s._rows.filter(r => r.lbl === "Version").length, 1);
+                compare(s._rawText, core.osFetchRaw, "do not repeat a version the tool already prints");
+                root.use({
+                    sections: "system",
+                    osUseFetch: true,
+                    osFieldRules: ["Kernel", "Version", "OS"]
+                });
+                compare(s._rows.map(r => r.lbl), ["Kernel", "Version", "OS"]);
+                core.osVersion = "202609300254";
+                compare(s._rows.find(r => r.lbl === "Version").val, "202609300254");
+                verify(s._rawText.includes("Version: 202609300254"));
+                verify(!s._rawText.includes("202609290254"));
+                root.use({
+                    sections: "system",
+                    osUseFetch: true,
+                    osFieldRules: ["!Version"]
+                });
+                compare(s._rows.map(r => r.lbl), ["OS", "Kernel"]);
+                compare(core.osFetchRows[1].val, "202609290254", "keep the original tool result intact");
+            } finally {
+                core.osVersion = originalVersion;
+                core.parseOsFetch("");
+            }
         }
     }
 
