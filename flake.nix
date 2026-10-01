@@ -96,14 +96,48 @@
         };
 
       apps = forAllSystems (system:
-        let pkgs = nixpkgs.legacyPackages.${system};
+        let
+          pkgs = nixpkgs.legacyPackages.${system};
+          # The viewer alone does not include the desktop containment's QML
+          # plugins. Wrap its dependencies from the same nixpkgs revision.
+          viewRuntime = pkgs.stdenvNoCC.mkDerivation {
+            name = "glassy-plasmoidviewer";
+            dontUnpack = true;
+            nativeBuildInputs = [ pkgs.kdePackages.wrapQtAppsHook ];
+            buildInputs = with pkgs.kdePackages; [
+              qtbase plasma-sdk plasma-desktop plasma-workspace kdeclarative
+              plasma-integration breeze qqc2-desktop-style
+            ];
+            dontWrapQtApps = true;
+            installPhase = ''
+              mkdir -p "$out/bin"
+              cat > "$out/bin/glassy-view" <<'EOF'
+              #!${pkgs.runtimeShell}
+              exec ${pkgs.kdePackages.plasma-sdk}/bin/plasmoidviewer -a "$PWD/package" -f "''${1:-planar}"
+              EOF
+              chmod +x "$out/bin/glassy-view"
+            '';
+            postFixup = ''
+              wrapQtApp "$out/bin/glassy-view" \
+                --prefix XDG_DATA_DIRS : "${pkgs.kdePackages.plasma-desktop}/share:${pkgs.kdePackages.plasma-workspace}/share"
+            '';
+          };
         in {
           view = {
             type = "app";
             program = toString (pkgs.writeShellScript "view" ''
-              export PATH=${pkgs.lib.makeBinPath [ pkgs.kdePackages.plasma-sdk pkgs.kdePackages.plasma-desktop ]}:"$PATH"
-              exec plasmoidviewer \
-                -a "$PWD/package" -f "''${1:-planar}"
+              # Clear session/dev-shell paths before the Qt wrapper supplies
+              # this build's dependencies. Qt private APIs differ by patch release.
+              unset QML_IMPORT_PATH QML2_IMPORT_PATH NIXPKGS_QT6_QML_IMPORT_PATH
+              unset NIXPKGS_QML_SEARCH_PATHS QT_PLUGIN_PATH QT_ADDITIONAL_PACKAGES_PREFIX_PATH
+              unset LD_LIBRARY_PATH QT_STYLE_OVERRIDE QT_QUICK_CONTROLS_CONF
+              unset QT_QUICK_CONTROLS_FALLBACK_STYLE
+              # Read the user's KDE palette through a matching platform plugin.
+              # Use bundled styles rather than a session style from another Qt.
+              export QT_STYLE_OVERRIDE=Breeze
+              export QT_QUICK_CONTROLS_STYLE=org.kde.desktop
+              export QT_QPA_PLATFORMTHEME=kde
+              exec ${viewRuntime}/bin/glassy-view "$@"
             '');
           };
           view-hyprland = {

@@ -93,7 +93,7 @@ function shown(id) {
     return function (s) { return Sections.parse(s.sections, s.activeSection).indexOf(id) !== -1; };
 }
 function title(key, fallback) {
-    return { k: key, type: "text", label: "Title", desc: "Shown above the section. Leave empty for “" + fallback + "”.", placeholder: fallback };
+    return { k: key, type: "text", live: true, label: "Title", desc: "Shown above the section. Leave empty for “" + fallback + "”.", placeholder: fallback };
 }
 function color(key, label, desc) {
     return { k: key, type: "color", label: label, desc: desc || "", swatches: SWATCHES };
@@ -287,10 +287,11 @@ var SECTIONS = [
     ]),
     tab("system", "System info", [
         title("osInfoTitle", "System Info"),
-        { k: "osUseFetch", type: "switch", label: "Use a fetch tool", desc: "fastfetch, neofetch and friends, when installed." },
+        { k: "osUseFetch", type: "switch", label: "Use a fetch tool", desc: "fastfetch, neofetch and friends. When installed, displays the tool's parsed output in formatted rows." },
         { k: "osFetchCmd", type: "text", label: "Fetch command", desc: "Empty tries the known tools in turn.", placeholder: "fastfetch", when: function (s) { return s.osUseFetch; } },
-        { k: "osPlainText", type: "switch", label: "Show the tool's own output", when: function (s) { return s.osUseFetch; } },
-        { k: "osShowLogo", type: "switch", label: "Distro logo", when: function (s) { return s.osUseFetch; } }
+        { k: "osPlainText", type: "switch", label: "Raw terminal text", desc: "Render verbatim terminal text instead of formatted key-value card rows.", when: function (s) { return s.osUseFetch; } },
+        { k: "osShowLogo", type: "switch", label: "Distro logo" },
+        { k: "osFieldRules", type: "fetchFields", label: "Fields", desc: "Built-in readings and fetch-tool fields. Toggle visibility and reorder with the arrows.", full: true }
     ]),
     tab("storage", "Storage", [
         title("storageTitle", "Storage"),

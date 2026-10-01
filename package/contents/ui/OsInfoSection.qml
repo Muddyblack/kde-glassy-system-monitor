@@ -21,41 +21,17 @@ ColumnLayout {
         textColor: section.monitor.textColor
     }
 
-    // Built-in fallback rows, used when no fetch tool is available (or the
-    // integration is switched off). Kept in sync by the cheap /etc/os-release
-    // reader in MonitorCore.qml, which runs regardless of the fetch setting.
-    readonly property var _builtinRows: [
-        {
-            lbl: "OS",
-            val: section.monitor.osDistro
-        },
-        section.monitor.osVersion ? {
-            lbl: "Version",
-            val: section.monitor.osVersion
-        } : null,
-        {
-            lbl: "Kernel",
-            val: section.monitor.osKernel
-        },
-        {
-            lbl: "Host",
-            val: section.monitor.osHostname
-        },
-        {
-            lbl: "Uptime",
-            val: section.monitor.osUptime
-        }
-    ].filter(Boolean)
-
     readonly property bool _fetch: section.monitor.osFetchActive
     readonly property bool _plain: _fetch && section.cfg.osPlainText
-    readonly property var _rows: _fetch ? section.monitor.osFetchVisibleRows : _builtinRows
+    readonly property var _rows: section.monitor.osFetchVisibleRows
     readonly property string _rawText: {
-        const raw = section.monitor.osFetchRaw;
-        if (!section.monitor.osVersion)
-            return raw;
-        const version = "Version: " + section.monitor.osVersion;
-        return /^Version:.*$/m.test(raw) ? raw.replace(/^Version:.*$/m, () => version) : raw + "\n" + version;
+        let raw = section.monitor.osFetchRaw;
+        // Keep the tool text, supplementing only readings it did not report.
+        for (const row of section.monitor.osInfoRows) {
+            if (!section.monitor.osFetchRows.some(r => r.lbl === row.lbl))
+                raw += (raw ? "\n" : "") + row.lbl + ": " + row.val;
+        }
+        return raw;
     }
     readonly property bool _showLogo: section.cfg.osShowLogo !== false
 

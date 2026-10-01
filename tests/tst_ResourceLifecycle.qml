@@ -6,6 +6,7 @@ import "../package/contents/ui/network" as Network
 Item {
     id: root
     property int requests: 0
+    property var commands: []
     property var sources: []
 
     Component {
@@ -16,6 +17,7 @@ Item {
             Component.onCompleted: root.sources = root.sources.concat([this])
             function connectSource(command) {
                 ++root.requests;
+                root.commands = root.commands.concat([command]);
                 connectedSources = connectedSources.concat([command]);
             }
             function disconnectSource(command) {
@@ -74,6 +76,50 @@ Item {
         function notificationCommands() {
             return root.sources.reduce((commands, s) => commands.concat(s.connectedSources), []).filter(c => String(c).indexOf("notify-send") !== -1);
         }
+        function test_kdeLinuxImageFallbackIsCached() {
+            const core = createTemporaryObject(coreComponent, root, {
+                live: true
+            });
+            verify(core !== null);
+            const kde = "KDE Linux\n6.12\nkde-host\n1h\nkde\n\n\n\nkde-linux\n";
+            const count = () => root.commands.filter(c => c.includes("hostnamectl")).length;
+            const before = count();
+            core.parseOsInfo("Fedora Linux\n6.12\nfedora\n1h\nfedora\n42\n\n\nfedora\n");
+            compare(count(), before, "other distros never run hostnamectl");
+            core.parseOsInfo(kde);
+            compare(count(), before + 1);
+            core.parseOsInfo(kde);
+            compare(count(), before + 1, "do not start concurrent image probes");
+            const source = root.sources.find(s => s.connectedSources.some(c => c.includes("hostnamectl")));
+            verify(source);
+            source.newData(source.connectedSources.find(c => c.includes("hostnamectl")), {
+                stdout: "  OS Image: kde-linux\n  OS Image Version: 202609290254\n"
+            });
+            compare(core.osImageId, "kde-linux");
+            compare(core.osImageVersion, "202609290254");
+            core.parseOsInfo(kde);
+            compare(core.osImageVersion, "202609290254", "ordinary refresh keeps the fallback");
+            compare(count(), before + 1, "image metadata is not polled");
+            verify(core.osInfoRows.some(r => r.lbl === "OS Image Version" && r.val === "202609290254"));
+
+            core.cfg = Object.assign({}, core.cfg, {
+                remoteHost: "other-host"
+            });
+            compare(core.osImageId, "");
+            compare(core.osImageVersion, "");
+            core.parseOsInfo("KDE Linux\n6.12\nkde-host\n1h\nkde\n\n202610010254\nkde-linux\nkde-linux\n");
+            compare(count(), before + 1, "os-release already has both fields");
+            compare(core.osImageVersion, "202610010254");
+            core.parseOsInfo(kde);
+            compare(count(), before + 2, "a new host gets its own fallback attempt");
+            const failedSource = root.sources.find(s => s.connectedSources.some(c => c.includes("hostnamectl")));
+            failedSource.newData(failedSource.connectedSources.find(c => c.includes("hostnamectl")), {
+                stdout: ""
+            });
+            core.parseOsInfo(kde);
+            compare(count(), before + 2, "missing/failed hostnamectl is not retried every refresh");
+        }
+
         function test_networkAlertsRequireExplicitOptIn() {
             const service = createTemporaryObject(networkServiceComponent, root);
             verify(service !== null);

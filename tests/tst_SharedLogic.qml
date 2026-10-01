@@ -7,6 +7,7 @@ import "../package/contents/ui/studio/Looks.js" as Looks
 import "../package/contents/ui/studio/Schema.js" as Schema
 import "../package/contents/ui/Probes.js" as Probes
 import "../package/contents/ui/Format.js" as Format
+import "../package/contents/ui/OsFetch.js" as OsFetch
 import "../package/contents/ui/DemoData.js" as DemoData
 import "../package/contents/ui/network/NetModel.js" as NetModel
 import "../package/contents/ui/network/NetHistory.js" as NetHistory
@@ -18,6 +19,51 @@ import "../package/contents/ui/network/Threats.js" as Threats
 // The JavaScript shared by the widget, both studios and the website.
 TestCase {
     name: "SharedLogic"
+
+    function test_systemFieldsMergeBuiltinsAndPreferTool() {
+        const monitor = {
+            osDistro: "KDE Linux",
+            osVersion: "20261001",
+            osImageVersion: "image-42",
+            osKernel: "6.12",
+            osHostname: "desktop",
+            osUptime: "1h",
+            osFetchTool: "fastfetch",
+            osFetchRows: [
+                {
+                    lbl: "OS",
+                    val: "KDE Linux (tool)"
+                },
+                {
+                    lbl: "Version",
+                    val: "tool-version"
+                },
+                {
+                    lbl: "CPU",
+                    val: "Example CPU"
+                }
+            ]
+        };
+        const rows = OsFetch.systemRows(monitor, true);
+        compare(rows.map(r => r.lbl), ["OS", "Version", "OS Image Version", "CPU", "Kernel", "Host", "Uptime"]);
+        compare(rows[0].val, "KDE Linux (tool)");
+        compare(rows[1].val, "tool-version");
+        compare(monitor.osFetchRows.length, 3, "do not alter the tool result");
+        const rules = ["OS Image Version", "!Version", "OS"];
+        compare(OsFetch.applyRules(rows, rules).map(r => r.lbl), ["OS Image Version", "OS", "CPU", "Kernel", "Host", "Uptime"]);
+        const builtin = OsFetch.systemRows(monitor, false);
+        compare(builtin.map(r => r.lbl), ["OS", "Version", "OS Image Version", "Kernel", "Host", "Uptime"]);
+        compare(builtin[1].val, "20261001");
+        monitor.osFetchTool = "";
+        compare(OsFetch.systemRows(monitor, true), builtin, "no installed tool uses built-in fields");
+        monitor.osVersion = "";
+        monitor.osImageVersion = "";
+        compare(OsFetch.systemRows(monitor, true).map(r => r.lbl), ["OS", "Kernel", "Host", "Uptime"]);
+        const fields = OsFetch.mergeRules(builtin, ["!OS Image Version"]);
+        compare(fields[0].key, "OS Image Version");
+        verify(fields[0].present);
+        verify(!fields[0].enabled);
+    }
 
     readonly property var defaults: ({
             sections: "",

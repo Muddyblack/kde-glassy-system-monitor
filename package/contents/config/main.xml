@@ -532,7 +532,7 @@
         <entry name="osShowLogo" type="Bool">
             <default>true</default>
         </entry>
-        <!-- Ordered field rules for the fetch output. Each item is a key, or
+        <!-- Ordered field rules for built-in and fetch-tool system information. Each item is a key, or
              "!key" when hidden. Keys absent from this list default to visible
              and are appended in the tool's own order, so fields added by a tool
              update appear rather than being silently dropped. -->

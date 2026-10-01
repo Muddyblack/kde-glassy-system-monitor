@@ -73,6 +73,16 @@ Item {
     onRemoteHostChanged: {
         remoteError = "";
         // Readings from the other machine must not run into this one's.
+        osInfoSource.reset();
+        osImageSource.reset();
+        osImageTimeout.stop();
+        _osImageProbeAttempted = false;
+        _osImageFallback = {
+            id: "",
+            version: ""
+        };
+        osImageId = "";
+        osImageVersion = "";
         _procSnapshot = null;
         _powerPrev = null;
         powerSources = [];
@@ -1792,6 +1802,13 @@ Item {
     // ── OS Info state ─────────────────────────────────────────────────────────
     property string osDistro: ""
     property string osVersion: ""
+    property string osImageId: ""
+    property string osImageVersion: ""
+    property bool _osImageProbeAttempted: false
+    property var _osImageFallback: ({
+            id: "",
+            version: ""
+        })
     property string osKernel: ""
     property string osHostname: ""
     property string osUptime: ""
@@ -1802,17 +1819,49 @@ Item {
         remote: core.remoteHost
         onNewData: function (sourceName, data) {
             osInfoSource.disconnectSource(sourceName);
-            const lines = (data["stdout"] || "").split('\n');
-            core.osDistro = (lines[0] || "").trim() || "Linux";
-            core.osKernel = (lines[1] || "").trim();
-            core.osHostname = (lines[2] || "").trim();
-            core.osUptime = (lines[3] || "").trim();
-            core.osVersion = (lines[5] || "").trim();
-            // The fetch tool reports the same name; either may come first.
-            const logo = (lines[4] || "").trim();
-            if (/^[A-Za-z0-9._-]+$/.test(logo))
-                core.osLogoIcon = logo;
+            core.parseOsInfo(data["stdout"] || "");
         }
+    }
+
+    function parseOsInfo(out) {
+        const lines = out.split('\n');
+        core.osDistro = (lines[0] || "").trim() || "Linux";
+        core.osKernel = (lines[1] || "").trim();
+        core.osHostname = (lines[2] || "").trim();
+        core.osUptime = (lines[3] || "").trim();
+        core.osVersion = (lines[5] || "").trim();
+        core.osImageVersion = (lines[6] || "").trim() || _osImageFallback.version;
+        core.osImageId = (lines[7] || "").trim() || _osImageFallback.id;
+        const logo = (lines[4] || "").trim();
+        if (/^[A-Za-z0-9._-]+$/.test(logo))
+            core.osLogoIcon = logo;
+        // Image metadata rarely changes. Try hostnamectl once per monitored
+        // host, only on KDE Linux and only when os-release leaves a gap.
+        if (core.live && !_osImageProbeAttempted && (!osImageId || !osImageVersion) && OsFetch.isKdeLinux((lines[8] || "").trim(), osImageId, osDistro) && osImageSource.item) {
+            _osImageProbeAttempted = true;
+            osImageSource.connectSource(OsFetch.shellCmd("LC_ALL=C SYSTEMD_COLORS=0 hostnamectl --no-pager status 2>/dev/null"));
+            osImageTimeout.start();
+        }
+    }
+
+    CommandSource {
+        id: osImageSource
+        sourceComponent: core.commandSourceComponent
+        remote: core.remoteHost
+        onNewData: function (sourceName, data) {
+            osImageTimeout.stop();
+            osImageSource.disconnectSource(sourceName);
+            core._osImageFallback = OsFetch.parseHostnameImage(data["stdout"] || "");
+            if (!core.osImageId)
+                core.osImageId = core._osImageFallback.id;
+            if (!core.osImageVersion)
+                core.osImageVersion = core._osImageFallback.version;
+        }
+    }
+    Timer {
+        id: osImageTimeout
+        interval: 5000
+        onTriggered: osImageSource.reset()
     }
 
     Timer {
@@ -1821,7 +1870,7 @@ Item {
         repeat: true
         triggeredOnStart: true
         onTriggered: {
-            const cmd = "grep -m1 PRETTY_NAME /etc/os-release 2>/dev/null | cut -d= -f2 | tr -d '\"'; " + "uname -r 2>/dev/null; " + "cat /etc/hostname 2>/dev/null || hostname 2>/dev/null; " + "awk '{d=int($1/86400);h=int(($1%86400)/3600);m=int(($1%3600)/60);" + "if(d>0)printf \"%dd %dh %dm\\n\",d,h,m;" + "else if(h>0)printf \"%dh %dm\\n\",h,m;" + "else printf \"%dm\\n\",m}' /proc/uptime 2>/dev/null; " + "(. /etc/os-release 2>/dev/null; echo \"${LOGO:-$ID}\"; echo \"${VERSION_ID:-$VERSION}\")";
+            const cmd = "grep -m1 PRETTY_NAME /etc/os-release 2>/dev/null | cut -d= -f2 | tr -d '\"'; " + "uname -r 2>/dev/null; " + "cat /etc/hostname 2>/dev/null || hostname 2>/dev/null; " + "awk '{d=int($1/86400);h=int(($1%86400)/3600);m=int(($1%3600)/60);" + "if(d>0)printf \"%dd %dh %dm\\n\",d,h,m;" + "else if(h>0)printf \"%dh %dm\\n\",h,m;" + "else printf \"%dm\\n\",m}' /proc/uptime 2>/dev/null; " + "(. /etc/os-release 2>/dev/null; echo \"${LOGO:-$ID}\"; echo \"${VERSION_ID:-$VERSION}\"; echo \"${IMAGE_VERSION:-}\"; echo \"${IMAGE_ID:-}\"; echo \"${ID:-}\")";
             osInfoSource.connectSource(OsFetch.shellCmd(cmd));
         }
     }
@@ -1837,24 +1886,8 @@ Item {
     property string osLogoIcon: ""     // freedesktop icon name from os-release
     property bool isReadingOsFetch: false
     readonly property bool osFetchActive: !!cfg.osUseFetch && core.osFetchTool !== ""
-    // Rows after the user's exclude/reorder rules. Keys the user has never seen
-    // are kept and appended in tool order, so a tool update that adds a field
-    // surfaces it instead of silently dropping it.
-    readonly property var osFetchVisibleRows: {
-        const rows = core.osFetchRows.slice();
-        if (core.osVersion) {
-            const version = {
-                lbl: "Version",
-                val: core.osVersion
-            };
-            const index = rows.findIndex(row => row.lbl === "Version");
-            if (index >= 0)
-                rows[index] = version;
-            else
-                rows.splice(rows.findIndex(row => row.lbl === "OS") + 1, 0, version);
-        }
-        return OsFetch.applyRules(rows, cfg.osFieldRules || []);
-    }
+    readonly property var osInfoRows: OsFetch.systemRows(core, core.osFetchActive)
+    readonly property var osFetchVisibleRows: OsFetch.applyRules(osInfoRows, cfg.osFieldRules || [])
 
     CommandSource {
         id: osFetchSource

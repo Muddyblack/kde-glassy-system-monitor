@@ -2,12 +2,14 @@ import QtQuick
 import "Theme.js" as Theme
 
 // Sunk single-line field in the style of StudioSelect. Commits on Enter and
-// when focus leaves, so a half-typed command never runs.
+// when focus leaves, so a half-typed command never runs. Display-only fields
+// can opt into live updates.
 Rectangle {
     id: control
     property string value: ""
     property string placeholder: ""
     property bool numeric: false
+    property bool live: false
     signal committed(var value)
     // Editing ended: Enter, Escape or focus left.
     signal finished
@@ -66,6 +68,8 @@ Rectangle {
         clip: true
         selectByMouse: true
         inputMethodHints: control.numeric ? Qt.ImhFormattedNumbersOnly : Qt.ImhNone
+        onTextEdited: if (control.live)
+            control.commit()
         onAccepted: control.commit()
         onActiveFocusChanged: if (!activeFocus) {
             control.commit();

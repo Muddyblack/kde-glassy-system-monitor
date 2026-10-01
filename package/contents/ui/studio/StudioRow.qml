@@ -78,7 +78,7 @@ Item {
             width: row.stacked ? parent.width : row.controlWidth
             height: item ? item.implicitHeight : 0
             sourceComponent: ({
-                    switch: switchComponent,
+                    "switch": switchComponent,
                     range: rangeComponent,
                     seg: segComponent,
                     chips: chipsComponent,
@@ -93,8 +93,16 @@ Item {
                     positions: positionsComponent,
                     looks: looksComponent,
                     ifaces: ifacesComponent,
-                    projectInfo: projectInfoComponent
+                    projectInfo: projectInfoComponent,
+                    fetchFields: fetchFieldsComponent
                 })[row.rowData.type] ?? null
+        }
+    }
+
+    Component {
+        id: fetchFieldsComponent
+        FetchFieldPicker {
+            studio: row.studio
         }
     }
 
@@ -206,6 +214,7 @@ Item {
             implicitWidth: row.stacked ? row.width : 240
             value: String(row.value ?? "")
             placeholder: row.rowData.placeholder || ""
+            live: row.rowData.live === true
             onCommitted: value => row.commit(value)
         }
     }

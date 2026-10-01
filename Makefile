@@ -8,14 +8,14 @@ view: ## preview widget (planar)
 	@if command -v nix >/dev/null 2>&1 && [ -f flake.nix ]; then \
 	  nix run .#view; \
 	else \
-	  plasmoidviewer -a package -f planar; \
+	  plasmoidviewer -a "$(CURDIR)/package" -f planar; \
 	fi
 
 view-h: ## preview widget (horizontal)
 	@if command -v nix >/dev/null 2>&1 && [ -f flake.nix ]; then \
 	  nix run .#view -- horizontal; \
 	else \
-	  plasmoidviewer -a package -f horizontal; \
+	  plasmoidviewer -a "$(CURDIR)/package" -f horizontal; \
 	fi
 
 view-hyprland: ## run the Quickshell desktop widget (Hyprland or any wlroots/KWin session; Ctrl+C stops)

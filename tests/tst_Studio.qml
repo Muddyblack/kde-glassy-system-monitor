@@ -67,6 +67,32 @@ Item {
             return list;
         }
 
+        function test_systemFieldPickerIncludesBuiltinsWithoutFetch() {
+            studio.update({
+                sections: "system",
+                osUseFetch: false
+            });
+            studio.selectTab("system");
+            wait(50);
+            const picker = find("systemFieldPicker");
+            verify(picker, "field list is available with fetch disabled");
+            const monitor = studio.sensorMonitor;
+            const original = monitor.osImageVersion;
+            try {
+                monitor.osImageVersion = "image-42";
+                const index = picker.fieldItems.findIndex(f => f.key === "OS Image Version");
+                verify(index >= 0);
+                compare(picker.fieldItems[index].sample, "image-42");
+                picker.toggleField(index);
+                verify(root.draft.osFieldRules.includes("!OS Image Version"));
+                verify(!monitor.osFetchVisibleRows.some(r => r.lbl === "OS Image Version"));
+                picker.toggleField(picker.fieldItems.findIndex(f => f.key === "OS Image Version"));
+                verify(monitor.osFetchVisibleRows.some(r => r.lbl === "OS Image Version"));
+            } finally {
+                monitor.osImageVersion = original;
+            }
+        }
+
         function test_sensorPickerEditsAndKeepsDelegatesDuringSamples() {
             studio.selectTab("cpu");
             wait(50);

@@ -103,6 +103,56 @@ function parse(out) {
     };
 }
 
+function isKdeLinux(id, imageId, name) {
+    return id === "kde-linux" || imageId === "kde-linux" || /^KDE Linux(?:\s|$)/i.test(name || "");
+}
+
+// hostnamectl runs with LC_ALL=C so these labels do not depend on the locale.
+function parseHostnameImage(text) {
+    var image = { id: "", version: "" };
+    stripAnsi(text || "").split("\n").forEach(function (line) {
+        var match = /^\s*OS Image( Version)?:\s*(.*?)\s*$/.exec(line);
+        if (match && match[2] && match[2] !== "n/a")
+            image[match[1] ? "version" : "id"] = match[2];
+    });
+    return image;
+}
+
+// One source of available system fields for the card and its settings list.
+// Tool values win; built-in readings fill gaps without duplicating tool rows.
+function systemRows(monitor, useFetch) {
+    if (!monitor)
+        return [];
+    var rows = useFetch && monitor.osFetchTool ? (monitor.osFetchRows || []).slice() : [];
+    var fields = [
+        ["OS", monitor.osDistro],
+        ["Version", monitor.osVersion],
+        ["OS Image", monitor.osImageId],
+        ["OS Image Version", monitor.osImageVersion],
+        ["Kernel", monitor.osKernel],
+        ["Host", monitor.osHostname],
+        ["Uptime", monitor.osUptime]
+    ];
+    for (var i = 0; i < fields.length; i++) {
+        var label = fields[i][0];
+        var value = fields[i][1];
+        if (!value || rows.some(function (r) { return r.lbl === label; }))
+            continue;
+        var row = { lbl: label, val: value };
+        if (label === "OS") {
+            rows.unshift(row);
+        } else if (label === "Version" || label === "OS Image" || label === "OS Image Version") {
+            var after = label === "OS Image Version" && rows.some(function (r) { return r.lbl === "OS Image"; }) ? "OS Image"
+                : label !== "Version" && rows.some(function (r) { return r.lbl === "Version"; }) ? "Version" : "OS";
+            var index = rows.findIndex(function (r) { return r.lbl === after; });
+            rows.splice(index + 1, 0, row);
+        } else {
+            rows.push(row);
+        }
+    }
+    return rows;
+}
+
 // ── Field rules ───────────────────────────────────────────────────────────────
 // A rule list is an ordered array of keys; a leading "!" means hidden. Keys the
 // user has never seen are NOT in the list and default to visible, appended in
