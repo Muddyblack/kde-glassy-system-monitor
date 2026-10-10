@@ -38,7 +38,7 @@ shell's Qt fails to load), on the software backend and offscreen.
   share, and the settings window's card switcher.
 - `tst_SampleClock.qml`, `tst_ScrollTicker.qml` — sample timing and the
   frame-rate cap.
-- `tst_ResourceLifecycle.qml` — stopped and timed-out probes, idle demo monitors,
+- `tst_ResourceLifecycle.qml` — stopped and timed-out probes, hardware poll recovery, idle demo monitors,
   and bounded network lookup caches.
 
 With Quickshell installed, `QML_XHR_ALLOW_FILE_READ=1 qs -p test_processes.qml`

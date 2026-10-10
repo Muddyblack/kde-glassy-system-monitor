@@ -68,6 +68,7 @@ Item {
 
         function init() {
             root.requests = 0;
+            root.commands = [];
             root.sources = [];
         }
         function outstanding() {
@@ -76,6 +77,48 @@ Item {
         function notificationCommands() {
             return root.sources.reduce((commands, s) => commands.concat(s.connectedSources), []).filter(c => String(c).indexOf("notify-send") !== -1);
         }
+        function test_hardwarePollsRecoverAfterTimeout() {
+            const core = createTemporaryObject(coreComponent, root, {
+                cfg: {
+                    sections: "gpu,sensors,power",
+                    updateInterval: 250,
+                    historySize: 60
+                },
+                live: true
+            });
+            // Let enumeration start, then supply a chosen GPU without relying
+            // on this machine's hardware or executing any real probes.
+            wait(250);
+            core.gpuMode = "nvidia";
+            tryCompare(core, "isReadingGpu", true);
+            tryCompare(core, "isReadingHwSensors", true);
+            tryCompare(core, "isReadingPower", true);
+            wait(1100);
+            verify(core.isReadingGpu, "timer must not clear an outstanding GPU request");
+            const commands = [];
+            for (const source of root.sources) {
+                for (const command of source.connectedSources.slice()) {
+                    if (!command.includes("nvidia-smi") && !command.includes("sensors -j") && !command.includes("power_supply"))
+                        continue;
+                    verify(command.startsWith("timeout -k 2s 10s "));
+                    commands.push(command);
+                    source.newData(command, {
+                        stdout: "",
+                        "exit code": 124
+                    });
+                }
+            }
+            compare(commands.length, 3);
+            compare(core.isReadingGpu, false);
+            compare(core.isReadingHwSensors, false);
+            compare(core.isReadingPower, false);
+            tryCompare(core, "isReadingGpu", true);
+            tryCompare(core, "isReadingHwSensors", true);
+            tryCompare(core, "isReadingPower", true);
+            for (const command of commands)
+                compare(root.commands.filter(c => c === command).length, 2, "retry after timeout");
+        }
+
         function test_kdeLinuxImageFallbackIsCached() {
             const core = createTemporaryObject(coreComponent, root, {
                 live: true

@@ -20,6 +20,13 @@ function shellCmd(cmd) {
     return "sh -c '" + cmd.replace(/'/g, "'\\''") + "'";
 }
 
+// Bound the whole hardware command, including pipelines and child processes.
+// TERM gets two seconds to finish before KILL; disconnecting a DataSource
+// alone is not a process deadline. Keep this inside the remote SSH payload.
+function timeoutCommand(command, seconds) {
+    return "timeout -k 2s " + (seconds === undefined ? 10 : seconds) + "s " + command;
+}
+
 // Builds the detection+run probe. A custom command is tried first but still has
 // to pass the same existence + output check, so a stale entry falls back to
 // auto-detection instead of blanking the section.

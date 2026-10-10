@@ -479,7 +479,7 @@ function powerCmd(opts) {
         + "echo \"rapl ${r##*/} $(cat $r/energy_uj 2>/dev/null) $(cat $r/max_energy_range_uj 2>/dev/null) $(cat $r/name 2>/dev/null)\"; done; "
         + "for h in /sys/class/hwmon/hwmon*; do n=$(cat $h/name 2>/dev/null); case $n in BAT*|ADP*|AC*|ucsi*|macsmc*) continue;; esac; "
         + "d=$(readlink -f $h); d=${d%/hwmon/hwmon*}; for f in $h/power1_average $h/power1_input; do [ -r $f ] && { echo \"hwmon $n:$d $(cat $f 2>/dev/null) $n\"; break; }; done; done; "
-        + (opts.nvidia ? "nvidia-smi --query-gpu=index,power.draw --format=csv,noheader,nounits 2>/dev/null | sed 's/^/nvidia /'; " : "")
+        + (opts.nvidia ? "timeout -k 2s 5s nvidia-smi --query-gpu=index,power.draw --format=csv,noheader,nounits 2>/dev/null | sed 's/^/nvidia /'; " : "")
         + "[ -f /proc/pressure/cpu ] && sed 's/^/cpu /' /proc/pressure/cpu 2>/dev/null | head -1; "
         + "[ -f /proc/pressure/memory ] && sed 's/^/mem /' /proc/pressure/memory 2>/dev/null | head -1; "
         + "if command -v gdbus >/dev/null 2>&1; then " + PP_FN + "echo \"profile $(pp Get ActiveProfile)\"; "

@@ -793,7 +793,7 @@ Item {
             // SSID: try each tool and emit the FIRST NON-EMPTY result. We can't use
             // `a || b` because some tools (e.g. `iw link` without privileges) exit 0
             // while printing nothing, which would wrongly short-circuit the chain.
-            netInfoSource.connectSource(OsFetch.shellCmd("s=$(iwgetid -r 2>/dev/null); [ -z \"$s\" ] && s=$(iw dev " + ifc + " link 2>/dev/null | sed -n 's/^[[:space:]]*SSID: //p'); [ -z \"$s\" ] && s=$(nmcli -t -f active,ssid dev wifi list --rescan no 2>/dev/null | sed -n 's/^yes://p' | head -1); echo \"$s\"; ip -o -4 addr show dev " + ifc + " scope global 2>/dev/null | awk '{print $4}' | head -1"));
+            netInfoSource.connectSource(OsFetch.timeoutCommand(OsFetch.shellCmd("s=$(iwgetid -r 2>/dev/null); [ -z \"$s\" ] && s=$(iw dev " + ifc + " link 2>/dev/null | sed -n 's/^[[:space:]]*SSID: //p'); [ -z \"$s\" ] && s=$(nmcli -t -f active,ssid dev wifi list --rescan no 2>/dev/null | sed -n 's/^yes://p' | head -1); echo \"$s\"; ip -o -4 addr show dev " + ifc + " scope global 2>/dev/null | awk '{print $4}' | head -1")));
         }
     }
     function parseNetInfo(text) {
@@ -1225,7 +1225,7 @@ Item {
                 // Run through an explicit shell so pipes, redirections and
                 // shell builtins behave the same regardless of how the
                 // executable engine decides to split the string.
-                customSource.connectSource("sh -c '" + cfg.customCmd.replace(/'/g, "'\\''") + "'");
+                customSource.connectSource(OsFetch.timeoutCommand("sh -c '" + cfg.customCmd.replace(/'/g, "'\\''") + "'", 30));
             }
         }
     }
@@ -1321,7 +1321,7 @@ Item {
             // fdinfo works without the proprietary driver; upgrade to nvidia-smi
             // only if it answers for this specific card.
             core.gpuMode = "fdinfo";
-            gpuDetectSource.connectSource("sh -c 'nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits" + core._nvidiaTarget() + " 2>/dev/null | head -1'");
+            gpuDetectSource.connectSource(OsFetch.timeoutCommand("sh -c 'nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits" + core._nvidiaTarget() + " 2>/dev/null | head -1'"));
         } else {
             core.gpuVendor = "";
             core.gpuMode = "fdinfo";
@@ -1354,7 +1354,7 @@ Item {
         core.gpuVramTotal = -1;
         core._gpuLastEngineNs = null;
         core._gpuLastRc6Ms = -1;
-        gpuDetectSource.connectSource(core._gpuEnumCmd);
+        gpuDetectSource.connectSource(OsFetch.timeoutCommand(core._gpuEnumCmd));
     }
 
     // Detect GPU backend on startup, and again whenever the device setting changes
@@ -1448,6 +1448,8 @@ Item {
         running: core.showGpuSection && core.live
         repeat: true
         onTriggered: {
+            // Completion (including timeout) owns the busy flag. A timer tick
+            // must not permit a second request while the first is still running.
             if (!core.isReadingGpu && core.gpuMode !== "") {
                 core.isReadingGpu = true;
                 const scan = core._gpuScanDue();
@@ -1458,20 +1460,20 @@ Item {
                 core._gpuPollTick++;
                 if (core.gpuMode === "nvidia") {
                     // util, freq, encode%, decode%, vram used (MiB), vram total (MiB)
-                    gpuSource.connectSource("sh -c 'nvidia-smi --query-gpu=utilization.gpu,clocks.current.graphics,utilization.encoder,utilization.decoder,memory.used,memory.total --format=csv,noheader,nounits" + core._nvidiaTarget() + " 2>/dev/null'");
+                    gpuSource.connectSource(OsFetch.timeoutCommand("sh -c 'nvidia-smi --query-gpu=utilization.gpu,clocks.current.graphics,utilization.encoder,utilization.decoder,memory.used,memory.total --format=csv,noheader,nounits" + core._nvidiaTarget() + " 2>/dev/null'"));
                 } else if (core.gpuMode === "amd") {
                     // busy% + VRAM used/total from sysfs, then the fdinfo block.
                     // gpu_busy_percent is absent on RDNA4 (RX 9000), so that line can
                     // come back empty; there the scan is the fallback and always runs.
-                    gpuSource.connectSource("sh -c '" + core._gpuReadFn + "c=" + core.gpuCardPath + "/device; r \"$c/gpu_busy_percent\"; r \"$c/mem_info_vram_used\"; r \"$c/mem_info_vram_total\"" + engBlock + "'");
+                    gpuSource.connectSource(OsFetch.timeoutCommand("sh -c '" + core._gpuReadFn + "c=" + core.gpuCardPath + "/device; r \"$c/gpu_busy_percent\"; r \"$c/mem_info_vram_used\"; r \"$c/mem_info_vram_total\"" + engBlock + "'"));
                 } else if (core.gpuMode === "intel") {
                     // Intel: rc6_residency_ms delta → busy %, plus current freq, plus
                     // per-engine ns sums + memory from fdinfo (one combined read).
-                    gpuSource.connectSource("sh -c '" + core._gpuReadFn + "g=" + core.gpuCardPath + "/gt/gt0; r \"$g/rc6_residency_ms\"; r \"$g/rps_cur_freq_mhz\"; r \"$g/rps_act_freq_mhz\"" + engBlock + "'");
+                    gpuSource.connectSource(OsFetch.timeoutCommand("sh -c '" + core._gpuReadFn + "g=" + core.gpuCardPath + "/gt/gt0; r \"$g/rc6_residency_ms\"; r \"$g/rps_cur_freq_mhz\"; r \"$g/rps_act_freq_mhz\"" + engBlock + "'"));
                 } else {
                     // fdinfo: sum each engine's cumulative ns across all processes, plus
                     // resident memory. Render≈compute/3D, video≈decode, video-enhance≈encode.
-                    gpuSource.connectSource("sh -c '" + core._gpuScanCmd + "'");
+                    gpuSource.connectSource(OsFetch.timeoutCommand("sh -c '" + core._gpuScanCmd + "'"));
                 }
             } else if (!core.isReadingGpu && core.gpuMode === "" && core.gpuNoDataTicks < 2) {
                 // Vendor detection came back empty (unknown vendor id, or sysfs not
@@ -1479,8 +1481,6 @@ Item {
                 core.gpuNoDataTicks++;
                 if (core.gpuNoDataTicks >= 2)
                     core.gpuMode = "fdinfo";
-            } else {
-                core.isReadingGpu = false;
             }
         }
     }
@@ -1697,7 +1697,7 @@ Item {
         onTriggered: {
             if (!core.isReadingHwSensors) {
                 core.isReadingHwSensors = true;
-                hwSensorsSource.connectSource(OsFetch.shellCmd("sensors -j 2>/dev/null"));
+                hwSensorsSource.connectSource(OsFetch.timeoutCommand(OsFetch.shellCmd("sensors -j 2>/dev/null")));
             }
         }
     }
@@ -1910,7 +1910,7 @@ Item {
         onTriggered: {
             if (!core.isReadingOsFetch) {
                 core.isReadingOsFetch = true;
-                osFetchSource.connectSource(OsFetch.probeCmd(cfg.osFetchCmd));
+                osFetchSource.connectSource(OsFetch.timeoutCommand(OsFetch.probeCmd(cfg.osFetchCmd), 20));
             }
         }
     }
@@ -1970,10 +1970,10 @@ Item {
         if (core.isReadingPower || !core.readPowerSensors || !core.live)
             return;
         core.isReadingPower = true;
-        powerSource.connectSource(OsFetch.shellCmd(Probes.powerCmd({
+        powerSource.connectSource(OsFetch.timeoutCommand(OsFetch.shellCmd(Probes.powerCmd({
             nvidia: core.gpuMode === "nvidia" || core.discoverSensors || core.sensorNeeds.nvidia,
             profiles: core.powerProfiles.length === 0
-        })));
+        }))));
     }
     Timer {
         id: powerTimer
