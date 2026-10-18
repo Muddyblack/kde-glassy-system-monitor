@@ -1,0 +1,118 @@
+name: Windows
+
+# The Windows monitor: its headless self-tests, a short memory soak, and the
+# build (the .exe, zipped and wrapped in the installer) on master and by hand.
+# See docs/windows.md.
+#
+# --selftest loads the real render tree headless and fails on any QML warning.
+# The soak runs every section at a fast pace and fails if memory grows.
+
+on:
+  pull_request:
+    paths:
+      - "windows/**"
+      - "tests/windows/**"
+      - ".github/workflows/windows.yml"
+      # The monitor hosts this shared render tree, its settings parser and
+      # settings window, so a change there can break the Windows build alone.
+      - "package/contents/**"
+      - "package/icon.png"
+      - "hyprland/Configuration.js"
+      - "hyprland/SettingsPage.qml"
+  push:
+    branches:
+      - master
+  # A build from any branch by hand: Actions → Windows → Run workflow.
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    timeout-minutes: 15
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: windows/*requirements.txt
+
+      # The app's range, not the build's: the newest PySide6 is tried here first.
+      - name: install
+        run: python -m pip install -r windows/requirements.txt
+
+      - name: sensor mapping tests
+        run: python tests/windows/test_hwsensors.py
+
+      - name: monitor loads
+        timeout-minutes: 2
+        run: python windows/app.py --selftest
+
+      - name: readings
+        timeout-minutes: 2
+        run: python windows/app.py --selftest-sampler
+
+      - name: memory soak
+        timeout-minutes: 4
+        run: python windows/app.py --soak 90
+
+  build:
+    needs: test
+    if: github.event_name != 'pull_request'
+    timeout-minutes: 20
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: windows/*requirements.txt
+
+      - name: version
+        shell: pwsh
+        run: |
+          $version = (Get-Content package/metadata.json -Raw | ConvertFrom-Json).KPlugin.Version
+          "VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: build
+        run: |
+          python -m pip install -r windows/requirements.txt -r windows/build-requirements.txt
+          pyinstaller --noconfirm windows/glassy-system-monitor.spec
+
+      - name: bundled app loads
+        shell: pwsh
+        # A hang (a modal error dialog nobody can click) should fail fast
+        # rather than sit out the six-hour job limit.
+        timeout-minutes: 5
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          $p = Start-Process -FilePath "dist/Glassy System Monitor/Glassy System Monitor.exe" -ArgumentList "--selftest" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "--selftest failed with exit code $($p.ExitCode)" }
+
+      - name: zip
+        shell: pwsh
+        run: Compress-Archive -Path "dist/Glassy System Monitor" -DestinationPath "glassy-system-monitor-windows-$env:VERSION.zip"
+
+      - name: installer
+        shell: pwsh
+        run: windows/build-installer.ps1 -Version $env:VERSION
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: glassy-system-monitor-windows
+          path: |
+            glassy-system-monitor-windows-*.zip
+            Glassy-System-Monitor-Setup-*.exe
+          if-no-files-found: error
+          retention-days: 14
