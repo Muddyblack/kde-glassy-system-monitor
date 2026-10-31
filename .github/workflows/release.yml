@@ -1,12 +1,58 @@
 name: Release
 
 on:
+  # Merging a release PR (scripts/tag.sh / make tag) bumps the version in
+  # package/metadata.json on master. That push is the release: the tag does not exist yet,
+  # this workflow creates it together with the GitHub release.
   push:
-    tags:
-      - "v*"
+    branches: [master]
+    paths: [package/metadata.json]
+  workflow_dispatch:
+
+# One release at a time, and never cancel a half-published one.
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 jobs:
+  # Reads the version from package/metadata.json and works out whether it still needs a
+  # release. Pushes that touch the file without bumping the version (or that
+  # re-run an already released one) stop here.
+  prepare:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      tag: ${{ steps.v.outputs.tag }}
+      new: ${{ steps.v.outputs.new }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Work out the version and whether it is released
+        id: v
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          VERSION="$(jq -r .KPlugin.Version package/metadata.json)"
+          TAG="v${VERSION}"
+          NEW=true
+          if [ "$GITHUB_REF_NAME" != "$DEFAULT_BRANCH" ]; then
+            echo "::notice::Releases are only cut from $DEFAULT_BRANCH."
+            NEW=false
+          elif git ls-remote --exit-code --tags origin "refs/tags/${TAG}" >/dev/null 2>&1; then
+            echo "::notice::${TAG} is already released."
+            NEW=false
+          fi
+          {
+            echo "version=$VERSION"
+            echo "tag=$TAG"
+            echo "new=$NEW"
+          } >> "$GITHUB_OUTPUT"
+
   release:
+    needs: prepare
+    if: needs.prepare.outputs.new == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -22,7 +68,7 @@ jobs:
       - name: Get version and artifact path
         id: info
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
+          VERSION="${{ needs.prepare.outputs.version }}"
           NAME="$(basename "$PWD")"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "artifact=${NAME}-${VERSION}.plasmoid" >> "$GITHUB_OUTPUT"
@@ -30,7 +76,7 @@ jobs:
       - name: Generate release notes
         id: notes
         run: |
-          PREV_TAG="$(git tag --sort=-creatordate | grep -E '^v' | sed -n '2p')"
+          PREV_TAG="$(git tag --sort=-creatordate | grep -E '^v' | sed -n '1p')"
           if [ -n "$PREV_TAG" ]; then
             NOTES="$(git log "${PREV_TAG}..HEAD" --pretty=format:'- %s' --no-merges)"
           else
@@ -43,6 +89,8 @@ jobs:
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ needs.prepare.outputs.tag }}
+          target_commitish: ${{ github.sha }}
           name: ${{ steps.info.outputs.version }}
           body: |
             ## Changes
