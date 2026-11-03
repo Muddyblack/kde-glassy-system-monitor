@@ -30,7 +30,7 @@ var BUILT_IN = [
       s: { sections: "cpu,memory,network", bgColor: "#00000000", cardBorder: false, frostedGlass: false, glowLine: false, showYLabels: false,
            showLegend: false, lineWidth: 1.4, cpuColor: "#f2f2f2", memColor: "#c8c8c8", dlColor: "#f2f2f2", ulColor: "#9a9a9a" } },
     { id: "terminal", name: "Terminal", note: "Phosphor bars and monospace text on a square black card.",
-      s: { sections: "cpu,memory,network", surfaceStyle: "solid", bgColor: "#ff060907", bgRadiusTL: 0, bgRadiusTR: 0, bgRadiusBR: 0, bgRadiusBL: 0,
+      s: { sections: "cpu,memory,network", surfaceStyle: "solid", solidColor: "#060907", bgRadiusTL: 0, bgRadiusTR: 0, bgRadiusBR: 0, bgRadiusBL: 0,
            cardBorder: false, cardShadow: "none", grain: false, chartType: 1, historySize: 36, glowLine: true, bloomStrength: 0.3,
            showGridLines: true, fontFamily: "monospace", useSystemTextColor: false, customTextColor: "#b8f5c4",
            cpuColor: "#39ff7a", memColor: "#2de2e6", swapColor: "#ffb000", dlColor: "#39ff7a", ulColor: "#ffb000",

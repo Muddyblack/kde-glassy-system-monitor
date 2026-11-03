@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import "SectionModels.js" as SectionModels
 import "Format.js" as Format
+import "Sections.js" as Sections
 
 // Battery and power: charge and flow, the machine's measured draw (energy
 // counters and power sensors), a chart of power / charge / temperature, the
@@ -12,10 +13,12 @@ ColumnLayout {
     required property var monitor
     required property var cfg
     readonly property string sectionId: "power"
+    // This section's own text and number colours (Colours › Per section).
+    readonly property color ink: Sections.sectionColor(cfg, sectionId, "text") || monitor.textColor
+    readonly property string numbers: Sections.sectionColor(cfg, sectionId, "value")
     readonly property real preferredHeight: implicitHeight + 8
     readonly property real minimumHeight: preferredHeight
 
-    readonly property color ink: monitor.textColor
     function inkAlpha(a) {
         return Qt.rgba(ink.r, ink.g, ink.b, a);
     }
@@ -57,7 +60,7 @@ ColumnLayout {
         Layout.fillWidth: true
         title: section.monitor.sectionTitle("power")
         reading: section.battery ? section.monitor.batteryPercent + "%" : section.monitor.hasPowerSensors ? Format.watts(section.monitor.powerLoadW) : ""
-        readingColor: section.battery ? section.chargeColor : section.monitor.textColor
+        readingColor: section.numbers || (section.battery ? section.chargeColor : section.ink)
         textColor: section.ink
     }
 
@@ -143,7 +146,7 @@ ColumnLayout {
                 font.family: section.monitor.fontFamily
                 readonly property real w: section.battery ? section.monitor.batteryPowerW : section.monitor.powerLoadW
                 text: (section.battery && w > 0.05 ? "+" : "") + Math.abs(w).toFixed(1) + "W"
-                color: section.battery ? (w > 0.05 ? "#44dd88" : w < -0.05 ? "#ffaa22" : section.ink) : SectionModels.color(section.cfg, "powerLoadColor", "#ffaa22")
+                color: section.numbers || (section.battery ? (w > 0.05 ? "#44dd88" : w < -0.05 ? "#ffaa22" : section.ink) : SectionModels.color(section.cfg, "powerLoadColor", "#ffaa22"))
                 font.pixelSize: 20
                 font.bold: true
                 font.features: ({
@@ -233,6 +236,8 @@ ColumnLayout {
         Layout.fillWidth: true
         visible: !!section.cfg.showLegend && section.chartModel.legend.length > 0
         monitor: section.monitor
+        ink: section.ink
+        numbers: section.numbers
         indent: chart.plotLeft
         entries: section.chartModel.legend
     }
@@ -286,7 +291,7 @@ ColumnLayout {
             anchors.verticalCenter: parent.verticalCenter
             font.family: section.monitor.fontFamily
             text: parent.value
-            color: parent.tint
+            color: section.numbers || parent.tint
             font.pixelSize: 10
             font.bold: true
         }
@@ -336,7 +341,7 @@ ColumnLayout {
             Text {
                 font.family: section.monitor.fontFamily
                 text: parent.parent.health.toFixed(1) + "%"
-                color: parent.parent.tint
+                color: section.numbers || parent.parent.tint
                 font.pixelSize: 10
                 font.bold: true
             }
@@ -403,7 +408,7 @@ ColumnLayout {
             horizontalAlignment: Text.AlignRight
             font.family: section.monitor.fontFamily
             text: parent.value.toFixed(2) + "%"
-            color: parent.value >= 10 ? parent.barColor : section.inkAlpha(0.65)
+            color: section.numbers || (parent.value >= 10 ? parent.barColor : section.inkAlpha(0.65))
             font.pixelSize: 10
             font.bold: parent.value >= 5
         }

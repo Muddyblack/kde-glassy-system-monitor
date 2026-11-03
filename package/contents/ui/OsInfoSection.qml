@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import "Sections.js" as Sections
 
 ColumnLayout {
     id: section
@@ -7,6 +8,9 @@ ColumnLayout {
     required property var monitor
     required property var cfg
     readonly property string sectionId: "system"
+    // This section's own text and number colours (Colours › Per section).
+    readonly property color ink: Sections.sectionColor(cfg, sectionId, "text") || monitor.textColor
+    readonly property string numbers: Sections.sectionColor(cfg, sectionId, "value")
     readonly property real preferredHeight: implicitHeight + 8
     readonly property real minimumHeight: preferredHeight
 
@@ -18,7 +22,8 @@ ColumnLayout {
         Layout.bottomMargin: 4
         title: section.monitor.sectionTitle("system")
         reading: section.monitor.osUptime
-        textColor: section.monitor.textColor
+        textColor: section.ink
+        readingColor: section.numbers || section.ink
     }
 
     readonly property bool _fetch: section.monitor.osFetchActive
@@ -64,7 +69,7 @@ ColumnLayout {
                 font.family: section.monitor.fontFamily
                 Layout.fillWidth: true
                 text: section.monitor.osFetchTitle || section.monitor.osDistro
-                color: section.monitor.textColor
+                color: section.ink
                 font.pixelSize: 12
                 font.bold: true
                 elide: Text.ElideRight
@@ -73,7 +78,7 @@ ColumnLayout {
                 font.family: section.monitor.fontFamily
                 Layout.fillWidth: true
                 text: section._fetch ? section.monitor.osFetchTool : section.monitor.osHostname + (section.monitor.remoteHost ? " · over SSH" : "")
-                color: Qt.rgba(section.monitor.textColor.r, section.monitor.textColor.g, section.monitor.textColor.b, 0.40)
+                color: Qt.rgba(section.ink.r, section.ink.g, section.ink.b, 0.40)
                 font.pixelSize: 9
                 elide: Text.ElideRight
             }
@@ -96,7 +101,7 @@ ColumnLayout {
             id: rawText
             font.family: section.monitor.fontFamily
             text: section._rawText
-            color: section.monitor.textColor
+            color: section.ink
             font.pixelSize: 10
             textFormat: Text.PlainText
             lineHeight: 1.15
@@ -127,7 +132,7 @@ ColumnLayout {
 
                     Rectangle {
                         anchors.fill: parent
-                        color: Qt.rgba(section.monitor.textColor.r, section.monitor.textColor.g, section.monitor.textColor.b, index % 2 === 0 ? 0.0 : 0.04)
+                        color: Qt.rgba(section.ink.r, section.ink.g, section.ink.b, index % 2 === 0 ? 0.0 : 0.04)
                         radius: 2
                     }
 
@@ -138,7 +143,7 @@ ColumnLayout {
                         anchors.leftMargin: 2
                         anchors.verticalCenter: parent.verticalCenter
                         text: modelData.lbl
-                        color: Qt.rgba(section.monitor.textColor.r, section.monitor.textColor.g, section.monitor.textColor.b, 0.40)
+                        color: Qt.rgba(section.ink.r, section.ink.g, section.ink.b, 0.40)
                         font.pixelSize: 10
                         width: section._labelW
                         elide: Text.ElideRight
@@ -151,7 +156,7 @@ ColumnLayout {
                         anchors.rightMargin: 2
                         anchors.verticalCenter: parent.verticalCenter
                         text: modelData.val || "…"
-                        color: section.monitor.textColor
+                        color: section.numbers || section.ink
                         font.pixelSize: 11
                         font.bold: modelData.val !== ""
                         elide: Text.ElideRight

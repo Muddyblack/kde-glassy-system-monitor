@@ -218,7 +218,7 @@ function chartSpec(cfg, id, def) {
         glow: cfg.glowLine ? Math.max(0.15, cfg.bloomStrength ?? 0.6) : 0,
         historySize: Math.max(10, cfg.historySize || 60),
         phase: scrolling && cfg.smoothScroll ? monitor.phase() : 1,
-        ink: inkOf(cfg),
+        ink: Sections.sectionInk(cfg, id, TEXT),
         step: 1
     };
 }
@@ -270,8 +270,10 @@ function drawCharts(root = document) {
 
 /* ─── the widget, section by section (MonitorView in HTML) ─────── */
 const title = (cfg, id) => Sections.title(id, cfg);
-const head = (t, reading, color, extra = '') => `<div class="gw-head"><b>${esc(t)}</b><span class="gw-extra">${extra}</span><em style="color:${color || INK}">${esc(reading)}</em></div>`;
-const legend = (cfg, plotLeft, entries) => cfg.showLegend ? `<div class="gw-legend" style="padding-left:${plotLeft}px">${entries.map(e => `<span><i style="background:${e.color}"></i>${esc(e.label)}<b style="color:${e.color}">${esc(e.value)}</b></span>`).join('')}</div>` : '';
+// A section's own number colour (Sections.sectionColors) arrives as --num.
+const num = c => `var(--num,${c || INK})`;
+const head = (t, reading, color, extra = '') => `<div class="gw-head"><b>${esc(t)}</b><span class="gw-extra">${extra}</span><em style="color:${num(color)}">${esc(reading)}</em></div>`;
+const legend = (cfg, plotLeft, entries) => cfg.showLegend ? `<div class="gw-legend" style="padding-left:${plotLeft}px">${entries.map(e => `<span><i style="background:${e.color}"></i>${esc(e.label)}<b style="color:${num(e.color)}">${esc(e.value)}</b></span>`).join('')}</div>` : '';
 const pl = (cfg, id) => Data.scrolls(styleFor(cfg, id)) && cfg.showYLabels ? 38 : 0;
 const colorOf = (cfg, key, fallback) => cfg[key] || fallback;
 const m = monitor;
@@ -306,8 +308,8 @@ function barList(cfg, id) {
     // Rows without a bar (ratio < 0) carry a state dot, as in BarListSection.
     const tint = r => r.color || alpha(TEXT, 0.45);
     const rows = model.rows.length ? model.rows.map(r => r.ratio < 0
-        ? `<div class="gw-brow gw-dotrow"><i class="gw-dot" style="background:${tint(r)}"></i><span>${esc(r.label)}</span><small>${esc(r.detail)}</small><b style="color:${tint(r)}">${esc(r.value)}</b></div>`
-        : `<div class="gw-brow"><span>${esc(r.label)}</span><span class="gw-mtrack"><i style="width:${Math.min(1, r.ratio) * 100}%;background:${tint(r)}"></i></span><small>${esc(r.detail)}</small><b style="color:${tint(r)}">${esc(r.value)}</b></div>`).join('') : `<div class="gw-brow gw-dim">${esc(model.empty)}</div>`;
+        ? `<div class="gw-brow gw-dotrow"><i class="gw-dot" style="background:${tint(r)}"></i><span>${esc(r.label)}</span><small>${esc(r.detail)}</small><b style="color:${num(tint(r))}">${esc(r.value)}</b></div>`
+        : `<div class="gw-brow"><span>${esc(r.label)}</span><span class="gw-mtrack"><i style="width:${Math.min(1, r.ratio) * 100}%;background:${tint(r)}"></i></span><small>${esc(r.detail)}</small><b style="color:${num(tint(r))}">${esc(r.value)}</b></div>`).join('') : `<div class="gw-brow gw-dim">${esc(model.empty)}</div>`;
     return head(model.title, model.reading, model.readingColor || INK) + `<div class="gw-bars">${rows}</div>`;
 }
 // SensorReadings.qml in HTML: a compact grid (CPU, GPU), bars (Power) or
@@ -316,7 +318,7 @@ function sensorReadings(cfg, section) {
     const shown = Sensors.rows(m.sensorCatalog, cfg, section);
     const tint = s => Sensors.tint(s, cfg) || INK;
     if (section === 'cpu' || section === 'gpu')
-        return shown.length ? `<div class="gw-cores">${shown.map(s => `<span><i style="background:${tint(s)}"></i>${esc(s.label)}<b style="color:${tint(s)}">${esc(Sensors.reading(s))}</b></span>`).join('')}</div>` : '';
+        return shown.length ? `<div class="gw-cores">${shown.map(s => `<span><i style="background:${tint(s)}"></i>${esc(s.label)}<b style="color:${num(tint(s))}">${esc(Sensors.reading(s))}</b></span>`).join('')}</div>` : '';
     const maxWatts = Math.max(1, ...shown.filter(s => s.type === 'power').map(s => s.value || 0));
     const middle = s => {
         if (s.type === 'cores') return `<span class="gw-corebars">${s.values.map(v => { const t = { type: 'temp', value: v, crit: s.crit }; return `<i style="height:${Sensors.ratio(t, cfg) * 100}%;background:${Sensors.tint(t, cfg)}"></i>`; }).join('')}</span>`;
@@ -327,14 +329,14 @@ function sensorReadings(cfg, section) {
     const rows = section === 'sensors' ? Sensors.grouped(shown) : shown;
     return rows.map(s => s.header
         ? `<div class="gw-chipname"><b>${esc(s.label)}</b><i></i>${s.value > 0 ? `<small style="color:${Sensors.tint({ type: 'temp', value: s.value, crit: s.crit }, cfg)}">max ${s.value.toFixed(0)}°C</small>` : ''}</div>`
-        : `<div class="gw-srow"><span>${esc(s.label)}</span>${middle(s)}<b style="color:${tint(s)}">${esc(Sensors.reading(s))}</b></div>`).join('');
+        : `<div class="gw-srow"><span>${esc(s.label)}</span>${middle(s)}<b style="color:${num(tint(s))}">${esc(Sensors.reading(s))}</b></div>`).join('');
 }
 const SECTION = {
     cpu: cfg => modelSection(cfg, 'cpu', model => model.cores
-        ? `<div class="gw-cores">${m.corePercents.map((p, i) => { const c = model.coreColors[i % model.coreColors.length]; return `<span><i style="background:${c}"></i>Core ${i + 1}<b style="color:${c}">${p.toFixed(0)}%</b></span>`; }).join('')}</div>` : ''),
+        ? `<div class="gw-cores">${m.corePercents.map((p, i) => { const c = model.coreColors[i % model.coreColors.length]; return `<span><i style="background:${c}"></i>Core ${i + 1}<b style="color:${num(c)}">${p.toFixed(0)}%</b></span>`; }).join('')}</div>` : ''),
     memory: cfg => modelSection(cfg, 'memory', () => ''),
-    network: cfg => modelSection(cfg, 'network', (model, left) => `<div class="gw-totals" style="padding-left:${left}px">${model.totals.map(t => `<span style="color:${t.color}">${esc(t.text)}</span>`).join('')}</div>`, '<span class="gw-dim">wlp2s0 ▾</span><span class="gw-dim">○ connections</span><span class="gw-dim">⧉ window</span>'),
-    ping: cfg => modelSection(cfg, 'ping', (model, left) => cfg.showStats ? `<div class="gw-stats" style="padding-left:${left}px">${model.stats.map(st => `<span><small>${st.label}</small><b style="color:${st.color || INK}">${esc(st.value)}</b></span>`).join('')}</div>` : '',
+    network: cfg => modelSection(cfg, 'network', (model, left) => `<div class="gw-totals" style="padding-left:${left}px">${model.totals.map(t => `<span style="color:${num(t.color)}">${esc(t.text)}</span>`).join('')}</div>`, '<span class="gw-dim">wlp2s0 ▾</span><span class="gw-dim">○ connections</span><span class="gw-dim">⧉ window</span>'),
+    ping: cfg => modelSection(cfg, 'ping', (model, left) => cfg.showStats ? `<div class="gw-stats" style="padding-left:${left}px">${model.stats.map(st => `<span><small>${st.label}</small><b style="color:${num(st.color)}">${esc(st.value)}</b></span>`).join('')}</div>` : '',
         m.targetList.map((h, i) => `<span class="gw-chip${i === 0 ? ' on' : ''}" style="--c:${colorOf(cfg, 'pingColor', '#39ff14')}">${esc(h)}</span>`).join('')),
     disk: cfg => modelSection(cfg, 'disk', () => '', '<span class="gw-dim">nvme0n1</span>'),
     gpu: cfg => { const c = colorOf(cfg, 'gpuColor', '#ff6e40'); return modelSection(cfg, 'gpu', (model, left) => cfg.gpuShowEngines ? `<div class="gw-engines" style="padding-left:${left}px"><div class="gw-vram"><b>VRAM</b><span class="gw-mtrack"><i style="width:32%;background:${c}"></i></span><span>5.20 GiB / 16.00 GiB</span></div><div class="gw-eng"><span><i style="background:${c}"></i>Compute <b style="color:${c}">${m.gpuPercent.toFixed(0)}%</b></span><span><i style="background:${c}"></i>Decode <b style="color:${c}">4%</b></span><span><i style="background:${alpha(c, 0.35)}"></i>Encode 0%</span></div></div>` : '', `<span class="gw-badge">AMD</span><span class="gw-dim">${Math.round(1200 + m.gpuPercent * 12)} MHz</span>`); },
@@ -351,7 +353,7 @@ const SECTION = {
         const model = SectionModels.power(m, cfg, tab), load = colorOf(cfg, 'powerLoadColor', '#ffaa22');
         const tabs = [['power', 'Power (W)'], ['battery', 'Battery %'], ['temp', 'Temp (°C)']].map(([id, label]) => `<span class="gw-seg${id === tab ? ' on' : ''}">${label}</span>`).join('');
         const profiles = cfg.powerShowProfiles !== false ? `<div class="gw-segs"><small>Profile</small>${SectionModels.profiles(m).map(p => `<span class="gw-seg${p.id === m.powerProfile ? ' on' : ''}">${p.label}</span>`).join('')}</div>` : '';
-        const tile = (k, v, c) => `<span><small>${k}</small><b style="color:${c || INK}">${esc(v)}</b></span>`;
+        const tile = (k, v, c) => `<span><small>${k}</small><b style="color:${num(c)}">${esc(v)}</b></span>`;
         const bar = (label, v, max, c, text) => `<div class="gw-srow"><span>${label}</span><span class="gw-mtrack"><i style="width:${Math.min(100, v / max * 100)}%;background:${c}"></i></span><b>${text}</b></div>`;
         return head(title(cfg, 'power'), b.percent + '%', '#44dd88') +
             `<div class="gw-pglance"><i class="gw-cell"><i style="width:${b.percent}%"></i></i><span><b>L20L2PF0</b><small>4h 36m left</small></span><em style="color:#ffaa22">${Math.abs(m.batteryPowerW).toFixed(1)}W<small>${Format.watts(m.powerLoadW)} load</small></em></div>` +
@@ -363,7 +365,7 @@ const SECTION = {
             (cfg.powerShowSources !== false ? sensorReadings(cfg, 'power') : '') +
             (cfg.powerShowPressure !== false ? bar('CPU pressure', m.cpuPressureAvg10, 20, '#ff6644', m.cpuPressureAvg10.toFixed(2) + '%') + bar('Memory pressure', 0.4, 20, '#aa66ff', '0.40%') : '');
     },
-    load: cfg => modelSection(cfg, 'load', (model, left) => `<div class="gw-stats" style="padding-left:${left}px">${model.stats.map(st => `<span><small>${st.label}</small><b style="color:${st.color || INK}">${esc(st.value)}</b></span>`).join('')}</div>`),
+    load: cfg => modelSection(cfg, 'load', (model, left) => `<div class="gw-stats" style="padding-left:${left}px">${model.stats.map(st => `<span><small>${st.label}</small><b style="color:${num(st.color)}">${esc(st.value)}</b></span>`).join('')}</div>`),
     fans: cfg => barList(cfg, 'fans'),
     services: cfg => barList(cfg, 'services'),
     containers: cfg => barList(cfg, 'containers'),
@@ -374,7 +376,7 @@ const SECTION = {
         const rows = [['OS', s.distro]];
         if (s.version) rows.push(['Version', s.version]);
         rows.push(['Kernel', s.kernel], ['Host', s.hostname], ['Uptime', s.uptime]);
-        return head(title(cfg, 'system'), s.uptime, INK) + (cfg.osShowLogo !== false ? `<div class="gw-oshead"><i class="gw-snow">❄</i><span><b>${esc(s.distro)}</b><small>${esc(s.hostname)}</small></span></div>` : '') + `<div class="gw-kv">${rows.map(([k, v]) => `<span>${k}</span><b>${esc(v)}</b>`).join('')}</div>`;
+        return head(title(cfg, 'system'), s.uptime, INK) + (cfg.osShowLogo !== false ? `<div class="gw-oshead"><i class="gw-snow">❄</i><span><b>${esc(s.distro)}</b><small>${esc(s.hostname)}</small></span></div>` : '') + `<div class="gw-kv">${rows.map(([k, v]) => `<span>${k}</span><b style="color:${num()}">${esc(v)}</b>`).join('')}</div>`;
     }
 };
 
@@ -389,16 +391,22 @@ function cardWidth(cfg) {
 // Audio Visualizer's surface classes from style.css.
 function surfaceHTML(cfg, ids) {
     const material = Schema.MATERIALS.some(([v]) => v === cfg.surfaceStyle) ? cfg.surfaceStyle || 'tint' : 'tint';
-    const bg = Qt.color(cfg.bgColor || '#800d0f1a');
-    const [p1, p2] = Sections.colors(ids, cfg, '#4aa8ff').map(c => Qt.color(c));
+    const bg = Qt.color(cfg.bgColor || '#800d0f1a'), solid = Sections.solidColor(cfg);
+    const [p1, p2] = Sections.materialColors(ids, cfg, '#4aa8ff').map(c => Qt.color(c));
     const hex = c => `rgb(${c.r * 255 | 0},${c.g * 255 | 0},${c.b * 255 | 0})`;
     const p3 = `rgb(${(p1.r * 0.2 + p2.r * 0.1) * 255 | 0},${(p1.g * 0.2 + p2.g * 0.1) * 255 | 0},${(p1.b * 0.2 + p2.b * 0.1) * 255 | 0})`;
     const liquid = material === 'liquid', glass = liquid || material === 'glass';
-    const cls = material === 'tint' ? 's-color' + (cfg.frostedGlass ? ' frost' : '') : `s-${material}` + (material === 'solid' && bg.a >= 1 ? ' flat' : '') + (glass ? ` t-${cfg.glassTint || 'clear'}${liquid && cfg.glassRefraction > 0.02 ? ' refract' : ''}` : '');
-    const edge = (material !== 'tint' && !(material === 'solid' && bg.a >= 1)) || cfg.cardBorder ? `<i class="edge${cfg.cardBorder ? ' hl' : ''}"></i>` : '';
-    const vars = `opacity:${cfg.cardOpacity ?? 1};--bgc:rgba(${bg.r * 255 | 0},${bg.g * 255 | 0},${bg.b * 255 | 0},${bg.a});--frost:${(cfg.frostStrength ?? 0.55) * 24}px;--glass-blur:${((cfg.glassBlur ?? 0.85) * 24).toFixed(1)}px;--glass-color:${cfg.glassTintColor || '#3daee9'};--p1:${hex(p1)};--p2:${hex(p2)};--p3:${p3}`;
+    const cls = material === 'tint' ? 's-color' + (cfg.frostedGlass ? ' frost' : '') : `s-${material}` + (material === 'solid' && solid ? ' flat' : '') + (glass ? ` t-${cfg.glassTint || 'clear'}${liquid && cfg.glassRefraction > 0.02 ? ' refract' : ''}` : '');
+    const edge = (material !== 'tint' && !(material === 'solid' && solid)) || cfg.cardBorder ? `<i class="edge${cfg.cardBorder ? ' hl' : ''}"></i>` : '';
+    const vars = `opacity:${cfg.cardOpacity ?? 1};--bgc:${material === 'solid' && solid ? cssColor(solid) : `rgba(${bg.r * 255 | 0},${bg.g * 255 | 0},${bg.b * 255 | 0},${bg.a})`};--frost:${(cfg.frostStrength ?? 0.55) * 24}px;--glass-blur:${((cfg.glassBlur ?? 0.85) * 24).toFixed(1)}px;--glass-color:${cfg.glassTintColor || '#3daee9'};--p1:${hex(p1)};--p2:${hex(p2)};--p3:${p3}`;
     return `<div class="surf ${cls}" style="${vars}">${liquid && cfg.glassSpecular !== false ? '<i class="spec"></i>' : ''}${edge}${cfg.grain ? '<i class="grain"></i>' : ''}</div>`;
 }
+// A section's own text and number colours as CSS variables on its <section>.
+function sectionVars(cfg, id) {
+    const text = Sections.sectionColor(cfg, id, 'text'), value = Sections.sectionColor(cfg, id, 'value');
+    return (text ? `;--ink:${cssColor(text)}` : '') + (value ? `;--num:${cssColor(value)}` : '');
+}
+function cssColor(c) { const q = Qt.color(c); return `rgba(${q.r * 255 | 0},${q.g * 255 | 0},${q.b * 255 | 0},${q.a})`; }
 function widgetHTML(cfg) {
     const ids = Sections.parse(cfg.sections, cfg.activeSection), cols = clamp(cfg.layoutColumns || 1, 1, 3);
     const place = Sections.placement(ids, cols, Schema.fields(cfg.sectionSpans));
@@ -408,7 +416,7 @@ function widgetHTML(cfg) {
     const pad = ({ compact: 6, roomy: 14 })[cfg.density] || 10;
     const shadow = cfg.cardShadow === 'soft' || cfg.cardShadow === 'lifted' ? ' sh-' + cfg.cardShadow : '';
     const specular = material === 'liquid' && cfg.glassSpecular !== false ? ' specular' : '';
-    return `<div class="gw${shadow}${specular}" ${cfg.layoutMode === 'manual' ? 'data-manual="true"' : ''} style="width:${cardWidth(cfg)}px;border-radius:${r};--ink:${inkOf(cfg)};--font:${cfg.fontFamily === 'monospace' ? 'ui-monospace,monospace' : 'Noto Sans,Inter,system-ui,sans-serif'};padding:${pad}px;gap:${pad}px 16px;grid-template-columns:repeat(${cols},1fr)">${surfaceHTML(cfg, ids)}${ids.map((id, i) => `<section class="gw-sec" data-section="${id}" data-position="${esc(JSON.stringify(cfg.layoutMode === 'manual' ? Sections.positions(cfg.sectionPositions)[id] || {} : {}))}" style="grid-row:${place[i].row + 1};grid-column:${place[i].column + 1} / span ${place[i].span}">${SECTION[id](cfg)}</section>`).join('')}</div>`;
+    return `<div class="gw${shadow}${specular}" ${cfg.layoutMode === 'manual' ? 'data-manual="true"' : ''} style="width:${cardWidth(cfg)}px;border-radius:${r};--ink:${inkOf(cfg)};--font:${cfg.fontFamily === 'monospace' ? 'ui-monospace,monospace' : 'Noto Sans,Inter,system-ui,sans-serif'};padding:${pad}px;gap:${pad}px 16px;grid-template-columns:repeat(${cols},1fr)">${surfaceHTML(cfg, ids)}${ids.map((id, i) => `<section class="gw-sec" data-section="${id}" data-position="${esc(JSON.stringify(cfg.layoutMode === 'manual' ? Sections.positions(cfg.sectionPositions)[id] || {} : {}))}" style="grid-row:${place[i].row + 1};grid-column:${place[i].column + 1} / span ${place[i].span}${sectionVars(cfg, id)}">${SECTION[id](cfg)}</section>`).join('')}</div>`;
 }
 // The panel pill from SectionModels.pill, like CompactRepresentation, and
 // the card it shows on hover (pinned by a click) under the panel.
@@ -568,12 +576,10 @@ function buildRow(r) {
         sel.onchange = () => update(set(sel.value));
         sync = s => { sel.value = get(s); };
     } else if (r.type === 'color') {
-        const sws = r.swatches || SWATCHES;
-        el.innerHTML = headHTML + `<div class="rc swatches">${sws.map(c => { const q = Qt.color(c); return `<button class="sw" data-c="${c}" style="background:rgba(${q.r * 255 | 0},${q.g * 255 | 0},${q.b * 255 | 0},${q.a})" aria-label="${c}"></button>`; }).join('')}<label class="swc" title="Pick any colour"><input type="color" aria-label="${esc(r.label)}"></label></div>`;
-        const btns = $$('.sw', el), inp = $('input', el);
-        btns.forEach(b => b.onclick = () => update(set(b.dataset.c)));
-        inp.oninput = () => update(set(inp.value));
-        sync = s => { const v = String(get(s) || '').toLowerCase(); btns.forEach(b => b.setAttribute('aria-pressed', b.dataset.c.toLowerCase() === v)); if (document.activeElement !== inp && /^#[0-9a-f]{6}$/.test(v)) inp.value = v; };
+        el.innerHTML = headHTML + `<div class="rc">${swatchesHTML(r.swatches || SWATCHES, r.auto, r.label)}</div>`;
+        sync = bindSwatches(el, v => update(set(v)), s => get(s));
+    } else if (r.type === 'sectionColors') {
+        sync = renderSectionColors(el, headHTML);
     } else if (r.type === 'tiles') {
         el.innerHTML = headHTML + `<div class="tiles" style="--tw:${r.tw || 104}px">${r.opts.map((o, i) => `<button class="tile" data-i="${i}"><span class="tpv">${tilePreview(o.pv, o.v)}</span><span class="tl">${esc(o.label)}</span></button>`).join('')}</div>`;
         const btns = $$('.tile', el);
@@ -608,6 +614,50 @@ function buildRow(r) {
         sync = renderProjectInfo(el);
     }
     return { el, r, sync };
+}
+
+// StudioSwatches.qml in HTML: optional crossed-out "inherit" swatch (value
+// ""), the swatches, then any colour.
+function swatchesHTML(swatches, auto, label) {
+    return `<div class="swatches">${auto ? `<button class="sw auto" data-c="" title="${esc(auto)}" aria-label="${esc(auto)}"></button>` : ''}${swatches.map(c => `<button class="sw" data-c="${c}" style="background:${cssColor(c)}" aria-label="${c}"></button>`).join('')}<label class="swc" title="Pick any colour"><input type="color" aria-label="${esc(label || 'Colour')}"></label></div>`;
+}
+function bindSwatches(el, pick, value) {
+    const btns = $$('.sw', el), inp = $('input[type=color]', el);
+    btns.forEach(b => b.onclick = () => pick(b.dataset.c));
+    inp.oninput = () => pick(inp.value);
+    inp.onchange = () => { inp.blur(); pick(inp.value); };
+    return s => { const v = String(value(s) || '').toLowerCase(); btns.forEach(b => b.setAttribute('aria-pressed', b.dataset.c.toLowerCase() === v)); const hex = v.length === 9 ? '#' + v.slice(3) : v; if (document.activeElement !== inp && /^#[0-9a-f]{6}$/.test(hex)) inp.value = hex; };
+}
+// SectionColors.qml in HTML: per shown section a dot for its text, numbers
+// and each chart colour; a dot opens the swatches under its line.
+let openColor = '';
+function renderSectionColors(el, headHTML) {
+    return s => {
+        // Rebuilding would close the colour picker the user is dragging in.
+        if (el.contains(document.activeElement) && document.activeElement.type === 'color') return;
+        const ids = Sections.parse(s.sections, s.activeSection), own = Sections.sectionColors(s.sectionColors), card = Sections.textColor(s, TEXT);
+        const dot = (spec, color, mine, tip) => `<button class="scd${mine ? '' : ' inherit'}" data-spec="${spec}" title="${esc(tip)}" aria-pressed="${openColor === spec}" style="--c:${cssColor(color)}"></button>`;
+        const lines = ids.map(id => {
+            const charts = Sections.CHART_COLORS[id] || [], mine = own[id] || {};
+            const value = mine.value || (charts[0] ? s[charts[0][0]] || card : mine.text || card);
+            const open = openColor.split('|')[0] === id ? openColor.split('|') : null;
+            return `<div class="scl"><span class="scn">${esc(Sections.title(id, s))}</span>` +
+                `<span>${dot(id + '|text', mine.text || card, !!mine.text, mine.text ? 'Own text colour' : 'Follows the card')}</span>` +
+                `<span>${dot(id + '|value', value, !!mine.value, mine.value ? 'Own number colour' : 'Default number colours')}</span>` +
+                `<span class="scc">${charts.length ? charts.map(([k, l]) => dot(id + '|chart|' + k, s[k] || '#ffffff', true, l)).join('') : '<i>—</i>'}</span></div>` +
+                (open ? `<div class="scs" data-open="${openColor}">${swatchesHTML(open[1] === 'text' ? Schema.INK : SWATCHES, open[1] === 'text' ? 'Card text' : open[1] === 'value' ? 'Default' : '', open[1])}</div>` : '');
+        }).join('');
+        el.innerHTML = headHTML + `<div class="scg"><div class="scl sch"><span></span><span>Text</span><span>Numbers</span><span>Chart</span></div>${lines}${Object.keys(own).length ? '<div class="scr"><button class="ghost" data-reset>Reset text and number colours</button></div>' : ''}</div>`;
+        $$('.scd', el).forEach(b => b.onclick = () => { openColor = openColor === b.dataset.spec ? '' : b.dataset.spec; update({}); });
+        const strip = $('.scs', el);
+        if (strip) {
+            const p = strip.dataset.open.split('|');
+            const pick = v => update(p[1] === 'chart' ? { [p[2]]: v } : { sectionColors: Sections.withSectionColor(S.sectionColors, p[0], p[1], v) });
+            bindSwatches(strip, pick, st => p[1] === 'chart' ? st[p[2]] : Sections.sectionColor(st, p[0], p[1]))(s);
+        }
+        const reset = $('[data-reset]', el);
+        if (reset) reset.onclick = () => { openColor = ''; update({ sectionColors: '' }); };
+    };
 }
 
 // SensorPicker.qml in HTML: a filter, then one collapsible group per device

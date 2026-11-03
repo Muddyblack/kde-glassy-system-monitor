@@ -17,7 +17,7 @@ Item {
     // This view's sections, from its own settings (a preview may show a
     // layout the core it reads from was not configured for).
     readonly property var sectionIds: Sections.parse(cfg.sections, cfg.activeSection)
-    readonly property var materialColors: Sections.colors(sectionIds, cfg, String(monitor.accentColor || "#4aa8ff"))
+    readonly property var materialColors: Sections.materialColors(sectionIds, cfg, String(monitor.accentColor || "#4aa8ff"))
     readonly property int margin: ({
             compact: 6,
             roomy: 14
@@ -107,6 +107,7 @@ Item {
         anchors.fill: parent
         material: view.cfg.surfaceStyle || "tint"
         fill: view.cfg.bgColor || "#800d0f1a"
+        solidColor: Sections.solidColor(view.cfg) || "transparent"
         radiusTL: view.cfg.bgRadiusTL ?? 12
         radiusTR: view.cfg.bgRadiusTR ?? 12
         radiusBR: view.cfg.bgRadiusBR ?? 12

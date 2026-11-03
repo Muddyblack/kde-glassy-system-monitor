@@ -11,6 +11,8 @@ Item {
 
     property string material: "tint"
     property color fill: "#800d0f1a"
+    // The solid material's colour; transparent draws the paper default.
+    property color solidColor: "transparent"
     property real radiusTL: 12
     property real radiusTR: 12
     property real radiusBR: 12
@@ -183,7 +185,7 @@ Item {
             active: !card.tinted
             sourceComponent: CardMaterial {
                 material: card.material
-                solidColor: card.fill
+                solidColor: card.solidColor
                 radius: card.maxRadius
                 grain: card.grain
                 glassTint: card.glassTint

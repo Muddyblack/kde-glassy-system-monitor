@@ -93,6 +93,9 @@ be answered. The network window stays local.
 - **Chart styles**: line, area, history bars, donut, pie, meters, or numbers only
 - **Theming**: Plasma's accent colour or your own per section, palettes (Glassy, Aurora, Ember,
   Ice, Terminal, Monochrome), each card corner rounded on its own
+- **Per-section colours**: text, numbers and chart colours for every section, side by side under
+  Colours › Per section or in each section's own tab
+- **Card colour for every material**: tint, glass, liquid glass, solid and the atmosphere's two lights
 - **Panel pill**: a compact reading for panels and bars
 - **Poll rate**: one base interval drives every sensor
 
@@ -106,7 +109,7 @@ card or a panel pill, over a choice of wallpapers.
 |---|---|
 | **Presets** | Built-in looks, your saved looks, copy and import looks as JSON |
 | **Layout** | Sections on/off, drag to reorder, size S/M/L, chart style and full width per section; columns or exact section coordinates; panel pill; placement on Hyprland |
-| **Appearance** | Charts (style, history, curves, glow, labels, colour by load), Card (material, frost, edge, corners), Colours (palettes, text and font) |
+| **Appearance** | Charts (style, history, curves, glow, labels, colour by load), Card (material and its colour, frost, edge, corners), Colours (palettes, text and font, per-section text/number/chart colours) |
 | **Sections** | One tab per section: title, colours, hosts, devices, thresholds, commands; sensor selection and names |
 | **Performance** | GPU shader or canvas renderer, update interval, smooth scrolling, frame-rate cap |
 | **Info** | Version and update check, project stats, licence, links |

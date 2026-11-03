@@ -197,6 +197,14 @@ Kirigami.Page {
     property real cfg_glassRefractionDefault
     property bool cfg_glassSpecular
     property bool cfg_glassSpecularDefault
+    property string cfg_solidColor
+    property string cfg_solidColorDefault
+    property string cfg_atmosphereColor1
+    property string cfg_atmosphereColor1Default
+    property string cfg_atmosphereColor2
+    property string cfg_atmosphereColor2Default
+    property string cfg_sectionColors
+    property string cfg_sectionColorsDefault
     property bool cfg_compositorGlass
     property bool cfg_compositorGlassDefault
     property real cfg_cardOpacity

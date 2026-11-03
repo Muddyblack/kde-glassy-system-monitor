@@ -65,6 +65,8 @@ var STYLE_NAMES = ["line", "bars", "area", "donut", "pie", "meter", "text"];
 
 var SWATCHES = ["#44ddaa", "#22aaff", "#aa66ff", "#ff6688", "#ff9933", "#ffaa22", "#ff6e40", "#39ff14", "#ffffff"];
 var GLASS = ["#800d0f1a", "#99000000", "#66101828", "#801a1024", "#6610231d", "#40ffffff", "#00000000"];
+var SOLID = ["#efefe6", "#ffffff", "#d8dece", "#1b1e24", "#060907", "#0d1b2a", "#2b1d3a", "#123524"];
+var INK = ["#ffffff", "#eef1f5", "#c8d0da", "#8a93a0", "#1e241d", "#000000", "#44ddaa", "#22aaff", "#ffaa22"];
 
 // Named colour sets for every metric at once.
 var PALETTES = {
@@ -97,6 +99,14 @@ function title(key, fallback) {
 }
 function color(key, label, desc) {
     return { k: key, type: "color", label: label, desc: desc || "", swatches: SWATCHES };
+}
+// A section's own text or number colour (Sections.sectionColors); the
+// crossed-out swatch goes back to the card's.
+function sectionColor(id, part, label, desc) {
+    return { id: id + (part === "text" ? "TextColor" : "NumberColor"), type: "color", label: label, desc: desc, auto: part === "text" ? "Card text" : "Default",
+             swatches: part === "text" ? INK : SWATCHES,
+             get: function (s) { return Sections.sectionColor(s, id, part); },
+             set: function (v, s) { return { sectionColors: Sections.withSectionColor(s.sectionColors, id, part, v) }; } };
 }
 
 var SECTIONS = [
@@ -172,17 +182,31 @@ var SECTIONS = [
         { k: "surfaceStyle", type: "tiles", full: true, label: "Material", tw: 84,
           opts: MATERIALS.map(function (m) { return { v: m[0], label: m[1], pv: "material" }; }) },
         { id: "cardNote", type: "note", full: true, note: "glass", when: glassy },
-        { k: "bgColor", type: "color", label: "Tint", desc: "Colour and opacity of the card. The last swatch removes the card.", swatches: GLASS, when: tint },
+        { k: "bgColor", type: "color", label: "Card colour", desc: "Colour and opacity of the tint. The last swatch removes the card.", swatches: GLASS, when: tint },
+        { k: "glassTint", type: "seg", label: "Glass tint", opts: [["clear", "Clear"], ["frost", "Frost"], ["smoke", "Smoke"], ["cover", "Section colours"], ["custom", "Custom"]], when: glassy },
+        { id: "glassColor", type: "color", label: "Card colour", desc: "Tints the glass; picking one switches the tint to Custom.", swatches: SWATCHES, when: glassy,
+          get: function (s) { return s.glassTint === "custom" ? s.glassTintColor : ""; },
+          set: function (v) { return { glassTint: "custom", glassTintColor: v }; } },
+        { k: "solidColor", type: "color", label: "Card colour", desc: "Text turns light on a dark card while it follows the theme.", auto: "Paper", swatches: SOLID,
+          when: function (s) { return s.surfaceStyle === "solid"; },
+          get: function (s) { return Sections.solidColor(s); },
+          set: function (v, s) {
+              var patch = { solidColor: v || "" };
+              // An opaque tint from older settings would otherwise keep winning.
+              if (Sections.solidColor({ bgColor: s.bgColor }))
+                  patch.bgColor = "#800d0f1a";
+              return patch;
+          } },
+        { k: "atmosphereColor1", type: "color", label: "Top light", desc: "The glow from the top right corner.", auto: "Section colour", swatches: SWATCHES,
+          when: function (s) { return s.surfaceStyle === "atmosphere"; } },
+        { k: "atmosphereColor2", type: "color", label: "Bottom light", desc: "The glow from the bottom left corner; the card's depth mixes both.", auto: "Section colour", swatches: SWATCHES,
+          when: function (s) { return s.surfaceStyle === "atmosphere"; } },
         { k: "frostedGlass", type: "switch", label: "Frosted", desc: "Blur the tint into a soft glass gradient.", when: tint },
         { k: "frostStrength", type: "range", label: "Frost", min: 0, max: 1, step: 0.05, fmt: "pct", when: function (s) { return tint(s) && s.frostedGlass; } },
         { k: "glassBlur", type: "range", label: "Wallpaper blur", desc: "How frosted the glass looks. 0% turns blur off; text and charts stay sharp.", min: 0, max: 1, step: 0.01, fmt: "pct", when: glassy },
         { k: "compositorGlass", type: "switch", label: "Compositor glass", desc: "Asks Plasma for its translucent background with native blur.", when: function (s, env) { return glassy(s) && env !== "hypr"; } },
         { k: "cardOpacity", type: "range", label: "Card opacity", desc: "Only the card fades; text and charts stay solid.", min: 0, max: 1, step: 0.02, fmt: "pct" }
     ]),
-    tab("card", "Glass colour", [
-        { k: "glassTint", type: "seg", label: "Glass tint", opts: [["clear", "Clear"], ["frost", "Frost"], ["smoke", "Smoke"], ["cover", "Section colours"], ["custom", "Custom"]] },
-        { k: "glassTintColor", type: "color", label: "Custom glass colour", swatches: SWATCHES, when: function (s) { return s.glassTint === "custom"; } }
-    ], glassy),
     tab("card", "Liquid glass", [
         { k: "glassRefraction", type: "range", label: "Refraction", desc: "Bends the wallpaper at the edges with a subtle colour fringe.", min: 0, max: 1, step: 0.05, fmt: "pct" },
         { k: "glassSpecular", type: "switch", label: "Light follows pointer", desc: "A soft highlight tracks the mouse." }
@@ -218,12 +242,15 @@ var SECTIONS = [
     tab("colors", "Text", [
         { k: "fontFamily", type: "seg", label: "Font", opts: [["system", "System"], ["monospace", "Monospace"]] },
         { k: "useSystemTextColor", type: "seg", label: "Text colour", opts: [[true, "Follow theme"], [false, "Custom"]] },
-        { k: "customTextColor", type: "color", label: "Custom text colour", swatches: ["#ffffff", "#eef1f5", "#c8d0da", "#1e241d", "#000000"], when: function (s) { return !s.useSystemTextColor; } }
+        { k: "customTextColor", type: "color", label: "Custom text colour", swatches: INK, when: function (s) { return !s.useSystemTextColor; } }
+    ]),
+    tab("colors", "Per section", [
+        { id: "sectionColors", type: "sectionColors", full: true, label: "Text, numbers and charts", desc: "Every shown section in one place. Click a dot, then a colour; the crossed-out swatch follows the card again." }
     ]),
 
     tab("cpu", "CPU", [
         title("cpuTitle", "CPU"),
-        color("cpuColor", "Colour"),
+        color("cpuColor", "Chart colour"),
         { k: "showCpuCores", type: "switch", label: "Per-core lines", desc: "Every thread as a faint line with a readout grid. Click a core in the widget to hide it." },
         { k: "coreColorsStr", type: "text", label: "Core colours", desc: "Comma-separated, reused in order for more cores.", when: function (s) { return s.showCpuCores; } }
     ]),
@@ -267,7 +294,7 @@ var SECTIONS = [
         title("gpuTitle", "GPU"),
         { k: "gpuDevice", type: "select", label: "Card", desc: "Automatic prefers a card that reports its load.", opts: "gpus" },
         { k: "gpuShowEngines", type: "switch", label: "VRAM and engines", desc: "Compute, decode and encode shares where the driver reports them." },
-        color("gpuColor", "Colour")
+        color("gpuColor", "Chart colour")
     ]),
     tab("sensors", "Hardware sensors", [
         title("hwSensorsTitle", "Hardware Sensors"),
@@ -296,28 +323,28 @@ var SECTIONS = [
     tab("storage", "Storage", [
         title("storageTitle", "Storage"),
         { k: "storageMounts", type: "text", label: "Mount points", desc: "Comma-separated, in order. Empty shows every real filesystem of 256 MiB or more.", placeholder: "/, /home, /mnt/data" },
-        color("storageColor", "Colour", "Bars turn amber past 85% full and red past 95%.")
+        color("storageColor", "Chart colour", "Bars turn amber past 85% full and red past 95%.")
     ]),
     tab("processes", "Top processes", [
         title("processesTitle", "Processes"),
         { k: "processSort", type: "seg", label: "Sort by", opts: [["cpu", "CPU"], ["memory", "Memory"]] },
         { k: "processCount", type: "range", label: "Rows", min: 3, max: 10, step: 1, fmt: "samples" },
         { k: "processGroup", type: "switch", label: "Group by name", desc: "A browser's many helper processes become one row." },
-        color("processColor", "Colour")
+        color("processColor", "Chart colour")
     ]),
     tab("load", "Load & uptime", [
         title("loadTitle", "Load"),
-        color("loadColor", "Colour", "The 5 and 15 minute averages are fainter lines of the same colour; the dashed line marks every CPU busy.")
+        color("loadColor", "Chart colour", "The 5 and 15 minute averages are fainter lines of the same colour; the dashed line marks every CPU busy.")
     ]),
     tab("fans", "Fans", [
         title("fansTitle", "Fans"),
         { id: "fansNote", type: "note", full: true, note: "sensors" },
-        color("fanColor", "Colour")
+        color("fanColor", "Chart colour")
     ]),
     tab("services", "Services", [
         title("servicesTitle", "Services"),
         { k: "serviceUnits", type: "text", label: "Watch units", desc: "Comma-separated; prefix user units with user:. Failed units always show.", placeholder: "sshd, docker, user:syncthing" },
-        color("serviceColor", "Colour")
+        color("serviceColor", "Chart colour")
     ]),
     tab("containers", "Containers", [
         title("containersTitle", "Containers"),
@@ -326,7 +353,7 @@ var SECTIONS = [
         { k: "containerSort", type: "seg", label: "Sort by", opts: [["cpu", "CPU"], ["memory", "Memory"], ["name", "Name"]] },
         { k: "containerCount", type: "range", label: "Rows", min: 3, max: 20, step: 1, fmt: "samples" },
         { k: "containerShowStopped", type: "switch", label: "Stopped ones too" },
-        color("containerColor", "Colour")
+        color("containerColor", "Chart colour")
     ]),
     tab("custom", "Custom sensor", [
         title("customCmdTitle", "Custom"),
@@ -334,7 +361,7 @@ var SECTIONS = [
         { k: "customCmdUnit", type: "text", label: "Unit", placeholder: "°C" },
         { k: "customCmdMax", type: "number", label: "Chart maximum" },
         { k: "customCmdInterval", type: "range", label: "Every", min: 1, max: 60, step: 1, fmt: "s" },
-        color("customCmdColor", "Colour")
+        color("customCmdColor", "Chart colour")
     ]),
 
     tab("performance", "Rendering", [
@@ -357,6 +384,15 @@ var SECTIONS = [
     ["gpu", "Sensor readings", "Shown under the GPU chart. GPU power is on by default."],
     ["power", "Where the power goes", "The rows under the Power chart; every measured source by default.", function (s) { return s.powerShowSources !== false; }]].forEach(function (t) {
     SECTIONS.push(tab(t[0], t[1], [{ id: t[0] + "Sensors", type: "sensors", full: true, label: "Choose readings", desc: t[2] + " A new name shows in every section.", sensorSection: t[0] }], t[3]));
+});
+
+// Every section's own text and number colours, last in its first group.
+Sections.IDS.forEach(function (id) {
+    var first = SECTIONS.filter(function (t) { return t.tab === id; })[0];
+    if (!first)
+        return;
+    first.rows.push(sectionColor(id, "text", "Text colour", "Title, labels and axis of this section."),
+                    sectionColor(id, "value", "Number colour", "The reading and values; crossed out keeps the chart colours."));
 });
 
 // A switched-off section's settings stay out of the way, search included.

@@ -80,12 +80,119 @@ function colors(ids, cfg, fallback) {
     return out.slice(0, 2);
 }
 
-// Text colour of the card: the user's, dark ink on the light "solid"
-// material, otherwise the theme's.
+// The chart colours each section draws with, for the per-section colour grid.
+var CHART_COLORS = {
+    cpu: [["cpuColor", "Line"]],
+    memory: [["memColor", "RAM"], ["swapColor", "Swap"]],
+    network: [["dlColor", "Down"], ["ulColor", "Up"]],
+    ping: [["pingColor", "Normal"], ["pingWarnColor", "Warning"], ["pingCritColor", "Critical"]],
+    disk: [["diskRdColor", "Read"], ["diskWrColor", "Write"]],
+    gpu: [["gpuColor", "Line"]],
+    power: [["powerColor", "Battery"], ["powerLoadColor", "Load"]],
+    storage: [["storageColor", "Bars"]],
+    processes: [["processColor", "Bars"]],
+    load: [["loadColor", "Line"]],
+    fans: [["fanColor", "Bars"]],
+    services: [["serviceColor", "Dots"]],
+    containers: [["containerColor", "Bars"]],
+    custom: [["customCmdColor", "Line"]]
+};
+
+// "#rrggbb" or Qt's "#aarrggbb"; anything else counts as unset.
+function isColor(value) {
+    return /^#([0-9a-f]{6}|[0-9a-f]{8})$/i.test(String(value || ""));
+}
+// Perceived brightness 0–1 and opacity 0–1 of a hex colour.
+function rgba(hex) {
+    var h = String(hex).slice(1), a = 1;
+    if (h.length === 8) {
+        a = parseInt(h.slice(0, 2), 16) / 255;
+        h = h.slice(2);
+    }
+    return { r: parseInt(h.slice(0, 2), 16) / 255, g: parseInt(h.slice(2, 4), 16) / 255, b: parseInt(h.slice(4, 6), 16) / 255, a: a };
+}
+function luminance(hex) {
+    var c = rgba(hex);
+    return 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
+}
+
+// Per-section text and number colours, `sectionColors` as JSON:
+// {"cpu":{"text":"#ffffff","value":"#44ddaa"}}. A missing part inherits.
+var COLOR_PARTS = ["text", "value"];
+function sectionColors(text) {
+    var out = {};
+    try {
+        var data = JSON.parse(text || "{}");
+        if (!data || typeof data !== "object" || Array.isArray(data))
+            return out;
+        IDS.forEach(function (id) {
+            var own = data[id], clean = {};
+            if (!own || typeof own !== "object")
+                return;
+            COLOR_PARTS.forEach(function (part) {
+                if (isColor(own[part]))
+                    clean[part] = String(own[part]).toLowerCase();
+            });
+            if (Object.keys(clean).length)
+                out[id] = clean;
+        });
+    } catch (e) {}
+    return out;
+}
+function sectionColor(cfg, id, part) {
+    var own = sectionColors(cfg.sectionColors)[id];
+    return own && own[part] || "";
+}
+// `sectionColors` with one part changed; "" goes back to inheriting.
+function withSectionColor(text, id, part, value) {
+    var map = sectionColors(text);
+    var own = Object.assign({}, map[id] || {});
+    if (isColor(value))
+        own[part] = String(value).toLowerCase();
+    else
+        delete own[part];
+    if (Object.keys(own).length)
+        map[id] = own;
+    else
+        delete map[id];
+    return Object.keys(map).length ? JSON.stringify(map) : "";
+}
+
+// The solid card's own colour, or "" for the paper default. Older settings
+// gave solid an opaque `bgColor`, which still counts.
+function solidColor(cfg) {
+    if (isColor(cfg.solidColor))
+        return String(cfg.solidColor);
+    var bg = String(cfg.bgColor || "");
+    return isColor(bg) && rgba(bg).a >= 1 ? bg : "";
+}
+
+// Text colour of the card: the user's; on the solid material dark ink on a
+// light card and light ink on a dark one; otherwise the theme's.
 function textColor(cfg, system) {
     if (!cfg.useSystemTextColor)
         return String(cfg.customTextColor || "#ffffff");
-    return cfg.surfaceStyle === "solid" ? "#1e241d" : String(system);
+    if (cfg.surfaceStyle !== "solid")
+        return String(system);
+    var solid = solidColor(cfg);
+    return solid && luminance(solid) < 0.45 ? "#eef1f5" : "#1e241d";
+}
+// One section's text colour: its own, else the card's.
+function sectionInk(cfg, id, system) {
+    return sectionColor(cfg, id, "text") || textColor(cfg, system);
+}
+
+// The two colours that light the colour-led materials: the atmosphere's own
+// when set, else the first two section colours.
+function materialColors(ids, cfg, fallback) {
+    var out = colors(ids, cfg, fallback);
+    if (cfg.surfaceStyle === "atmosphere") {
+        if (isColor(cfg.atmosphereColor1))
+            out[0] = String(cfg.atmosphereColor1);
+        if (isColor(cfg.atmosphereColor2))
+            out[1] = String(cfg.atmosphereColor2);
+    }
+    return out;
 }
 
 // The pill's caption: a title the user changed, else a short name. `stock`

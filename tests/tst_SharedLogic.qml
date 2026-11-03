@@ -4,6 +4,7 @@ import "../package/contents/ui/Sections.js" as Sections
 import "../package/contents/ui/SectionModels.js" as SectionModels
 import "../package/contents/ui/diagram/DiagramData.js" as Data
 import "../package/contents/ui/studio/Looks.js" as Looks
+import "../hyprland/Configuration.js" as HyprConfig
 import "../package/contents/ui/studio/Schema.js" as Schema
 import "../package/contents/ui/Probes.js" as Probes
 import "../package/contents/ui/Format.js" as Format
@@ -280,6 +281,34 @@ TestCase {
                     verify(hypr.indexOf(row.k) !== -1 || xml.indexOf('name="' + row.k + '"') !== -1, "studio row for unknown setting " + row.k);
     }
 
+    // The new colour settings survive a shared look and the Hyprland file.
+    function test_colourSettingsRoundTripThroughJson() {
+        const x = new XMLHttpRequest();
+        x.open("GET", Qt.resolvedUrl("../package/contents/config/main.xml"), false);
+        x.send();
+        const defaults = HyprConfig.defaults(x.responseText);
+        const mine = {
+            surfaceStyle: "solid",
+            solidColor: "#1b1e24",
+            atmosphereColor1: "#ff6688",
+            atmosphereColor2: "#22aaff",
+            sectionColors: Sections.withSectionColor(Sections.withSectionColor("", "cpu", "text", "#ffaa22"), "gpu", "value", "#ffffff")
+        };
+        const draft = Object.assign({}, defaults, mine);
+        // Presets › Export / Import and the website's Copy look.
+        const look = Looks.decode(Looks.encode("Mine", Looks.extract(draft, defaults), defaults), defaults);
+        compare(look.settings, mine);
+        const applied = Looks.apply(defaults, defaults, look.settings);
+        compare(Sections.sectionColor(applied, "cpu", "text"), "#ffaa22");
+        compare(Sections.sectionColor(applied, "gpu", "value"), "#ffffff");
+        // A different look clears them again.
+        compare(Looks.apply(applied, defaults, {}).sectionColors, "");
+        // ~/.config/glassy-system-monitor/hyprland.json keeps only the changes.
+        const saved = JSON.stringify(HyprConfig.overrides(defaults, draft));
+        compare(Object.assign({}, defaults, HyprConfig.parsePreferences(saved)), draft);
+        compare(Object.keys(JSON.parse(saved)).sort(), Object.keys(mine).sort());
+    }
+
     // The panel pill: which sections, and readings of a fixed width.
     function test_panelShowsPickedSectionsElseTheFirst() {
         compare(Sections.panelIds({
@@ -366,6 +395,69 @@ TestCase {
         compare(on.series("donut")[0].color, "#ff4444", "gauges take the current level's colour");
         compare(on.readingColor, "#ff4444");
         compare(on.markers[0].value, 70);
+    }
+
+    function test_sectionColoursRoundTrip() {
+        let text = Sections.withSectionColor("", "cpu", "text", "#FF0000");
+        compare(JSON.parse(text), {
+            cpu: {
+                text: "#ff0000"
+            }
+        });
+        text = Sections.withSectionColor(text, "cpu", "value", "#00ff0080");
+        compare(Sections.sectionColor({
+            sectionColors: text
+        }, "cpu", "value"), "#00ff0080");
+        compare(Sections.sectionColor({
+            sectionColors: text
+        }, "memory", "text"), "", "other sections inherit");
+        text = Sections.withSectionColor(text, "cpu", "text", "");
+        text = Sections.withSectionColor(text, "cpu", "value", "");
+        compare(text, "", "nothing left is stored as empty");
+        compare(Sections.sectionColors('{"cpu":{"text":"red"},"bogus":{"text":"#ffffff"}}'), {}, "junk is ignored");
+        compare(Sections.sectionColors("not json"), {});
+        compare(Sections.sectionInk({
+            sectionColors: '{"gpu":{"text":"#123456"}}',
+            useSystemTextColor: true
+        }, "gpu", "#eff0f1"), "#123456");
+        compare(Sections.sectionInk({
+            useSystemTextColor: true
+        }, "gpu", "#eff0f1"), "#eff0f1");
+    }
+
+    function test_cardColoursPerMaterial() {
+        compare(Sections.solidColor({
+            solidColor: "",
+            bgColor: "#800d0f1a"
+        }), "", "paper by default");
+        compare(Sections.solidColor({
+            solidColor: "",
+            bgColor: "#ff060907"
+        }), "#ff060907", "older opaque tint still counts");
+        compare(Sections.solidColor({
+            solidColor: "#1b1e24",
+            bgColor: "#ff060907"
+        }), "#1b1e24");
+        compare(Sections.textColor({
+            useSystemTextColor: true,
+            surfaceStyle: "solid",
+            solidColor: "#1b1e24"
+        }, "#000000"), "#eef1f5", "light ink on a dark solid card");
+        compare(Sections.textColor({
+            useSystemTextColor: true,
+            surfaceStyle: "solid",
+            solidColor: "#ffffff"
+        }, "#eff0f1"), "#1e241d");
+        const cfg = {
+            surfaceStyle: "atmosphere",
+            cpuColor: "#111111",
+            memColor: "#222222",
+            atmosphereColor1: "#abcdef",
+            atmosphereColor2: ""
+        };
+        compare(Sections.materialColors(["cpu", "memory"], cfg, "#4aa8ff"), ["#abcdef", "#222222"]);
+        cfg.surfaceStyle = "glass";
+        compare(Sections.materialColors(["cpu", "memory"], cfg, "#4aa8ff"), ["#111111", "#222222"], "only the atmosphere uses its own lights");
     }
 
     function test_textColourFollowsSolidCard() {
