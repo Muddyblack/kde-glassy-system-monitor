@@ -191,6 +191,19 @@ Item {
             wait(50);
             verify(find("row_memoryTextColor").visible);
             verify(find("row_memoryNumberColor").visible);
+            // Every colour of a section sits in its one Colours group.
+            for (const id of Schema.GROUPS.sections) {
+                const groups = Schema.SECTIONS.filter(t => t.tab === id);
+                for (const g of groups)
+                    for (const r of g.rows)
+                        if (r.type === "color")
+                            compare(g.title, "Colours", id + ": " + (r.k || r.id));
+            }
+            const ping = Schema.SECTIONS.filter(t => t.tab === "ping").map(t => t.title);
+            compare(ping.indexOf("Colours"), 1, "right after the main group");
+            // Fresh settings are the Glassy palette.
+            const palette = Schema.SECTIONS.filter(t => t.tab === "colors")[0].rows[0];
+            compare(palette.get(root.defaults), ["glassy"]);
         }
         function test_everyMaterialHasACardColour() {
             const rows = {

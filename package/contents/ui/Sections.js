@@ -85,7 +85,7 @@ var CHART_COLORS = {
     cpu: [["cpuColor", "Line"]],
     memory: [["memColor", "RAM"], ["swapColor", "Swap"]],
     network: [["dlColor", "Down"], ["ulColor", "Up"]],
-    ping: [["pingColor", "Normal"], ["pingWarnColor", "Warning"], ["pingCritColor", "Critical"]],
+    ping: [["pingColor", "Normal"], ["pingWarnColor", "Slow"], ["pingCritColor", "Critical"]],
     disk: [["diskRdColor", "Read"], ["diskWrColor", "Write"]],
     gpu: [["gpuColor", "Line"]],
     power: [["powerColor", "Battery"], ["powerLoadColor", "Load"]],

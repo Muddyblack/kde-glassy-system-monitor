@@ -70,7 +70,7 @@ var INK = ["#ffffff", "#eef1f5", "#c8d0da", "#8a93a0", "#1e241d", "#000000", "#4
 
 // Named colour sets for every metric at once.
 var PALETTES = {
-    glassy: { label: "Glassy", colors: { cpuColor: "#44ddaa", memColor: "#aa66ff", swapColor: "#ff6688", dlColor: "#22aaff", ulColor: "#ff9933", diskRdColor: "#22ddff", diskWrColor: "#ffaa22", gpuColor: "#ff6e40", pingColor: "#39ff14", customCmdColor: "#ffaa00", storageColor: "#44ddaa", processColor: "#22aaff" } },
+    glassy: { label: "Glassy", colors: { cpuColor: "#44ddaa", memColor: "#aa66ff", swapColor: "#ff6688", dlColor: "#22aaff", ulColor: "#ff9933", diskRdColor: "#22ddff", diskWrColor: "#ffaa22", gpuColor: "#ff6e40", pingColor: "#39ff14", customCmdColor: "#ffaa00", storageColor: "#44ddaa", processColor: "#4aa8ff" } },
     aurora: { label: "Aurora", colors: { cpuColor: "#5ef2c1", memColor: "#b57bff", swapColor: "#ff7ad9", dlColor: "#4aa8ff", ulColor: "#8f6bff", diskRdColor: "#86d6ff", diskWrColor: "#cdb8ff", gpuColor: "#5ef2c1", pingColor: "#5ef2c1", customCmdColor: "#4aa8ff", storageColor: "#5ef2c1", processColor: "#4aa8ff" } },
     ember: { label: "Ember", colors: { cpuColor: "#ffc36b", memColor: "#ff6a3d", swapColor: "#d6246e", dlColor: "#ffc36b", ulColor: "#ff6a3d", diskRdColor: "#ffd6b8", diskWrColor: "#ff8a7a", gpuColor: "#ff4f81", pingColor: "#ffc36b", customCmdColor: "#ff6a3d", storageColor: "#ffc36b", processColor: "#ffc36b" } },
     ice: { label: "Ice", colors: { cpuColor: "#86d6ff", memColor: "#e6f9ff", swapColor: "#3a7bd5", dlColor: "#86d6ff", ulColor: "#3a7bd5", diskRdColor: "#e6f9ff", diskWrColor: "#86d6ff", gpuColor: "#3a7bd5", pingColor: "#86d6ff", customCmdColor: "#e6f9ff", storageColor: "#86d6ff", processColor: "#86d6ff" } },
@@ -227,7 +227,7 @@ var SECTIONS = [
     ]),
 
     tab("colors", "Palette", [
-        { id: "palette", type: "chips", single: true, full: true, label: "Metric colours", desc: "Recolours every section at once. Each section's tab can change its own colours after.",
+        { id: "palette", type: "chips", single: true, full: true, label: "Chart colours", desc: "Recolours every chart at once. Fine-tune any section below or in its own tab.",
           opts: Object.keys(PALETTES).map(function (k) { return [k, PALETTES[k].label]; }),
           get: function (s) {
               for (var k in PALETTES) {
@@ -239,13 +239,14 @@ var SECTIONS = [
           },
           set: function (v) { var k = v[v.length - 1]; return k ? PALETTES[k].colors : {}; } }
     ]),
-    tab("colors", "Text", [
-        { k: "fontFamily", type: "seg", label: "Font", opts: [["system", "System"], ["monospace", "Monospace"]] },
-        { k: "useSystemTextColor", type: "seg", label: "Text colour", opts: [[true, "Follow theme"], [false, "Custom"]] },
-        { k: "customTextColor", type: "color", label: "Custom text colour", swatches: INK, when: function (s) { return !s.useSystemTextColor; } }
-    ]),
     tab("colors", "Per section", [
         { id: "sectionColors", type: "sectionColors", full: true, label: "Text, numbers and charts", desc: "Every shown section in one place. Click a dot, then a colour; the crossed-out swatch follows the card again." }
+    ]),
+    tab("colors", "Card text", [
+        { id: "textColor", type: "color", label: "Text colour", desc: "For the whole card; sections can override it above. Crossed out follows the Plasma theme.", auto: "Follow theme", swatches: INK,
+          get: function (s) { return s.useSystemTextColor ? "" : s.customTextColor; },
+          set: function (v) { return v ? { useSystemTextColor: false, customTextColor: v } : { useSystemTextColor: true }; } },
+        { k: "fontFamily", type: "seg", label: "Font", opts: [["system", "System"], ["monospace", "Monospace"]] }
     ]),
 
     tab("cpu", "CPU", [
@@ -280,9 +281,9 @@ var SECTIONS = [
         { k: "jitterThreshold", type: "range", label: "Jitter warning above", min: 0, max: 200, step: 5, fmt: "ms" },
         { k: "pingThresholdColors", type: "switch", label: "Colour by latency" },
         { k: "pingAlertPulse", type: "switch", label: "Pulse the card on alerts" },
-        color("pingColor", "Normal"),
-        color("pingWarnColor", "Warning"),
-        color("pingCritColor", "Critical and lost packets")
+        color("pingColor", "Chart colour"),
+        color("pingWarnColor", "Slow colour", "Used while Colour by latency is on."),
+        color("pingCritColor", "Critical colour", "Very slow replies and lost packets.")
     ]),
     tab("disk", "Disk I/O", [
         title("diskTitle", "Disk I/O"),
@@ -386,13 +387,25 @@ var SECTIONS = [
     SECTIONS.push(tab(t[0], t[1], [{ id: t[0] + "Sensors", type: "sensors", full: true, label: "Choose readings", desc: t[2] + " A new name shows in every section.", sensorSection: t[0] }], t[3]));
 });
 
-// Every section's own text and number colours, last in its first group.
+// Each section tab keeps all its colours in one "Colours" group, right after
+// its main group: the chart colours from the other groups (and CPU's core
+// colours), then the section's own text and number colours.
 Sections.IDS.forEach(function (id) {
-    var first = SECTIONS.filter(function (t) { return t.tab === id; })[0];
-    if (!first)
+    var groups = SECTIONS.filter(function (t) { return t.tab === id; });
+    if (!groups.length)
         return;
-    first.rows.push(sectionColor(id, "text", "Text colour", "Title, labels and axis of this section."),
-                    sectionColor(id, "value", "Number colour", "The reading and values; crossed out keeps the chart colours."));
+    var rows = [];
+    groups.forEach(function (g) {
+        g.rows = g.rows.filter(function (r) {
+            var colour = r.type === "color" || r.k === "coreColorsStr";
+            if (colour)
+                rows.push(r);
+            return !colour;
+        });
+    });
+    rows.push(sectionColor(id, "text", "Text colour", "Title, labels and axis of this section."),
+              sectionColor(id, "value", "Number colour", "The reading and values; crossed out keeps the chart colours."));
+    SECTIONS.splice(SECTIONS.indexOf(groups[0]) + 1, 0, tab(id, "Colours", rows));
 });
 
 // A switched-off section's settings stay out of the way, search included.
