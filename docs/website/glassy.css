@@ -3,14 +3,20 @@
    control styles come from style.css, shared with that site. */
 
 .gw{--ink:#eff0f1;--font:"Noto Sans",Inter,system-ui,sans-serif;display:grid;gap:10px 16px;padding:10px;color:var(--ink);font:12px/1.35 var(--font);position:relative}
-.gw.sh-soft{box-shadow:0 10px 30px #0000004d,0 2px 6px #00000033}
-.gw.sh-lifted{box-shadow:0 24px 60px #00000073,0 6px 16px #00000040}
+.gw{--shadow:#000}
+.gw.sh-soft{box-shadow:0 10px 30px color-mix(in srgb,var(--shadow) 30%,transparent),0 2px 6px color-mix(in srgb,var(--shadow) 20%,transparent)}
+.gw.sh-lifted{box-shadow:0 24px 60px color-mix(in srgb,var(--shadow) 45%,transparent),0 6px 16px color-mix(in srgb,var(--shadow) 25%,transparent)}
 /* Card materials: the .s-* surfaces come from style.css (Audio Visualizer). */
 .gw .surf{position:absolute;inset:0;border-radius:inherit;overflow:hidden;pointer-events:none}
 .gw .s-color.frost{background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.02) 35%,rgba(0,0,0,.05)),var(--bgc);backdrop-filter:blur(var(--frost)) saturate(1.1);-webkit-backdrop-filter:blur(var(--frost)) saturate(1.1)}
 .gw .s-solid.flat{background:var(--bgc)}
-.gw .edge{position:absolute;inset:0;border-radius:inherit;border:1px solid #ffffff21;pointer-events:none}
-.gw .edge.hl{box-shadow:inset 0 1px #ffffff36,inset 0 -1px #00000026}
+/* Edge, light and atmosphere settings: --edge, --hl, --glow-size, --glow on .surf. */
+.gw .edge{position:absolute;inset:0;border-radius:inherit;border:1px solid color-mix(in srgb,var(--edge,#fff) 13%,transparent);pointer-events:none}
+.gw .edge.hl{box-shadow:inset 0 1px color-mix(in srgb,var(--edge,#fff) 21%,transparent),inset 0 -1px #00000026}
+.gw .s-solid .edge{border-color:color-mix(in srgb,var(--edge,#fff) 60%,transparent)}
+.gw .s-liquid .edge{box-shadow:inset 0 1px 0 color-mix(in srgb,var(--edge,#fff) 60%,transparent),inset 0 -1px 0 color-mix(in srgb,var(--edge,#fff) 20%,transparent),inset 1px 0 0 color-mix(in srgb,var(--edge,#fff) 25%,transparent),inset -1px 0 0 color-mix(in srgb,var(--edge,#fff) 15%,transparent),inset 0 10px 18px -12px color-mix(in srgb,var(--edge,#fff) 40%,transparent),inset 0 -12px 22px -14px #00000040!important}
+.gw .s-liquid .spec{background:radial-gradient(180px circle at var(--mx,22%) var(--my,-10%),color-mix(in srgb,var(--hl,#fff) 35%,transparent),transparent 62%)}
+.gw .s-atmosphere{background:radial-gradient(calc(130% * var(--glow-size,1)) calc(150% * var(--glow-size,1)) at 100% 0%,color-mix(in srgb,var(--p1) calc(75% * min(var(--glow,1),1.33)),transparent),transparent 58%),radial-gradient(calc(120% * var(--glow-size,1)) calc(130% * var(--glow-size,1)) at 0% 100%,color-mix(in srgb,var(--p2) calc(80% * min(var(--glow,1),1.25)),transparent),transparent 62%),var(--p3)}
 .gw .grain{position:absolute;inset:0;border-radius:inherit;pointer-events:none;opacity:.14;mix-blend-mode:overlay;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E")}
 .gw-sec{color:var(--ink);min-width:0;display:flex;flex-direction:column;gap:4px;position:relative}
 .gw-sec+.gw-sec::before{content:"";position:absolute;left:0;right:0;top:-5px;height:1px;background:color-mix(in srgb,var(--ink) 10%,transparent)}

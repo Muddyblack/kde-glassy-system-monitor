@@ -17,8 +17,18 @@ Canvas {
     property real radius: 12
     property string glassTint: "clear"
     property color glassTintColor: "#3daee9"
+    // The Custom tint's far end; transparent repeats glassTintColor.
+    property color glassTintColor2: "transparent"
+    property color accent: "#3daee9"
     // Scales the glass tint's opacity; 1 is the stock look.
     property real tintStrength: 1
+    // The edge lines and rim light, and the liquid pointer light; their
+    // opacity stays the material's own.
+    property color edgeColor: "white"
+    property color highlightColor: "white"
+    // Atmosphere glows: size and strength, 1 = stock.
+    property real glowSize: 1
+    property real glowStrength: 1
     property color solidColor: "transparent"
     property bool grain: false
     property bool specular: true
@@ -35,15 +45,15 @@ Canvas {
         enabled: card.material === "liquid" && card.specular
     }
     readonly property point specularPoint: hover.hovered ? hover.point.position : Qt.point(width * 0.22, -height * 0.1)
-    readonly property var signature: [material, grain, radius, glassTint, glassTintColor, tintStrength, solidColor, specular, edgeHighlight, cover1, cover2, cover3, width, height]
+    readonly property var signature: [material, grain, radius, glassTint, glassTintColor, glassTintColor2, accent, tintStrength, edgeColor, highlightColor, glowSize, glowStrength, solidColor, specular, edgeHighlight, cover1, cover2, cover3, width, height]
     onSignatureChanged: requestPaint()
     onSpecularPointChanged: {
         if (material === "liquid" && specular)
             requestPaint();
     }
 
-    function white(alpha) {
-        return Qt.rgba(1, 1, 1, alpha / 255);
+    function edgeTone(alpha) {
+        return Qt.rgba(edgeColor.r, edgeColor.g, edgeColor.b, alpha / 255);
     }
     function withAlpha(color, alpha) {
         return Qt.rgba(color.r, color.g, color.b, alpha);
@@ -61,7 +71,7 @@ Canvas {
 
     // The glass and liquid tint (Sections.glassTint, shared with the website).
     function tint(ctx, w, h) {
-        const stops = Sections.glassTint(material, glassTint, String(glassTintColor), tintStrength, String(cover1), String(cover2));
+        const stops = Sections.glassTint(material, glassTint, String(glassTintColor), tintStrength, String(cover1), String(cover2), glassTintColor2.a > 0 ? String(glassTintColor2) : "", String(accent));
         diagonal(ctx, w, h, stops.map(s => [s[0], Qt.rgba(s[1].r, s[1].g, s[1].b, s[1].a)]));
     }
 
@@ -99,8 +109,8 @@ Canvas {
                 tint(ctx, w, h);
                 // Inner top glow and bottom shade (the inset box-shadows).
                 const top = ctx.createLinearGradient(0, 0, 0, 12);
-                top.addColorStop(0, white(0x40));
-                top.addColorStop(1, white(0));
+                top.addColorStop(0, edgeTone(0x40));
+                top.addColorStop(1, edgeTone(0));
                 ctx.fillStyle = top;
                 ctx.fillRect(0, 0, w, 12);
                 const bottom = ctx.createLinearGradient(0, h - 16, 0, h);
@@ -114,8 +124,8 @@ Canvas {
                     ctx.globalCompositeOperation = "qt-soft-light";
                     const p = specularPoint;
                     const light = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, 180);
-                    light.addColorStop(0, white(0x59));
-                    light.addColorStop(0.62, white(0));
+                    light.addColorStop(0, withAlpha(highlightColor, 0x59 / 255));
+                    light.addColorStop(0.62, withAlpha(highlightColor, 0));
                     ctx.fillStyle = light;
                     ctx.fillRect(0, 0, w, h);
                     ctx.restore();
@@ -134,8 +144,9 @@ Canvas {
             {
                 ctx.fillStyle = cover3;
                 ctx.fillRect(0, 0, w, h);
-                ellipse(ctx, w, h, w, 0, w * 1.3, h * 1.5, withAlpha(cover1, 0.75), 0.58);
-                ellipse(ctx, w, h, 0, h, w * 1.2, h * 1.3, withAlpha(cover2, 0.8), 0.62);
+                const k = Math.max(0.1, glowSize), a = Math.max(0, glowStrength);
+                ellipse(ctx, w, h, w, 0, w * 1.3 * k, h * 1.5 * k, withAlpha(cover1, Math.min(1, 0.75 * a)), 0.58);
+                ellipse(ctx, w, h, 0, h, w * 1.2 * k, h * 1.3 * k, withAlpha(cover2, Math.min(1, 0.8 * a)), 0.62);
                 const shade = ctx.createLinearGradient(0, 0, 0, h);
                 shade.addColorStop(0, Qt.rgba(0, 0, 0, 0));
                 shade.addColorStop(1, Qt.rgba(0, 0, 0, 0x4d / 255));
@@ -149,7 +160,7 @@ Canvas {
             GrainDraw.draw(ctx, w, h, true);
 
         if (edgeHighlight) {
-            ctx.fillStyle = white(0x2e);
+            ctx.fillStyle = edgeTone(0x2e);
             ctx.fillRect(0, 0, w, 1);
             ctx.fillStyle = Qt.rgba(0, 0, 0, 0x26 / 255);
             ctx.fillRect(0, h - 1, w, 1);
@@ -166,7 +177,7 @@ Canvas {
         };
         if (material === "liquid") {
             // Rim light: brighter top, dimmer bottom and sides.
-            const sides = [[white(0x99), [0, 0, w, 0]], [white(0x33), [0, h, w, h]], [white(0x40), [0, 0, 0, h]], [white(0x26), [w, 0, w, h]]];
+            const sides = [[edgeTone(0x99), [0, 0, w, 0]], [edgeTone(0x33), [0, h, w, h]], [edgeTone(0x40), [0, 0, 0, h]], [edgeTone(0x26), [w, 0, w, h]]];
             for (const side of sides) {
                 const q = side[1];
                 ctx.save();
@@ -181,7 +192,7 @@ Canvas {
                 ctx.restore();
             }
         } else {
-            ctx.strokeStyle = material === "solid" ? white(0x99) : white(0x1f);
+            ctx.strokeStyle = material === "solid" ? edgeTone(0x99) : edgeTone(0x1f);
             edge();
         }
     }

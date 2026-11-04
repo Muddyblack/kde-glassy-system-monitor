@@ -23,7 +23,17 @@ Item {
 
     property string glassTint: "clear"
     property color glassTintColor: "#3daee9"
+    property color glassTintColor2: "transparent"
+    property color accent: "#3daee9"
     property real tintStrength: 1
+    // Edge lines and rim light; the liquid light; the drop shadow. Each
+    // keeps the material's own opacity.
+    property color edgeColor: "white"
+    property color highlightColor: "white"
+    property color shadowColor: "black"
+    // Atmosphere glow size and strength, 1 = stock.
+    property real glowSize: 1
+    property real glowStrength: 1
     property real glassBlur: 0.85
     property real refraction: 0.5
     property bool specular: true
@@ -45,23 +55,23 @@ Item {
         {
             y: 24,
             blur: 60,
-            color: Qt.rgba(0, 0, 0, 0.45)
+            color: Qt.rgba(card.shadowColor.r, card.shadowColor.g, card.shadowColor.b, 0.45)
         },
         {
             y: 6,
             blur: 16,
-            color: Qt.rgba(0, 0, 0, 0.25)
+            color: Qt.rgba(card.shadowColor.r, card.shadowColor.g, card.shadowColor.b, 0.25)
         }
     ] : [
         {
             y: 10,
             blur: 30,
-            color: Qt.rgba(0, 0, 0, 0.3)
+            color: Qt.rgba(card.shadowColor.r, card.shadowColor.g, card.shadowColor.b, 0.3)
         },
         {
             y: 2,
             blur: 6,
-            color: Qt.rgba(0, 0, 0, 0.2)
+            color: Qt.rgba(card.shadowColor.r, card.shadowColor.g, card.shadowColor.b, 0.2)
         }
     ]
 
@@ -158,7 +168,7 @@ Item {
             visible: card.tinted && card.border
             color: "transparent"
             border.width: 1
-            border.color: Qt.rgba(1, 1, 1, 0.13)
+            border.color: Qt.rgba(card.edgeColor.r, card.edgeColor.g, card.edgeColor.b, 0.13)
         }
         Rectangle {
             visible: card.tinted && card.border && card.width > 24
@@ -166,7 +176,7 @@ Item {
             y: 1
             width: card.width - 24
             height: 1
-            color: Qt.rgba(1, 1, 1, 0.21)
+            color: Qt.rgba(card.edgeColor.r, card.edgeColor.g, card.edgeColor.b, 0.21)
         }
 
         // ── Materials ──
@@ -177,6 +187,7 @@ Item {
                 strength: card.glassBlur
                 refraction: card.material === "liquid" ? card.refraction : 0
                 specular: card.specular
+                lightColor: card.highlightColor
                 lightPoint: materialLayer.item ? materialLayer.item.specularPoint : Qt.point(width * 0.22, -height * 0.1)
                 sourceItem: card.backdrop
                 radius: card.maxRadius
@@ -194,6 +205,12 @@ Item {
                 glassTint: card.glassTint
                 glassTintColor: card.glassTintColor
                 tintStrength: card.tintStrength
+                glassTintColor2: card.glassTintColor2
+                accent: card.accent
+                edgeColor: card.edgeColor
+                highlightColor: card.highlightColor
+                glowSize: card.glowSize
+                glowStrength: card.glowStrength
                 specular: card.specular
                 edgeHighlight: card.border
                 cover1: card.color1

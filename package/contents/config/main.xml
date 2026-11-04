@@ -358,6 +358,38 @@
         <entry name="atmosphereColor3" type="String">
             <default></default>
         </entry>
+        <!-- Tint card in the Plasma accent colour, at the card colour's opacity. -->
+        <entry name="tintFollowAccent" type="Bool">
+            <default>false</default>
+        </entry>
+        <!-- Far end of the Custom glass tint; empty = glassTintColor. -->
+        <entry name="glassTintColor2" type="String">
+            <default></default>
+        </entry>
+        <!-- Edge lines and rim light of every material; empty = white. -->
+        <entry name="edgeColor" type="String">
+            <default></default>
+        </entry>
+        <!-- Liquid glass light (pointer shine and Fresnel rim); empty = white. -->
+        <entry name="highlightColor" type="String">
+            <default></default>
+        </entry>
+        <!-- Card shadow colour; empty = black. -->
+        <entry name="shadowColor" type="String">
+            <default></default>
+        </entry>
+        <!-- Atmosphere top light follows the Plasma accent colour. -->
+        <entry name="atmosphereFollowAccent" type="Bool">
+            <default>false</default>
+        </entry>
+        <!-- Atmosphere glow size; 1 = stock. -->
+        <entry name="atmosphereGlowSize" type="Double">
+            <default>1</default>
+        </entry>
+        <!-- Atmosphere glow strength; 1 = stock. -->
+        <entry name="atmosphereGlowStrength" type="Double">
+            <default>1</default>
+        </entry>
         <!-- Per-section text and number colours as JSON:
              {"cpu":{"text":"#ffffff","value":"#44ddaa"}}; empty = inherit. -->
         <entry name="sectionColors" type="String">

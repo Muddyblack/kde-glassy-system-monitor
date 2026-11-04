@@ -183,12 +183,15 @@ function sectionInk(cfg, id, system) {
 }
 
 // The colours that light the colour-led materials: the atmosphere's own
-// when set, else the first two section colours; the third is the
+// when set (the top light can follow the accent, which is also the
+// fallback), else the first two section colours; the third is the
 // atmosphere's depth, its own or a dark mix of the two lights.
 function materialColors(ids, cfg, fallback) {
     var out = colors(ids, cfg, fallback);
     var atmosphere = cfg.surfaceStyle === "atmosphere";
-    if (atmosphere && isColor(cfg.atmosphereColor1))
+    if (atmosphere && cfg.atmosphereFollowAccent && isColor(fallback))
+        out[0] = String(fallback);
+    else if (atmosphere && isColor(cfg.atmosphereColor1))
         out[0] = String(cfg.atmosphereColor1);
     if (atmosphere && isColor(cfg.atmosphereColor2))
         out[1] = String(cfg.atmosphereColor2);
@@ -203,8 +206,9 @@ function depthColor(c1, c2) {
 
 // The glass and liquid tint as a 135° gradient: [[position, {r,g,b,a}], …]
 // with every alpha scaled by `strength` (1 = the stock look). `custom`,
-// `cover1` and `cover2` are hex colours.
-function glassTint(material, tint, custom, strength, cover1, cover2) {
+// `custom2` (the Custom tint's far end, "" = `custom`), `cover1`, `cover2`
+// and `accent` are hex colours.
+function glassTint(material, tint, custom, strength, cover1, cover2, custom2, accent) {
     var k = Math.max(0, Number(strength === undefined ? 1 : strength));
     var white = function (a) { return { r: 1, g: 1, b: 1, a: a / 255 }; };
     var tone = function (hex, a) { var c = rgba(hex); return { r: c.r, g: c.g, b: c.b, a: a }; };
@@ -216,11 +220,31 @@ function glassTint(material, tint, custom, strength, cover1, cover2) {
     else if (tint === "cover")
         stops = [[0, tone(cover1, 0.38)], [1, tone(cover2, 0.22)]];
     else if (tint === "custom")
-        stops = [[0, tone(custom, 0.4)], [1, tone(custom, 0.22)]];
+        stops = [[0, tone(custom, 0.4)], [1, tone(isColor(custom2) ? custom2 : custom, 0.22)]];
+    else if (tint === "accent")
+        stops = [[0, tone(accent || "#3daee9", 0.4)], [1, tone(accent || "#3daee9", 0.22)]];
     else
         stops = liquid ? [[0, white(0x1c)], [0.45, white(0x04)], [1, white(0x12)]] : [[0, white(0x24)], [0.55, white(0x08)], [1, white(0x12)]];
     stops.forEach(function (s) { s[1].a = Math.min(1, s[1].a * k); });
     return stops;
+}
+
+// The tint card's fill: its own colour, or, following the accent (Material
+// You and the like), that colour tinted towards the accent at its own
+// opacity, so a bright accent still leaves a card the text reads on.
+var ACCENT_MIX = 0.4;
+function tintFill(cfg, accent) {
+    var fill = isColor(cfg.bgColor) ? String(cfg.bgColor) : "#800d0f1a";
+    if (!cfg.tintFollowAccent || !isColor(accent))
+        return fill;
+    var f = rgba(fill), c = rgba(accent);
+    var hex = function (v) { return ("0" + Math.round(v * 255).toString(16)).slice(-2); };
+    var mix = function (a, b) { return hex(a + (b - a) * ACCENT_MIX); };
+    return "#" + hex(f.a) + mix(f.r, c.r) + mix(f.g, c.g) + mix(f.b, c.b);
+}
+// A colour setting, or `fallback` while it is empty.
+function ownColor(value, fallback) {
+    return isColor(value) ? String(value) : fallback;
 }
 
 // The pill's caption: a title the user changed, else a short name. `stock`

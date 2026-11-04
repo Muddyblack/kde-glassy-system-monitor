@@ -66,6 +66,7 @@ var STYLE_NAMES = ["line", "bars", "area", "donut", "pie", "meter", "text"];
 var SWATCHES = ["#44ddaa", "#22aaff", "#aa66ff", "#ff6688", "#ff9933", "#ffaa22", "#ff6e40", "#39ff14", "#ffffff"];
 var GLASS = ["#800d0f1a", "#99000000", "#66101828", "#801a1024", "#6610231d", "#40ffffff", "#00000000"];
 var SOLID = ["#efefe6", "#ffffff", "#d8dece", "#1b1e24", "#060907", "#0d1b2a", "#2b1d3a", "#123524"];
+var ACCENT_DESC = "Uses the Plasma accent colour and changes with it, including colour schemes made from the wallpaper (KDE Material You Colors).";
 var DEPTH = ["#000000", "#060907", "#0d1b2a", "#1b1e24", "#2b1d3a", "#123524", "#3a1420"];
 var INK = ["#ffffff", "#eef1f5", "#c8d0da", "#8a93a0", "#1e241d", "#000000", "#44ddaa", "#22aaff", "#ffaa22"];
 
@@ -184,10 +185,13 @@ var SECTIONS = [
           opts: MATERIALS.map(function (m) { return { v: m[0], label: m[1], pv: "material" }; }) },
         { id: "cardNote", type: "note", full: true, note: "glass", when: glassy },
         { k: "bgColor", type: "color", label: "Card colour", desc: "Colour and opacity of the tint. The last swatch removes the card.", swatches: GLASS, when: tint },
-        { k: "glassTint", type: "seg", label: "Glass tint", opts: [["clear", "Clear"], ["frost", "Frost"], ["smoke", "Smoke"], ["cover", "Section colours"], ["custom", "Custom"]], when: glassy },
+        { k: "tintFollowAccent", type: "switch", label: "Follow accent colour", desc: ACCENT_DESC + " Tints the card colour towards it, keeping its opacity, so text stays readable.", when: tint },
+        { k: "glassTint", type: "seg", label: "Glass tint", opts: [["clear", "Clear"], ["frost", "Frost"], ["smoke", "Smoke"], ["cover", "Section colours"], ["accent", "Accent"], ["custom", "Custom"]], when: glassy },
         { id: "glassColor", type: "color", label: "Card colour", desc: "Tints the glass; picking one switches the tint to Custom.", swatches: SWATCHES, when: glassy,
           get: function (s) { return s.glassTint === "custom" ? s.glassTintColor : ""; },
           set: function (v) { return { glassTint: "custom", glassTintColor: v }; } },
+        { k: "glassTintColor2", type: "color", label: "Second colour", desc: "The tint fades into this one towards the bottom right.", auto: "Same colour", swatches: SWATCHES,
+          when: function (s) { return glassy(s) && s.glassTint === "custom"; } },
         { k: "glassTintStrength", type: "range", label: "Tint strength", desc: "How much colour the glass carries, for every tint. 100% is the stock look; 0% leaves only the blur.", min: 0, max: 2, step: 0.05, fmt: "pct", when: glassy },
         { k: "solidColor", type: "color", label: "Card colour", desc: "Text turns light on a dark card while it follows the theme.", auto: "Paper", swatches: SOLID,
           when: function (s) { return s.surfaceStyle === "solid"; },
@@ -199,11 +203,17 @@ var SECTIONS = [
                   patch.bgColor = "#800d0f1a";
               return patch;
           } },
-        { k: "atmosphereColor1", type: "color", label: "Top light", desc: "The glow from the top right corner.", auto: "Section colour", swatches: SWATCHES,
+        { k: "atmosphereFollowAccent", type: "switch", label: "Top light follows accent", desc: ACCENT_DESC,
           when: function (s) { return s.surfaceStyle === "atmosphere"; } },
+        { k: "atmosphereColor1", type: "color", label: "Top light", desc: "The glow from the top right corner.", auto: "Section colour", swatches: SWATCHES,
+          when: function (s) { return s.surfaceStyle === "atmosphere" && !s.atmosphereFollowAccent; } },
         { k: "atmosphereColor2", type: "color", label: "Bottom light", desc: "The glow from the bottom left corner.", auto: "Section colour", swatches: SWATCHES,
           when: function (s) { return s.surfaceStyle === "atmosphere"; } },
         { k: "atmosphereColor3", type: "color", label: "Depth", desc: "The colour beneath both lights.", auto: "Mix of the lights", swatches: DEPTH,
+          when: function (s) { return s.surfaceStyle === "atmosphere"; } },
+        { k: "atmosphereGlowSize", type: "range", label: "Glow size", desc: "How far the lights reach into the card.", min: 0.4, max: 1.8, step: 0.05, fmt: "pct",
+          when: function (s) { return s.surfaceStyle === "atmosphere"; } },
+        { k: "atmosphereGlowStrength", type: "range", label: "Glow strength", min: 0, max: 1.25, step: 0.05, fmt: "pct",
           when: function (s) { return s.surfaceStyle === "atmosphere"; } },
         { k: "frostedGlass", type: "switch", label: "Frosted", desc: "Blur the tint into a soft glass gradient.", when: tint },
         { k: "frostStrength", type: "range", label: "Frost", min: 0, max: 1, step: 0.05, fmt: "pct", when: function (s) { return tint(s) && s.frostedGlass; } },
@@ -213,11 +223,16 @@ var SECTIONS = [
     ]),
     tab("card", "Liquid glass", [
         { k: "glassRefraction", type: "range", label: "Refraction", desc: "Bends the wallpaper at the edges with a subtle colour fringe.", min: 0, max: 1, step: 0.05, fmt: "pct" },
-        { k: "glassSpecular", type: "switch", label: "Light follows pointer", desc: "A soft highlight tracks the mouse." }
+        { k: "glassSpecular", type: "switch", label: "Light follows pointer", desc: "A soft highlight tracks the mouse." },
+        { k: "highlightColor", type: "color", label: "Light colour", desc: "The pointer light and the shine along the rim.", auto: "White", swatches: SWATCHES }
     ], function (s) { return s.surfaceStyle === "liquid"; }),
     tab("card", "Depth & finish", [
         { k: "cardShadow", type: "seg", label: "Shadow", opts: [["none", "None"], ["soft", "Soft"], ["lifted", "Lifted"]] },
+        { k: "shadowColor", type: "color", label: "Shadow colour", desc: "A coloured shadow reads as a glow on dark wallpapers.", auto: "Black", swatches: SWATCHES,
+          when: function (s) { return s.cardShadow === "soft" || s.cardShadow === "lifted"; } },
         { k: "cardBorder", type: "switch", label: "Glass edge", desc: "Hairline border and a line of light along the top." },
+        { k: "edgeColor", type: "color", label: "Edge colour", desc: "The edge lines and rim light of every material.", auto: "White", swatches: SWATCHES,
+          when: function (s) { return !tint(s) || s.cardBorder; } },
         { k: "grain", type: "switch", label: "Film grain", desc: "Stops gradients from banding." }
     ]),
     tab("card", "Corners", [

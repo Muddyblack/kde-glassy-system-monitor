@@ -96,7 +96,13 @@ be answered. The network window stays local.
 - **Per-section colours**: text, numbers and chart colours for every section, side by side under
   Colours › Per section or in each section's own tab
 - **Card colour for every material**: tint, glass, liquid glass, solid and the atmosphere's two lights
-  and depth; a tint strength (0–200%) sets how much colour glass and liquid glass carry
+  and depth; a tint strength (0–200%) sets how much colour glass and liquid glass carry, and a
+  second colour turns the custom glass tint into a two-colour gradient
+- **Follow the accent colour**: the tint card, the glass tint and the atmosphere's top light can
+  follow the Plasma accent, so wallpaper-driven schemes such as
+  [KDE Material You Colors](https://github.com/luisbocanegra/kde-material-you-colors) recolour the card live
+- **Edges, light and shadow**: edge/rim colour for every material, the liquid glass light colour,
+  a coloured shadow, and the atmosphere's glow size and strength
 - **Panel pill**: a compact reading for panels and bars
 - **Poll rate**: one base interval drives every sensor
 

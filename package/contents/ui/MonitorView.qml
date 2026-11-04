@@ -106,7 +106,7 @@ Item {
         id: glass
         anchors.fill: parent
         material: view.cfg.surfaceStyle || "tint"
-        fill: view.cfg.bgColor || "#800d0f1a"
+        fill: Sections.tintFill(view.cfg, String(monitor.accentColor))
         solidColor: Sections.solidColor(view.cfg) || "transparent"
         radiusTL: view.cfg.bgRadiusTL ?? 12
         radiusTR: view.cfg.bgRadiusTR ?? 12
@@ -118,6 +118,13 @@ Item {
         glassTint: view.cfg.glassTint || "clear"
         glassTintColor: view.cfg.glassTintColor || "#3daee9"
         tintStrength: view.cfg.glassTintStrength ?? 1
+        glassTintColor2: Sections.ownColor(view.cfg.glassTintColor2, "transparent")
+        accent: monitor.accentColor
+        edgeColor: Sections.ownColor(view.cfg.edgeColor, "#ffffff")
+        highlightColor: Sections.ownColor(view.cfg.highlightColor, "#ffffff")
+        shadowColor: Sections.ownColor(view.cfg.shadowColor, "#000000")
+        glowSize: view.cfg.atmosphereGlowSize ?? 1
+        glowStrength: view.cfg.atmosphereGlowStrength ?? 1
         glassBlur: view.cfg.glassBlur ?? 0.85
         refraction: view.cfg.glassRefraction ?? 0.5
         specular: view.cfg.glassSpecular !== false

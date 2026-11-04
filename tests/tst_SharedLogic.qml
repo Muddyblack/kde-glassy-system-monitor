@@ -294,6 +294,10 @@ TestCase {
             atmosphereColor2: "#22aaff",
             atmosphereColor3: "#0d1b2a",
             glassTintStrength: 1.5,
+            edgeColor: "#ff6688",
+            shadowColor: "#22aaff",
+            atmosphereFollowAccent: true,
+            atmosphereGlowSize: 1.4,
             sectionColors: Sections.withSectionColor(Sections.withSectionColor("", "cpu", "text", "#ffaa22"), "gpu", "value", "#ffffff")
         };
         const draft = Object.assign({}, defaults, mine);
@@ -477,6 +481,38 @@ TestCase {
         }
         const custom = Sections.glassTint("liquid", "custom", "#80ff0000", 1, "", "")[0][1];
         compare([custom.r, custom.g, custom.b, custom.a], [1, 0, 0, 0.4], "the tint's own alpha is ignored");
+    }
+
+    // Two-colour custom tint, the accent tint, and the accent-following cards.
+    function test_accentAndSecondTintColour() {
+        const two = Sections.glassTint("glass", "custom", "#ff0000", 1, "", "", "#0000ff", "");
+        compare([two[0][1].r, two[0][1].b, two[1][1].r, two[1][1].b], [1, 0, 0, 1]);
+        const same = Sections.glassTint("glass", "custom", "#ff0000", 1, "", "", "", "");
+        compare(same[1][1].r, 1, "no second colour repeats the first");
+        const accent = Sections.glassTint("liquid", "accent", "#ff0000", 1, "", "", "", "#00ff00");
+        compare([accent[0][1].g, accent[1][1].g, accent[0][1].r], [1, 1, 0]);
+        compare(Sections.tintFill({
+            bgColor: "#800d0f1a"
+        }, "#22aaff"), "#800d0f1a");
+        compare(Sections.tintFill({
+            bgColor: "#80000000",
+            tintFollowAccent: true
+        }, "#ffaa00"), "#80664400", "the card tinted towards the accent, at its opacity");
+        compare(Sections.tintFill({
+            bgColor: "#ffffff",
+            tintFollowAccent: true
+        }, "#000000"), "#ff999999");
+        const cfg = {
+            surfaceStyle: "atmosphere",
+            cpuColor: "#111111",
+            atmosphereColor1: "#abcdef",
+            atmosphereFollowAccent: true
+        };
+        compare(Sections.materialColors(["cpu"], cfg, "#22aaff")[0], "#22aaff");
+        cfg.atmosphereFollowAccent = false;
+        compare(Sections.materialColors(["cpu"], cfg, "#22aaff")[0], "#abcdef");
+        compare(Sections.ownColor("", "#ffffff"), "#ffffff");
+        compare(Sections.ownColor("#ff6688", "#ffffff"), "#ff6688");
     }
 
     function test_textColourFollowsSolidCard() {
