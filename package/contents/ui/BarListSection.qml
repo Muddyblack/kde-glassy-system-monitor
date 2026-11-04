@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import "Sections.js" as Sections
 
 // A section that is a list of labelled bars: storage and top processes.
 // `model` comes from SectionModels (shared with the website).
@@ -9,13 +10,15 @@ ColumnLayout {
     required property var monitor
     required property var cfg
     required property string sectionId
+    // This section's own text and number colours (Colours › Per section).
+    readonly property color ink: Sections.sectionColor(cfg, sectionId, "text") || monitor.textColor
+    readonly property string numbers: Sections.sectionColor(cfg, sectionId, "value")
     required property var model
     readonly property real rowHeight: 20
     // Rows never scroll or cut: the section is as tall as its rows.
     readonly property real preferredHeight: header.implicitHeight + Math.max(1, model.rows.length) * rowHeight + 10
     readonly property real minimumHeight: preferredHeight
 
-    readonly property color ink: monitor.textColor
     function inkAlpha(a) {
         return Qt.rgba(ink.r, ink.g, ink.b, a);
     }
@@ -38,7 +41,7 @@ ColumnLayout {
         Layout.bottomMargin: 2
         title: section.model.title
         reading: section.model.reading
-        readingColor: section.model.readingColor || section.inkAlpha(0.55)
+        readingColor: section.numbers || (section.model.readingColor || section.inkAlpha(0.55))
         textColor: section.ink
     }
 
@@ -118,7 +121,7 @@ ColumnLayout {
                 Layout.preferredWidth: Math.max(44, implicitWidth)
                 horizontalAlignment: Text.AlignRight
                 text: row.armed ? "end?" : row.modelData.value
-                color: row.armed ? "#ff5555" : row.tint
+                color: row.armed ? "#ff5555" : section.numbers || row.tint
                 font.pixelSize: 11
                 font.bold: true
             }

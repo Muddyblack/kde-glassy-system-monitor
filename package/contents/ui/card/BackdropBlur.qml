@@ -12,6 +12,8 @@ Item {
     property real refraction: 0.5
     property bool specular: true
     property point lightPoint: Qt.point(width * 0.22, -height * 0.1)
+    // Tints the Fresnel rim and the pointer shine.
+    property color lightColor: "white"
     readonly property bool safeSource: {
         if (!sourceItem)
             return false;
@@ -81,6 +83,7 @@ Item {
                 property real refraction: Math.max(0, Math.min(1, root.refraction))
                 property real specular: root.specular ? 1 : 0
                 property point lightPoint: root.lightPoint
+                property color lightColor: root.lightColor
                 fragmentShader: Qt.resolvedUrl("../../shaders/glass_refraction.frag.qsb")
             }
         }

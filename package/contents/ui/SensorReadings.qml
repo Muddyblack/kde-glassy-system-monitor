@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import "SensorConfig.js" as Sensors
+import "Sections.js" as Sections
 
 // The sensor readings chosen for one section (see SensorConfig.js):
 // "grouped" rows under a header per device (Sensors), "bars" (Power's
@@ -19,13 +20,16 @@ ColumnLayout {
     // and the bars animate.
     readonly property string rowKeys: JSON.stringify(rows.map(s => s.id))
     readonly property int count: shown.length
+    // The host section's own text and number colours.
+    readonly property color text: Sections.sectionColor(cfg, targetSection, "text") || monitor.textColor
+    readonly property string numbers: Sections.sectionColor(cfg, targetSection, "value")
 
     function ink(alpha) {
-        return Qt.rgba(monitor.textColor.r, monitor.textColor.g, monitor.textColor.b, alpha);
+        return Qt.rgba(text.r, text.g, text.b, alpha);
     }
     function tint(sensor) {
         const c = Sensors.tint(sensor, cfg);
-        return c ? Qt.color(c) : monitor.textColor;
+        return c ? Qt.color(c) : text;
     }
 
     visible: count > 0
@@ -60,7 +64,7 @@ ColumnLayout {
                     font.pixelSize: 10
                     text: cell.sensor.label || ""
                     textFormat: Text.PlainText
-                    color: readings.monitor.textColor
+                    color: readings.text
                     opacity: 0.7
                     elide: Text.ElideRight
                 }
@@ -69,7 +73,7 @@ ColumnLayout {
                     font.pixelSize: 10
                     font.bold: true
                     text: Sensors.reading(cell.sensor)
-                    color: cell.tint
+                    color: readings.numbers || cell.tint
                 }
             }
         }
@@ -227,7 +231,7 @@ ColumnLayout {
                     width: 64
                     horizontalAlignment: Text.AlignRight
                     text: Sensors.reading(row.sensor)
-                    color: row.tint
+                    color: readings.numbers || row.tint
                     font.pixelSize: readings.layout === "grouped" ? 11 : 10
                     font.bold: true
                     elide: Text.ElideRight

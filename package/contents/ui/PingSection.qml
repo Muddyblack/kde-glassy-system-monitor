@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import "SectionModels.js" as SectionModels
+import "Sections.js" as Sections
 
 ColumnLayout {
     id: section
@@ -8,6 +9,9 @@ ColumnLayout {
     required property var monitor
     required property var cfg
     readonly property string sectionId: "ping"
+    // This section's own text and number colours (Colours › Per section).
+    readonly property color ink: Sections.sectionColor(cfg, sectionId, "text") || monitor.textColor
+    readonly property string numbers: Sections.sectionColor(cfg, sectionId, "value")
     // Shared with the website studio; see SectionModels.js.
     readonly property var model: SectionModels.ping(monitor, cfg)
     readonly property real preferredHeight: header.implicitHeight + chart.wantedHeight + (stats.visible ? stats.implicitHeight : 0) + 14
@@ -18,12 +22,12 @@ ColumnLayout {
     component Stat: Column {
         property string label
         property string value
-        property color tint: section.monitor.textColor
+        property color tint: section.ink
         spacing: 1
         Text {
             font.family: section.monitor.fontFamily
             text: parent.label
-            color: section.monitor.textColor
+            color: section.ink
             opacity: 0.38
             font.pixelSize: 7
             font.letterSpacing: 0.8
@@ -49,8 +53,8 @@ ColumnLayout {
         Layout.fillWidth: true
         title: section.model.title
         reading: section.model.reading
-        readingColor: section.model.readingColor || section.monitor.textColor
-        textColor: section.monitor.textColor
+        readingColor: section.numbers || (section.model.readingColor || section.ink)
+        textColor: section.ink
 
         // Target chips: pick which host the chart follows.
         Repeater {
@@ -77,7 +81,7 @@ ColumnLayout {
                     anchors.centerIn: parent
                     width: Math.min(implicitWidth, 76)
                     text: parent.modelData
-                    color: parent.current ? section.monitor.pingColor : Qt.rgba(section.monitor.textColor.r, section.monitor.textColor.g, section.monitor.textColor.b, 0.55)
+                    color: parent.current ? section.monitor.pingColor : Qt.rgba(section.ink.r, section.ink.g, section.ink.b, 0.55)
                     font.pixelSize: 9
                     elide: Text.ElideRight
                 }
@@ -121,7 +125,7 @@ ColumnLayout {
                 required property var modelData
                 label: modelData.label
                 value: modelData.value
-                tint: modelData.color || section.monitor.textColor
+                tint: section.numbers || modelData.color || section.ink
             }
         }
         Item {

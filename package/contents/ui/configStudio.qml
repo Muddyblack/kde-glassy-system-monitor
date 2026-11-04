@@ -191,12 +191,56 @@ Kirigami.Page {
     property string cfg_glassTintDefault
     property string cfg_glassTintColor
     property string cfg_glassTintColorDefault
+    property real cfg_glassTintStrength
+    property real cfg_glassTintStrengthDefault
     property real cfg_glassBlur
     property real cfg_glassBlurDefault
     property real cfg_glassRefraction
     property real cfg_glassRefractionDefault
     property bool cfg_glassSpecular
     property bool cfg_glassSpecularDefault
+    property string cfg_solidColor
+    property string cfg_solidColorDefault
+    property string cfg_atmosphereColor1
+    property string cfg_atmosphereColor1Default
+    property string cfg_atmosphereColor2
+    property string cfg_atmosphereColor2Default
+    property string cfg_atmosphereColor3
+    property string cfg_atmosphereColor3Default
+    property bool cfg_tintFollowAccent
+    property bool cfg_tintFollowAccentDefault
+    property string cfg_glassTintColor2
+    property string cfg_glassTintColor2Default
+    property string cfg_edgeColor
+    property string cfg_edgeColorDefault
+    property string cfg_highlightColor
+    property string cfg_highlightColorDefault
+    property string cfg_shadowColor
+    property string cfg_shadowColorDefault
+    property bool cfg_atmosphereFollowAccent
+    property bool cfg_atmosphereFollowAccentDefault
+    property real cfg_atmosphereGlowSize
+    property real cfg_atmosphereGlowSizeDefault
+    property real cfg_atmosphereGlowStrength
+    property real cfg_atmosphereGlowStrengthDefault
+    property bool cfg_solidFollowAccent
+    property bool cfg_solidFollowAccentDefault
+    property string cfg_gradientColor1
+    property string cfg_gradientColor1Default
+    property string cfg_gradientColor2
+    property string cfg_gradientColor2Default
+    property string cfg_gradientColor3
+    property string cfg_gradientColor3Default
+    property int cfg_gradientAngle
+    property int cfg_gradientAngleDefault
+    property bool cfg_gradientFollowAccent
+    property bool cfg_gradientFollowAccentDefault
+    property real cfg_outlineWidth
+    property real cfg_outlineWidthDefault
+    property bool cfg_edgeFollowAccent
+    property bool cfg_edgeFollowAccentDefault
+    property string cfg_sectionColors
+    property string cfg_sectionColorsDefault
     property bool cfg_compositorGlass
     property bool cfg_compositorGlassDefault
     property real cfg_cardOpacity

@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import "SectionModels.js" as SectionModels
+import "Sections.js" as Sections
 
 ColumnLayout {
     id: section
@@ -8,6 +9,9 @@ ColumnLayout {
     required property var monitor
     required property var cfg
     readonly property string sectionId: "memory"
+    // This section's own text and number colours (Colours › Per section).
+    readonly property color ink: Sections.sectionColor(cfg, sectionId, "text") || monitor.textColor
+    readonly property string numbers: Sections.sectionColor(cfg, sectionId, "value")
     // Shared with the website studio; see SectionModels.js.
     readonly property var model: SectionModels.memory(monitor, cfg)
     readonly property real preferredHeight: header.implicitHeight + chart.wantedHeight + (legend.visible ? legend.implicitHeight : 0) + 12
@@ -21,8 +25,8 @@ ColumnLayout {
         Layout.fillWidth: true
         title: section.model.title
         reading: section.model.reading
-        readingColor: section.model.readingColor || section.monitor.textColor
-        textColor: section.monitor.textColor
+        readingColor: section.numbers || (section.model.readingColor || section.ink)
+        textColor: section.ink
         monitor: section.monitor
         lineKey: "ram"
     }
@@ -51,6 +55,8 @@ ColumnLayout {
         Layout.fillWidth: true
         visible: !!section.cfg.showLegend && section.model.legend.length > 0
         monitor: section.monitor
+        ink: section.ink
+        numbers: section.numbers
         indent: chart.plotLeft
         entries: section.model.legend
     }

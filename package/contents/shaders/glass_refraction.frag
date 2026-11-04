@@ -9,6 +9,7 @@ layout(std140, binding = 0) uniform buf {
     float refraction;
     float specular;
     vec2 lightPoint;
+    vec4 lightColor;
 };
 layout(binding = 1) uniform sampler2D source;
 float roundedDistance(vec2 p) {
@@ -34,6 +35,6 @@ void main() {
                     green.g, texture(source, clamp(uv + dispersion, vec2(0.001), vec2(0.999))).b);
     vec3 light = normalize(vec3((lightPoint - p) / max(canvasSize.x, canvasSize.y), 0.5));
     float shine = pow(max(0.0, dot(normal, normalize(light + vec3(0.0, 0.0, 1.0)))), 28.0);
-    rgb = min(vec3(green.a), rgb + (fresnel * rim + shine * rim * 0.25) * specular * green.a);
+    rgb = min(vec3(green.a), rgb + (fresnel * rim + shine * rim * 0.25) * specular * green.a * lightColor.rgb);
     fragColor = vec4(rgb, green.a) * (mask * qt_Opacity);
 }

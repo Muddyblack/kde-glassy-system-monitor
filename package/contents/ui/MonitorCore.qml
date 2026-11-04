@@ -109,7 +109,7 @@ Item {
     // Alert styling is suppressed entirely when threshold colouring is off, so
     // the ping section stays on the user's own colour no matter the latency.
     readonly property bool pingAlertActive: !!cfg.pingThresholdColors && isAlerting
-    readonly property color textColor: Qt.color(Sections.textColor(cfg, core.systemTextColor))
+    readonly property color textColor: Qt.color(Sections.textColor(cfg, core.systemTextColor, String(core.systemAccent)))
     readonly property string fontFamily: cfg.fontFamily === "monospace" ? "monospace" : Qt.application.font.family
     readonly property color dlColor: Qt.color(cfg.dlColor || "#22aaff")
     readonly property color ulColor: Qt.color(cfg.ulColor || "#ff9933")

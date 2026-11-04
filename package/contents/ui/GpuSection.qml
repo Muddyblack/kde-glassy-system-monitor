@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import "SectionModels.js" as SectionModels
 import "Format.js" as Format
+import "Sections.js" as Sections
 
 ColumnLayout {
     id: section
@@ -9,12 +10,15 @@ ColumnLayout {
     required property var monitor
     required property var cfg
     readonly property string sectionId: "gpu"
+    // This section's own text and number colours (Colours › Per section).
+    readonly property color ink: Sections.sectionColor(cfg, sectionId, "text") || monitor.textColor
+    readonly property string numbers: Sections.sectionColor(cfg, sectionId, "value")
     // Shared with the website studio; see SectionModels.js.
     readonly property var model: SectionModels.gpu(monitor, cfg)
     readonly property bool enginesShown: !!cfg.gpuShowEngines && (monitor.gpuComputePercent >= 0 || monitor.gpuDecPercent >= 0 || monitor.gpuEncPercent >= 0 || monitor.gpuVramUsed >= 0)
     readonly property real preferredHeight: header.implicitHeight + chart.wantedHeight + (enginesShown ? engines.implicitHeight : 0) + (sensorReadings.visible ? sensorReadings.implicitHeight + 4 : 0) + 12
     readonly property real minimumHeight: preferredHeight - chart.slack
-    readonly property color dimText: Qt.rgba(monitor.textColor.r, monitor.textColor.g, monitor.textColor.b, 0.55)
+    readonly property color dimText: Qt.rgba(ink.r, ink.g, ink.b, 0.55)
     readonly property var vendor: ({
             nvidia: ["NVIDIA", "#1dbb55"],
             amd: ["AMD", "#eb2929"],
@@ -29,8 +33,8 @@ ColumnLayout {
         Layout.fillWidth: true
         title: section.model.title
         reading: section.model.reading
-        readingColor: section.model.readingColor || section.monitor.textColor
-        textColor: section.monitor.textColor
+        readingColor: section.numbers || (section.model.readingColor || section.ink)
+        textColor: section.ink
         Rectangle {
             anchors.verticalCenter: parent.verticalCenter
             visible: !!section.vendor
@@ -111,7 +115,7 @@ ColumnLayout {
                 visible: section.monitor.gpuVramTotal > 0
                 implicitHeight: 6
                 radius: 3
-                color: Qt.rgba(section.monitor.textColor.r, section.monitor.textColor.g, section.monitor.textColor.b, 0.12)
+                color: Qt.rgba(section.ink.r, section.ink.g, section.ink.b, 0.12)
                 Rectangle {
                     height: parent.height
                     radius: parent.radius
@@ -160,7 +164,7 @@ ColumnLayout {
                     Text {
                         font.family: section.monitor.fontFamily
                         text: parent.modelData[1].toFixed(0) + "%"
-                        color: parent.busy ? section.monitor.gpuColor : section.dimText
+                        color: parent.busy ? section.numbers || section.monitor.gpuColor : section.dimText
                         font.pixelSize: 10
                         font.bold: parent.busy
                     }
