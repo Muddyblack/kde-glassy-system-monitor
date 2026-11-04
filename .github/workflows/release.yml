@@ -56,6 +56,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      pull-requests: read
 
     steps:
       - uses: actions/checkout@v4
@@ -73,18 +74,31 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "artifact=${NAME}-${VERSION}.plasmoid" >> "$GITHUB_OUTPUT"
 
+      # The notes are whatever the release PR's description says between the
+      # release-notes markers (tag.sh drafts them there, you can edit them
+      # before merging). Without that, fall back to the commit list.
       - name: Generate release notes
         id: notes
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          PREV_TAG="$(git tag --sort=-creatordate | grep -E '^v' | sed -n '1p')"
-          if [ -n "$PREV_TAG" ]; then
-            NOTES="$(git log "${PREV_TAG}..HEAD" --pretty=format:'- %s' --no-merges)"
-          else
-            NOTES="$(git log --pretty=format:'- %s' --no-merges)"
+          NOTES="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/pulls" --jq '.[0].body // ""' \
+            | tr -d '\r' \
+            | sed -n '/<!-- release-notes:start -->/,/<!-- release-notes:end -->/p' \
+            | sed '1d;$d' || true)"
+          if [ -z "$(echo "$NOTES" | tr -d '[:space:]')" ]; then
+            PREV_TAG="$(git tag --sort=-creatordate | grep -E '^v' | sed -n '1p')"
+            if [ -n "$PREV_TAG" ]; then
+              NOTES="$(git log "${PREV_TAG}..HEAD" --pretty=format:'- %s' --no-merges)"
+            else
+              NOTES="$(git log --pretty=format:'- %s' --no-merges)"
+            fi
           fi
-          echo "notes<<EOF" >> "$GITHUB_OUTPUT"
-          echo "$NOTES" >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
+          {
+            echo "notes<<EOF"
+            echo "$NOTES"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
