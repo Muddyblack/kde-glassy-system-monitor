@@ -292,6 +292,8 @@ TestCase {
             solidColor: "#1b1e24",
             atmosphereColor1: "#ff6688",
             atmosphereColor2: "#22aaff",
+            atmosphereColor3: "#0d1b2a",
+            glassTintStrength: 1.5,
             sectionColors: Sections.withSectionColor(Sections.withSectionColor("", "cpu", "text", "#ffaa22"), "gpu", "value", "#ffffff")
         };
         const draft = Object.assign({}, defaults, mine);
@@ -455,9 +457,26 @@ TestCase {
             atmosphereColor1: "#abcdef",
             atmosphereColor2: ""
         };
-        compare(Sections.materialColors(["cpu", "memory"], cfg, "#4aa8ff"), ["#abcdef", "#222222"]);
+        compare(Sections.materialColors(["cpu", "memory"], cfg, "#4aa8ff"), ["#abcdef", "#222222", Sections.depthColor("#abcdef", "#222222")]);
+        cfg.atmosphereColor3 = "#0d1b2a";
+        compare(Sections.materialColors(["cpu", "memory"], cfg, "#4aa8ff")[2], "#0d1b2a");
         cfg.surfaceStyle = "glass";
-        compare(Sections.materialColors(["cpu", "memory"], cfg, "#4aa8ff"), ["#111111", "#222222"], "only the atmosphere uses its own lights");
+        compare(Sections.materialColors(["cpu", "memory"], cfg, "#4aa8ff"), ["#111111", "#222222", Sections.depthColor("#111111", "#222222")], "only the atmosphere uses its own lights");
+        compare(Sections.depthColor("#ffffff", "#ffffff"), "#4d4d4d");
+    }
+
+    // Tint strength scales every glass tint's opacity, capped at opaque.
+    function test_glassTintStrength() {
+        const alphas = (strength, tint) => Sections.glassTint("glass", tint, "#3daee9", strength, "#ff0000", "#00ff00").map(s => s[1].a);
+        for (const tint of ["clear", "frost", "smoke", "cover", "custom"]) {
+            const stock = alphas(1, tint);
+            verify(stock.every(a => a > 0 && a < 1), tint);
+            compare(alphas(undefined, tint), stock, "unset is the stock look");
+            verify(alphas(0, tint).every(a => a === 0), tint + " at 0%");
+            alphas(2, tint).forEach((a, i) => fuzzyCompare(a, Math.min(1, stock[i] * 2), 1e-9));
+        }
+        const custom = Sections.glassTint("liquid", "custom", "#80ff0000", 1, "", "")[0][1];
+        compare([custom.r, custom.g, custom.b, custom.a], [1, 0, 0, 0.4], "the tint's own alpha is ignored");
     }
 
     function test_textColourFollowsSolidCard() {

@@ -66,6 +66,7 @@ var STYLE_NAMES = ["line", "bars", "area", "donut", "pie", "meter", "text"];
 var SWATCHES = ["#44ddaa", "#22aaff", "#aa66ff", "#ff6688", "#ff9933", "#ffaa22", "#ff6e40", "#39ff14", "#ffffff"];
 var GLASS = ["#800d0f1a", "#99000000", "#66101828", "#801a1024", "#6610231d", "#40ffffff", "#00000000"];
 var SOLID = ["#efefe6", "#ffffff", "#d8dece", "#1b1e24", "#060907", "#0d1b2a", "#2b1d3a", "#123524"];
+var DEPTH = ["#000000", "#060907", "#0d1b2a", "#1b1e24", "#2b1d3a", "#123524", "#3a1420"];
 var INK = ["#ffffff", "#eef1f5", "#c8d0da", "#8a93a0", "#1e241d", "#000000", "#44ddaa", "#22aaff", "#ffaa22"];
 
 // Named colour sets for every metric at once.
@@ -187,6 +188,7 @@ var SECTIONS = [
         { id: "glassColor", type: "color", label: "Card colour", desc: "Tints the glass; picking one switches the tint to Custom.", swatches: SWATCHES, when: glassy,
           get: function (s) { return s.glassTint === "custom" ? s.glassTintColor : ""; },
           set: function (v) { return { glassTint: "custom", glassTintColor: v }; } },
+        { k: "glassTintStrength", type: "range", label: "Tint strength", desc: "How much colour the glass carries, for every tint. 100% is the stock look; 0% leaves only the blur.", min: 0, max: 2, step: 0.05, fmt: "pct", when: glassy },
         { k: "solidColor", type: "color", label: "Card colour", desc: "Text turns light on a dark card while it follows the theme.", auto: "Paper", swatches: SOLID,
           when: function (s) { return s.surfaceStyle === "solid"; },
           get: function (s) { return Sections.solidColor(s); },
@@ -199,7 +201,9 @@ var SECTIONS = [
           } },
         { k: "atmosphereColor1", type: "color", label: "Top light", desc: "The glow from the top right corner.", auto: "Section colour", swatches: SWATCHES,
           when: function (s) { return s.surfaceStyle === "atmosphere"; } },
-        { k: "atmosphereColor2", type: "color", label: "Bottom light", desc: "The glow from the bottom left corner; the card's depth mixes both.", auto: "Section colour", swatches: SWATCHES,
+        { k: "atmosphereColor2", type: "color", label: "Bottom light", desc: "The glow from the bottom left corner.", auto: "Section colour", swatches: SWATCHES,
+          when: function (s) { return s.surfaceStyle === "atmosphere"; } },
+        { k: "atmosphereColor3", type: "color", label: "Depth", desc: "The colour beneath both lights.", auto: "Mix of the lights", swatches: DEPTH,
           when: function (s) { return s.surfaceStyle === "atmosphere"; } },
         { k: "frostedGlass", type: "switch", label: "Frosted", desc: "Blur the tint into a soft glass gradient.", when: tint },
         { k: "frostStrength", type: "range", label: "Frost", min: 0, max: 1, step: 0.05, fmt: "pct", when: function (s) { return tint(s) && s.frostedGlass; } },

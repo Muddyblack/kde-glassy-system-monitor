@@ -191,6 +191,8 @@ Kirigami.Page {
     property string cfg_glassTintDefault
     property string cfg_glassTintColor
     property string cfg_glassTintColorDefault
+    property real cfg_glassTintStrength
+    property real cfg_glassTintStrengthDefault
     property real cfg_glassBlur
     property real cfg_glassBlurDefault
     property real cfg_glassRefraction
@@ -203,6 +205,8 @@ Kirigami.Page {
     property string cfg_atmosphereColor1Default
     property string cfg_atmosphereColor2
     property string cfg_atmosphereColor2Default
+    property string cfg_atmosphereColor3
+    property string cfg_atmosphereColor3Default
     property string cfg_sectionColors
     property string cfg_sectionColorsDefault
     property bool cfg_compositorGlass

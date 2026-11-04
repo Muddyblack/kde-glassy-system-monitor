@@ -1,5 +1,6 @@
 import QtQuick
 import "GrainDraw.js" as GrainDraw
+import "../Sections.js" as Sections
 
 // Static card material from the HTML `.surf` recipes: glass, liquid, solid and
 // atmosphere, plus the edge line and optional edge highlight. It repaints only
@@ -16,6 +17,8 @@ Canvas {
     property real radius: 12
     property string glassTint: "clear"
     property color glassTintColor: "#3daee9"
+    // Scales the glass tint's opacity; 1 is the stock look.
+    property real tintStrength: 1
     property color solidColor: "transparent"
     property bool grain: false
     property bool specular: true
@@ -32,7 +35,7 @@ Canvas {
         enabled: card.material === "liquid" && card.specular
     }
     readonly property point specularPoint: hover.hovered ? hover.point.position : Qt.point(width * 0.22, -height * 0.1)
-    readonly property var signature: [material, grain, radius, glassTint, glassTintColor, solidColor, specular, edgeHighlight, cover1, cover2, cover3, width, height]
+    readonly property var signature: [material, grain, radius, glassTint, glassTintColor, tintStrength, solidColor, specular, edgeHighlight, cover1, cover2, cover3, width, height]
     onSignatureChanged: requestPaint()
     onSpecularPointChanged: {
         if (material === "liquid" && specular)
@@ -54,6 +57,12 @@ Canvas {
             gradient.addColorStop(stop[0], stop[1]);
         ctx.fillStyle = gradient;
         ctx.fillRect(0, 0, w, h);
+    }
+
+    // The glass and liquid tint (Sections.glassTint, shared with the website).
+    function tint(ctx, w, h) {
+        const stops = Sections.glassTint(material, glassTint, String(glassTintColor), tintStrength, String(cover1), String(cover2));
+        diagonal(ctx, w, h, stops.map(s => [s[0], Qt.rgba(s[1].r, s[1].g, s[1].b, s[1].a)]));
     }
 
     // CSS radial-gradient(rx ry at x y, color, transparent end).
@@ -83,29 +92,11 @@ Canvas {
 
         switch (material) {
         case "glass":
-            if (glassTint === "frost")
-                diagonal(ctx, w, h, [[0, white(0x42)], [0.55, white(0x24)], [1, white(0x30)]]);
-            else if (glassTint === "smoke")
-                diagonal(ctx, w, h, [[0, Qt.rgba(0.07, 0.09, 0.12, 0.64)], [1, Qt.rgba(0.03, 0.04, 0.07, 0.4)]]);
-            else if (glassTint === "cover")
-                diagonal(ctx, w, h, [[0, withAlpha(cover1, 0.38)], [1, withAlpha(cover2, 0.22)]]);
-            else if (glassTint === "custom")
-                diagonal(ctx, w, h, [[0, withAlpha(glassTintColor, 0.4)], [1, withAlpha(glassTintColor, 0.22)]]);
-            else
-                diagonal(ctx, w, h, [[0, white(0x24)], [0.55, white(0x08)], [1, white(0x12)]]);
+            tint(ctx, w, h);
             break;
         case "liquid":
             {
-                if (glassTint === "frost")
-                    diagonal(ctx, w, h, [[0, white(0x2e)], [0.5, white(0x10)], [1, white(0x22)]]);
-                else if (glassTint === "cover")
-                    diagonal(ctx, w, h, [[0, withAlpha(cover1, 0.38)], [1, withAlpha(cover2, 0.22)]]);
-                else if (glassTint === "smoke")
-                    diagonal(ctx, w, h, [[0, Qt.rgba(0.07, 0.09, 0.12, 0.64)], [1, Qt.rgba(0.03, 0.04, 0.07, 0.4)]]);
-                else if (glassTint === "custom")
-                    diagonal(ctx, w, h, [[0, withAlpha(glassTintColor, 0.4)], [1, withAlpha(glassTintColor, 0.22)]]);
-                else
-                    diagonal(ctx, w, h, [[0, white(0x1c)], [0.45, white(0x04)], [1, white(0x12)]]);
+                tint(ctx, w, h);
                 // Inner top glow and bottom shade (the inset box-shadows).
                 const top = ctx.createLinearGradient(0, 0, 0, 12);
                 top.addColorStop(0, white(0x40));

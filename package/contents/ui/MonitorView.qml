@@ -117,6 +117,7 @@ Item {
         border: view.cfg.cardBorder !== false
         glassTint: view.cfg.glassTint || "clear"
         glassTintColor: view.cfg.glassTintColor || "#3daee9"
+        tintStrength: view.cfg.glassTintStrength ?? 1
         glassBlur: view.cfg.glassBlur ?? 0.85
         refraction: view.cfg.glassRefraction ?? 0.5
         specular: view.cfg.glassSpecular !== false
@@ -125,6 +126,7 @@ Item {
         grain: view.cfg.grain === true
         color1: view.materialColors[0]
         color2: view.materialColors[1]
+        color3: view.materialColors[2]
         backdrop: view.backdrop
     }
 

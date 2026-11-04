@@ -96,6 +96,7 @@ be answered. The network window stays local.
 - **Per-section colours**: text, numbers and chart colours for every section, side by side under
   Colours › Per section or in each section's own tab
 - **Card colour for every material**: tint, glass, liquid glass, solid and the atmosphere's two lights
+  and depth; a tint strength (0–200%) sets how much colour glass and liquid glass carry
 - **Panel pill**: a compact reading for panels and bars
 - **Poll rate**: one base interval drives every sensor
 

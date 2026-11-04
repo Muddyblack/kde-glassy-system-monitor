@@ -392,13 +392,15 @@ function cardWidth(cfg) {
 function surfaceHTML(cfg, ids) {
     const material = Schema.MATERIALS.some(([v]) => v === cfg.surfaceStyle) ? cfg.surfaceStyle || 'tint' : 'tint';
     const bg = Qt.color(cfg.bgColor || '#800d0f1a'), solid = Sections.solidColor(cfg);
-    const [p1, p2] = Sections.materialColors(ids, cfg, '#4aa8ff').map(c => Qt.color(c));
+    const lights = Sections.materialColors(ids, cfg, '#4aa8ff'), [p1, p2, p3] = lights.map(c => Qt.color(c));
     const hex = c => `rgb(${c.r * 255 | 0},${c.g * 255 | 0},${c.b * 255 | 0})`;
-    const p3 = `rgb(${(p1.r * 0.2 + p2.r * 0.1) * 255 | 0},${(p1.g * 0.2 + p2.g * 0.1) * 255 | 0},${(p1.b * 0.2 + p2.b * 0.1) * 255 | 0})`;
     const liquid = material === 'liquid', glass = liquid || material === 'glass';
+    // The glass tint from the same stops CardMaterial paints.
+    const tint = glass ? `;background-image:linear-gradient(135deg,${Sections.glassTint(material, cfg.glassTint || 'clear', cfg.glassTintColor || '#3daee9', cfg.glassTintStrength ?? 1, lights[0], lights[1])
+        .map(([at, c]) => `rgba(${c.r * 255 | 0},${c.g * 255 | 0},${c.b * 255 | 0},${+c.a.toFixed(3)}) ${at * 100}%`).join(',')})` : '';
     const cls = material === 'tint' ? 's-color' + (cfg.frostedGlass ? ' frost' : '') : `s-${material}` + (material === 'solid' && solid ? ' flat' : '') + (glass ? ` t-${cfg.glassTint || 'clear'}${liquid && cfg.glassRefraction > 0.02 ? ' refract' : ''}` : '');
     const edge = (material !== 'tint' && !(material === 'solid' && solid)) || cfg.cardBorder ? `<i class="edge${cfg.cardBorder ? ' hl' : ''}"></i>` : '';
-    const vars = `opacity:${cfg.cardOpacity ?? 1};--bgc:${material === 'solid' && solid ? cssColor(solid) : `rgba(${bg.r * 255 | 0},${bg.g * 255 | 0},${bg.b * 255 | 0},${bg.a})`};--frost:${(cfg.frostStrength ?? 0.55) * 24}px;--glass-blur:${((cfg.glassBlur ?? 0.85) * 24).toFixed(1)}px;--glass-color:${cfg.glassTintColor || '#3daee9'};--p1:${hex(p1)};--p2:${hex(p2)};--p3:${p3}`;
+    const vars = `opacity:${cfg.cardOpacity ?? 1};--bgc:${material === 'solid' && solid ? cssColor(solid) : `rgba(${bg.r * 255 | 0},${bg.g * 255 | 0},${bg.b * 255 | 0},${bg.a})`};--frost:${(cfg.frostStrength ?? 0.55) * 24}px;--glass-blur:${((cfg.glassBlur ?? 0.85) * 24).toFixed(1)}px;--glass-color:${cfg.glassTintColor || '#3daee9'};--p1:${hex(p1)};--p2:${hex(p2)};--p3:${hex(p3)}${tint}`;
     return `<div class="surf ${cls}" style="${vars}">${liquid && cfg.glassSpecular !== false ? '<i class="spec"></i>' : ''}${edge}${cfg.grain ? '<i class="grain"></i>' : ''}</div>`;
 }
 // A section's own text and number colours as CSS variables on its <section>.

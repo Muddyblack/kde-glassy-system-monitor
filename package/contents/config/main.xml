@@ -330,6 +330,10 @@
         <entry name="glassTintColor" type="String">
             <default>#3daee9</default>
         </entry>
+        <!-- Opacity of the glass tint; 1 = the stock look, up to 2. -->
+        <entry name="glassTintStrength" type="Double">
+            <default>1</default>
+        </entry>
         <entry name="glassBlur" type="Double">
             <default>0.85</default>
         </entry>
@@ -348,6 +352,10 @@
             <default></default>
         </entry>
         <entry name="atmosphereColor2" type="String">
+            <default></default>
+        </entry>
+        <!-- Atmosphere depth beneath the lights; empty = a dark mix of both. -->
+        <entry name="atmosphereColor3" type="String">
             <default></default>
         </entry>
         <!-- Per-section text and number colours as JSON:

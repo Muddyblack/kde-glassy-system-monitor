@@ -182,17 +182,45 @@ function sectionInk(cfg, id, system) {
     return sectionColor(cfg, id, "text") || textColor(cfg, system);
 }
 
-// The two colours that light the colour-led materials: the atmosphere's own
-// when set, else the first two section colours.
+// The colours that light the colour-led materials: the atmosphere's own
+// when set, else the first two section colours; the third is the
+// atmosphere's depth, its own or a dark mix of the two lights.
 function materialColors(ids, cfg, fallback) {
     var out = colors(ids, cfg, fallback);
-    if (cfg.surfaceStyle === "atmosphere") {
-        if (isColor(cfg.atmosphereColor1))
-            out[0] = String(cfg.atmosphereColor1);
-        if (isColor(cfg.atmosphereColor2))
-            out[1] = String(cfg.atmosphereColor2);
-    }
+    var atmosphere = cfg.surfaceStyle === "atmosphere";
+    if (atmosphere && isColor(cfg.atmosphereColor1))
+        out[0] = String(cfg.atmosphereColor1);
+    if (atmosphere && isColor(cfg.atmosphereColor2))
+        out[1] = String(cfg.atmosphereColor2);
+    out.push(atmosphere && isColor(cfg.atmosphereColor3) ? String(cfg.atmosphereColor3) : depthColor(out[0], out[1]));
     return out;
+}
+function depthColor(c1, c2) {
+    var a = rgba(c1), b = rgba(c2);
+    var hex = function (v) { return ("0" + Math.round(v * 255).toString(16)).slice(-2); };
+    return "#" + hex(a.r * 0.2 + b.r * 0.1) + hex(a.g * 0.2 + b.g * 0.1) + hex(a.b * 0.2 + b.b * 0.1);
+}
+
+// The glass and liquid tint as a 135° gradient: [[position, {r,g,b,a}], …]
+// with every alpha scaled by `strength` (1 = the stock look). `custom`,
+// `cover1` and `cover2` are hex colours.
+function glassTint(material, tint, custom, strength, cover1, cover2) {
+    var k = Math.max(0, Number(strength === undefined ? 1 : strength));
+    var white = function (a) { return { r: 1, g: 1, b: 1, a: a / 255 }; };
+    var tone = function (hex, a) { var c = rgba(hex); return { r: c.r, g: c.g, b: c.b, a: a }; };
+    var liquid = material === "liquid", stops;
+    if (tint === "frost")
+        stops = liquid ? [[0, white(0x2e)], [0.5, white(0x10)], [1, white(0x22)]] : [[0, white(0x42)], [0.55, white(0x24)], [1, white(0x30)]];
+    else if (tint === "smoke")
+        stops = [[0, { r: 0.07, g: 0.09, b: 0.12, a: 0.64 }], [1, { r: 0.03, g: 0.04, b: 0.07, a: 0.4 }]];
+    else if (tint === "cover")
+        stops = [[0, tone(cover1, 0.38)], [1, tone(cover2, 0.22)]];
+    else if (tint === "custom")
+        stops = [[0, tone(custom, 0.4)], [1, tone(custom, 0.22)]];
+    else
+        stops = liquid ? [[0, white(0x1c)], [0.45, white(0x04)], [1, white(0x12)]] : [[0, white(0x24)], [0.55, white(0x08)], [1, white(0x12)]];
+    stops.forEach(function (s) { s[1].a = Math.min(1, s[1].a * k); });
+    return stops;
 }
 
 // The pill's caption: a title the user changed, else a short name. `stock`

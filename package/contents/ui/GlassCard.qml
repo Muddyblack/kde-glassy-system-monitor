@@ -23,15 +23,18 @@ Item {
 
     property string glassTint: "clear"
     property color glassTintColor: "#3daee9"
+    property real tintStrength: 1
     property real glassBlur: 0.85
     property real refraction: 0.5
     property bool specular: true
     property real surfaceOpacity: 1
     property string shadow: "none"
     property bool grain: false
-    // Atmosphere colours: the first sections' own colours.
+    // Atmosphere colours: the two lights (by default the first sections'
+    // own colours) and the depth beneath them.
     property color color1: "#4aa8ff"
     property color color2: "#b07cff"
+    property color color3: Qt.rgba(color1.r * 0.2 + color2.r * 0.1, color1.g * 0.2 + color2.g * 0.1, color1.b * 0.2 + color2.b * 0.1, 1)
     // The wallpaper to blur under glass; null where the host has none.
     property Item backdrop: null
 
@@ -190,11 +193,12 @@ Item {
                 grain: card.grain
                 glassTint: card.glassTint
                 glassTintColor: card.glassTintColor
+                tintStrength: card.tintStrength
                 specular: card.specular
                 edgeHighlight: card.border
                 cover1: card.color1
                 cover2: card.color2
-                cover3: Qt.rgba(card.color1.r * 0.2 + card.color2.r * 0.1, card.color1.g * 0.2 + card.color2.g * 0.1, card.color1.b * 0.2 + card.color2.b * 0.1, 1)
+                cover3: card.color3
             }
         }
     }
