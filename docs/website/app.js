@@ -20,9 +20,11 @@ const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const TEXT = '#eff0f1';
+// The page stands in for the Plasma accent (Breeze blue).
+const ACCENT = '#3daee9';
 // Card text inside HTML: the card sets --ink (Sections.textColor).
 const INK = 'var(--ink)';
-const inkOf = cfg => Sections.textColor(cfg, TEXT);
+const inkOf = cfg => Sections.textColor(cfg, TEXT, ACCENT);
 
 /* ─── state ────────────────────────────────────────────────────── */
 let S = loadState();
@@ -218,7 +220,7 @@ function chartSpec(cfg, id, def) {
         glow: cfg.glowLine ? Math.max(0.15, cfg.bloomStrength ?? 0.6) : 0,
         historySize: Math.max(10, cfg.historySize || 60),
         phase: scrolling && cfg.smoothScroll ? monitor.phase() : 1,
-        ink: Sections.sectionInk(cfg, id, TEXT),
+        ink: Sections.sectionInk(cfg, id, TEXT, ACCENT),
         step: 1
     };
 }
@@ -389,21 +391,20 @@ function cardWidth(cfg) {
 }
 // The card's material, as GlassCard draws it. Glass and liquid reuse the
 // Audio Visualizer's surface classes from style.css.
-// The page stands in for the Plasma accent (Breeze blue).
-const ACCENT = '#3daee9';
 function surfaceHTML(cfg, ids) {
     const material = Schema.MATERIALS.some(([v]) => v === cfg.surfaceStyle) ? cfg.surfaceStyle || 'tint' : 'tint';
-    const bg = Qt.color(Sections.tintFill(cfg, ACCENT)), solid = Sections.solidColor(cfg);
+    const bg = Qt.color(Sections.tintFill(cfg, ACCENT)), solid = Sections.solidColor(cfg, ACCENT);
     const lights = Sections.materialColors(ids, cfg, ACCENT), [p1, p2, p3] = lights.map(c => Qt.color(c));
     const hex = c => `rgb(${c.r * 255 | 0},${c.g * 255 | 0},${c.b * 255 | 0})`;
     const liquid = material === 'liquid', glass = liquid || material === 'glass';
     // The glass tint from the same stops CardMaterial paints.
     const tint = glass ? `;background-image:linear-gradient(135deg,${Sections.glassTint(material, cfg.glassTint || 'clear', cfg.glassTintColor || '#3daee9', cfg.glassTintStrength ?? 1, lights[0], lights[1], cfg.glassTintColor2, ACCENT)
-        .map(([at, c]) => `rgba(${c.r * 255 | 0},${c.g * 255 | 0},${c.b * 255 | 0},${+c.a.toFixed(3)}) ${at * 100}%`).join(',')})` : '';
+        .map(([at, c]) => `rgba(${c.r * 255 | 0},${c.g * 255 | 0},${c.b * 255 | 0},${+c.a.toFixed(3)}) ${at * 100}%`).join(',')})`
+        : material === 'gradient' ? `;background-image:linear-gradient(${cfg.gradientAngle ?? 135}deg,${Sections.gradientColors(cfg, ACCENT).join(',')})` : '';
     const cls = material === 'tint' ? 's-color' + (cfg.frostedGlass ? ' frost' : '') : `s-${material}` + (material === 'solid' && solid ? ' flat' : '') + (glass ? ` t-${cfg.glassTint || 'clear'}${liquid && cfg.glassRefraction > 0.02 ? ' refract' : ''}` : '');
     const edge = (material !== 'tint' && !(material === 'solid' && solid)) || cfg.cardBorder ? `<i class="edge${cfg.cardBorder ? ' hl' : ''}"></i>` : '';
-    const vars = `opacity:${cfg.cardOpacity ?? 1};--bgc:${material === 'solid' && solid ? cssColor(solid) : `rgba(${bg.r * 255 | 0},${bg.g * 255 | 0},${bg.b * 255 | 0},${bg.a})`};--frost:${(cfg.frostStrength ?? 0.55) * 24}px;--glass-blur:${((cfg.glassBlur ?? 0.85) * 24).toFixed(1)}px;--glass-color:${cfg.glassTintColor || '#3daee9'};--p1:${hex(p1)};--p2:${hex(p2)};--p3:${hex(p3)};--edge:${Sections.ownColor(cfg.edgeColor, '#ffffff')};--hl:${Sections.ownColor(cfg.highlightColor, '#ffffff')};--glow-size:${cfg.atmosphereGlowSize ?? 1};--glow:${cfg.atmosphereGlowStrength ?? 1}${tint}`;
-    return `<div class="surf ${cls}" style="${vars}">${liquid && cfg.glassSpecular !== false ? '<i class="spec"></i>' : ''}${edge}${cfg.grain ? '<i class="grain"></i>' : ''}</div>`;
+    const vars = `opacity:${cfg.cardOpacity ?? 1};--bgc:${material === 'solid' && solid ? cssColor(solid) : `rgba(${bg.r * 255 | 0},${bg.g * 255 | 0},${bg.b * 255 | 0},${bg.a})`};--frost:${(cfg.frostStrength ?? 0.55) * 24}px;--glass-blur:${((cfg.glassBlur ?? 0.85) * 24).toFixed(1)}px;--glass-color:${cfg.glassTintColor || '#3daee9'};--p1:${hex(p1)};--p2:${hex(p2)};--p3:${hex(p3)};--edge:${Sections.edgeColor(cfg, ACCENT)};--hl:${Sections.ownColor(cfg.highlightColor, '#ffffff')};--glow-size:${cfg.atmosphereGlowSize ?? 1};--glow:${cfg.atmosphereGlowStrength ?? 1};--ow:${cfg.outlineWidth ?? 1.5}px${tint}`;
+    return `<div class="surf ${cls}" style="${vars}">${liquid && cfg.glassSpecular !== false ? '<i class="spec"></i>' : ''}${edge}${cfg.grain && material !== 'outline' ? '<i class="grain"></i>' : ''}</div>`;
 }
 // A section's own text and number colours as CSS variables on its <section>.
 function sectionVars(cfg, id) {
@@ -488,7 +489,7 @@ function fit(box, inner, max = 1) {
 function lookState(look) { return { ...Looks.apply(S, BASE, look.s) }; }
 function renderPresets() {
     const saved = savedLooks();
-    const all = Looks.BUILT_IN.concat(saved.map((l, i) => ({ id: 'mine' + i, name: l.name, note: 'Saved in this browser', s: l.settings })));
+    const all = Looks.BUILT_IN.concat(saved.filter(l => !l.card).map((l, i) => ({ id: 'mine' + i, name: l.name, note: 'Saved in this browser', s: l.settings })));
     $('#presets').innerHTML = all.map((look, i) => `<article class="pcard${Looks.matches(S, BASE, look.s) ? ' active' : ''}" data-look="${i}">
       <div class="pv" title="Use ${esc(look.name)}"><span class="bd bd-${['sea', 'dusk', 'breeze', 'neon', 'olive', 'sea', 'dusk'][i % 7]}"></span><div class="fit"><div class="fi"></div></div></div>
       <div class="meta"><div><h3>${esc(look.name)}</h3><p>${esc(look.note)}</p></div><button class="use">Use</button></div></article>`).join('');
@@ -613,7 +614,7 @@ function buildRow(r) {
     } else if (r.type === 'sections') {
         sync = renderSectionList(el, headHTML);
     } else if (r.type === 'looks') {
-        sync = renderLookGallery(el);
+        sync = renderLookGallery(el, !!r.cards);
     } else if (r.type === 'projectInfo') {
         sync = renderProjectInfo(el);
     }
@@ -639,7 +640,7 @@ function renderSectionColors(el, headHTML) {
     return s => {
         // Rebuilding would close the colour picker the user is dragging in.
         if (el.contains(document.activeElement) && document.activeElement.type === 'color') return;
-        const ids = Sections.parse(s.sections, s.activeSection), own = Sections.sectionColors(s.sectionColors), card = Sections.textColor(s, TEXT);
+        const ids = Sections.parse(s.sections, s.activeSection), own = Sections.sectionColors(s.sectionColors), card = Sections.textColor(s, TEXT, ACCENT);
         const dot = (spec, color, mine, tip) => `<button class="scd${mine ? '' : ' inherit'}" data-spec="${spec}" title="${esc(tip)}" aria-pressed="${openColor === spec}" style="--c:${cssColor(color)}"></button>`;
         const lines = ids.map(id => {
             const charts = Sections.CHART_COLORS[id] || [], mine = own[id] || {};
@@ -814,37 +815,39 @@ function renderSectionList(el, headHTML) {
 // Presets tab: the looks, plus saving, copying and importing.
 const savedLooks = () => { try { return Looks.parseSaved(localStorage.getItem('glassy-looks')); } catch (e) { return []; } };
 const storeLooks = list => { try { localStorage.setItem('glassy-looks', JSON.stringify(list)); } catch (e) { } };
-function renderLookGallery(el) {
+function renderLookGallery(el, cards) {
+    const kind = cards ? 'card style' : 'look';
     el.innerHTML = `<div class="pp-grid"></div>
-      <div class="gl-tools"><input class="sel txt" placeholder="Name this look" aria-label="Look name"><button class="primary" data-act="save">Save current</button><button class="ghost" data-act="copy">Copy as JSON</button><button class="ghost" data-act="import">Import JSON</button></div>
-      <div class="gl-import" hidden><textarea class="sel" rows="4" placeholder="Paste a look"></textarea><button class="primary" data-act="doimport">Import and save</button></div>
-      <p class="rd">A look covers layout, charts, card and colours. Commands, ping hosts, devices, thresholds and placement stay as they are, so an imported look can never run anything. Looks saved here stay in this browser; <em>Copy as JSON</em> and paste it into the widget's Presets › Import JSON.</p>`;
+      <div class="gl-tools"><input class="sel txt" placeholder="Name this ${kind}" aria-label="${kind} name"><button class="primary" data-act="save">${cards ? 'Save card style' : 'Save current'}</button><button class="ghost" data-act="copy">Copy as JSON</button><button class="ghost" data-act="import">Import JSON</button></div>
+      <div class="gl-import" hidden><textarea class="sel" rows="4" placeholder="Paste a ${kind}"></textarea><button class="primary" data-act="doimport">Import and save</button></div>
+      <p class="rd">${cards ? 'A card style covers only the card: material, its colours, edges, shadow and corners. Sections, charts and layout stay as they are.' : 'A look covers layout, charts, card and colours. Commands, ping hosts, devices, thresholds and placement stay as they are, so an imported look can never run anything.'} Saved here they stay in this browser; <em>Copy as JSON</em> and paste it into the widget's Presets › Import JSON.</p>`;
     const grid = $('.pp-grid', el), name = $('input', el);
     el.addEventListener('click', e => {
         const act = e.target.closest('[data-act]');
         const tile = e.target.closest('.pp');
-        if (tile && !act) { applyLook(tile._look); return; }
+        if (tile && !act) { S = Looks.apply(S, BASE, tile._look.s, cards); onChange(); toast(`Applied “${tile._look.name}”`); return; }
         if (!act) return;
         const a = act.dataset.act;
-        if (a === 'save' && name.value.trim()) { storeLooks(savedLooks().concat([{ name: name.value.trim(), settings: Looks.extract(S, BASE) }])); toast('Saved “' + name.value.trim() + '”'); name.value = ''; syncSettings(); renderPresets(); }
-        if (a === 'copy') { navigator.clipboard.writeText(Looks.encode(name.value.trim() || 'My look', Looks.extract(S, BASE), DEFAULTS)); toast('Look copied'); }
+        if (a === 'save' && name.value.trim()) { storeLooks(savedLooks().concat([cards ? { name: name.value.trim(), card: true, settings: Looks.extract(S, BASE, true) } : { name: name.value.trim(), settings: Looks.extract(S, BASE) }])); toast('Saved “' + name.value.trim() + '”'); name.value = ''; syncSettings(); renderPresets(); }
+        if (a === 'copy') { navigator.clipboard.writeText(Looks.encode(name.value.trim() || (cards ? 'My card style' : 'My look'), Looks.extract(S, BASE, cards), DEFAULTS, cards)); toast(cards ? 'Card style copied' : 'Look copied'); }
         if (a === 'import') $('.gl-import', el).hidden = !$('.gl-import', el).hidden;
         if (a === 'doimport') {
-            try { const look = Looks.decode($('textarea', el).value, DEFAULTS); storeLooks(savedLooks().concat([look])); $('textarea', el).value = ''; $('.gl-import', el).hidden = true; toast('Imported “' + look.name + '”'); syncSettings(); renderPresets(); }
+            try { const look = Looks.decode($('textarea', el).value, DEFAULTS); storeLooks(savedLooks().concat([look])); $('textarea', el).value = ''; $('.gl-import', el).hidden = true; toast('Imported “' + look.name + '”' + (!!look.card === cards ? '' : look.card ? ' under Card styles' : ' under Looks')); syncSettings(); renderPresets(); }
             catch (err) { toast(err.message || 'That is not a valid look.'); }
         }
         if (a === 'delete') { const i = Number(act.dataset.i); storeLooks(savedLooks().filter((_, k) => k !== i)); syncSettings(); renderPresets(); }
     });
     let signature = '';
     return s => {
-        const all = Looks.BUILT_IN.concat(savedLooks().map((l, i) => ({ id: 'mine' + i, name: l.name, note: 'Saved in this browser', s: l.settings, mine: i })));
+        const mine = savedLooks().map((l, i) => ({ id: 'mine' + i, name: l.name, note: 'Saved in this browser', s: l.settings, mine: i, card: !!l.card })).filter(l => l.card === cards);
+        const all = (cards ? Looks.CARD_STYLES : Looks.BUILT_IN).concat(mine);
         const sig = JSON.stringify(all.map(l => l.name)) + JSON.stringify(changed(s));
         if (sig === signature) return;
         signature = sig;
-        grid.innerHTML = all.map((l, i) => `<div class="pp" role="button" tabindex="0" data-i="${i}" aria-pressed="${Looks.matches(s, BASE, l.s)}"><div class="ppv"><span class="bd bd-${['sea', 'dusk', 'breeze', 'neon', 'olive', 'sea', 'dusk'][i % 7]}"></span><div class="fit"><div class="fi"></div></div></div><div class="tl"><span>${esc(l.name)}</span>${l.mine !== undefined ? `<button class="del" data-act="delete" data-i="${l.mine}" title="Delete" aria-label="Delete ${esc(l.name)}">×</button>` : ''}</div></div>`).join('');
+        grid.innerHTML = all.map((l, i) => `<div class="pp" role="button" tabindex="0" data-i="${i}" aria-pressed="${Looks.matches(s, BASE, l.s, cards)}"><div class="ppv"><span class="bd bd-${['sea', 'dusk', 'breeze', 'neon', 'olive', 'sea', 'dusk'][i % 7]}"></span><div class="fit"><div class="fi"></div></div></div><div class="tl"><span>${esc(l.name)}</span>${l.mine !== undefined ? `<button class="del" data-act="delete" data-i="${l.mine}" title="Delete" aria-label="Delete ${esc(l.name)}">×</button>` : ''}</div></div>`).join('');
         $$('.pp', grid).forEach((t, i) => {
             t._look = all[i];
-            mount($('.fi', t), widgetHTML(Looks.apply(s, BASE, all[i].s)));
+            mount($('.fi', t), widgetHTML(Looks.apply(s, BASE, all[i].s, cards)));
         });
         fitCards();
     };

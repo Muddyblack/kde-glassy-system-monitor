@@ -4,7 +4,8 @@ import "card"
 
 // The widget's card. "tint" is the classic tinted fill with optional frost
 // and four independent corners; the other materials (glass, liquid glass,
-// solid, atmosphere) come from the audio visualizer and use one radius.
+// solid, atmosphere from the audio visualizer; gradient and outline) use one
+// radius.
 // Every layer is static: it repaints on size or setting changes only.
 Item {
     id: card
@@ -34,6 +35,9 @@ Item {
     // Atmosphere glow size and strength, 1 = stock.
     property real glowSize: 1
     property real glowStrength: 1
+    property var gradientColors: ["#2b1055", "#1c4f7a"]
+    property real gradientAngle: 135
+    property real outlineWidth: 1.5
     property real glassBlur: 0.85
     property real refraction: 0.5
     property bool specular: true
@@ -49,7 +53,7 @@ Item {
     property Item backdrop: null
 
     readonly property real maxRadius: Math.max(radiusTL, radiusTR, radiusBR, radiusBL)
-    readonly property bool tinted: material === "tint" || ["glass", "liquid", "solid", "atmosphere"].indexOf(material) === -1
+    readonly property bool tinted: material === "tint" || ["glass", "liquid", "solid", "atmosphere", "gradient", "outline"].indexOf(material) === -1
     readonly property bool glassy: material === "glass" || material === "liquid"
     readonly property var shadowLayers: shadow === "lifted" ? [
         {
@@ -211,6 +215,9 @@ Item {
                 highlightColor: card.highlightColor
                 glowSize: card.glowSize
                 glowStrength: card.glowStrength
+                gradientColors: card.gradientColors
+                gradientAngle: card.gradientAngle
+                outlineWidth: card.outlineWidth
                 specular: card.specular
                 edgeHighlight: card.border
                 cover1: card.color1

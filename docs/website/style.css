@@ -182,6 +182,8 @@ select.sel{background:var(--sunk);border:1px solid var(--line2);border-radius:8p
 .sp-glass{background:linear-gradient(135deg,#ffffff30,var(--studio-hover) 60%,#ffffff14);box-shadow:inset 0 1px #ffffff30}
 .sp-liquid{border:0;background:linear-gradient(135deg,#ffffff22,#ffffff05 50%,#ffffff18);box-shadow:inset 0 1px #ffffffaa,inset 0 -1px #ffffff40,inset 1px 0 #ffffff50,inset 0 8px 14px -8px #ffffff60}
 .sp-solid{background:linear-gradient(135deg,#eeeee4,#d9dfcf)}
+.sp-gradient{background:linear-gradient(135deg,#2b1055,#1c4f7a)}
+.sp-outline{background:none;border:1.5px solid #ffffffbf}
 .sp-atmosphere{background:radial-gradient(120% 140% at 100% 0%,#ff3d8baa,transparent 60%),radial-gradient(120% 120% at 0 100%,#5b2cffaa,transparent 60%),#120b2e}
 .tpv.onbd{background:linear-gradient(135deg,#5b1d6e,#b3628a)}
 .note{display:flex;gap:10px;padding:12px 13px;border-radius:12px;background:var(--studio-noteBg);border:1px solid var(--studio-noteBorder);font-size:11.5px;line-height:1.6;color:var(--studio-noteText)}

@@ -223,6 +223,22 @@ Kirigami.Page {
     property real cfg_atmosphereGlowSizeDefault
     property real cfg_atmosphereGlowStrength
     property real cfg_atmosphereGlowStrengthDefault
+    property bool cfg_solidFollowAccent
+    property bool cfg_solidFollowAccentDefault
+    property string cfg_gradientColor1
+    property string cfg_gradientColor1Default
+    property string cfg_gradientColor2
+    property string cfg_gradientColor2Default
+    property string cfg_gradientColor3
+    property string cfg_gradientColor3Default
+    property int cfg_gradientAngle
+    property int cfg_gradientAngleDefault
+    property bool cfg_gradientFollowAccent
+    property bool cfg_gradientFollowAccentDefault
+    property real cfg_outlineWidth
+    property real cfg_outlineWidthDefault
+    property bool cfg_edgeFollowAccent
+    property bool cfg_edgeFollowAccentDefault
     property string cfg_sectionColors
     property string cfg_sectionColorsDefault
     property bool cfg_compositorGlass

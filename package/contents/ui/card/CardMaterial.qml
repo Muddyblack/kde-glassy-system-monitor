@@ -12,7 +12,7 @@ Canvas {
     id: card
     objectName: "cardMaterial"
 
-    // glass · liquid · solid · atmosphere · "" (edge highlight only)
+    // glass · liquid · solid · atmosphere · gradient · outline · "" (edge highlight only)
     property string material: ""
     property real radius: 12
     property string glassTint: "clear"
@@ -29,6 +29,11 @@ Canvas {
     // Atmosphere glows: size and strength, 1 = stock.
     property real glowSize: 1
     property real glowStrength: 1
+    // Gradient: two or three colours at a CSS angle (0 = upwards, 90 = right).
+    property var gradientColors: ["#2b1055", "#1c4f7a"]
+    property real gradientAngle: 135
+    // Outline: the edge line's width.
+    property real outlineWidth: 1.5
     property color solidColor: "transparent"
     property bool grain: false
     property bool specular: true
@@ -45,7 +50,7 @@ Canvas {
         enabled: card.material === "liquid" && card.specular
     }
     readonly property point specularPoint: hover.hovered ? hover.point.position : Qt.point(width * 0.22, -height * 0.1)
-    readonly property var signature: [material, grain, radius, glassTint, glassTintColor, glassTintColor2, accent, tintStrength, edgeColor, highlightColor, glowSize, glowStrength, solidColor, specular, edgeHighlight, cover1, cover2, cover3, width, height]
+    readonly property var signature: [material, grain, radius, glassTint, glassTintColor, glassTintColor2, accent, tintStrength, edgeColor, highlightColor, glowSize, glowStrength, gradientColors, gradientAngle, outlineWidth, solidColor, specular, edgeHighlight, cover1, cover2, cover3, width, height]
     onSignatureChanged: requestPaint()
     onSpecularPointChanged: {
         if (material === "liquid" && specular)
@@ -154,12 +159,25 @@ Canvas {
                 ctx.fillRect(0, 0, w, h);
                 break;
             }
+        case "gradient":
+            {
+                // CSS linear-gradient(angle, …): the line through the centre
+                // long enough that the corners get the end colours.
+                const a = gradientAngle * Math.PI / 180, dx = Math.sin(a), dy = -Math.cos(a);
+                const half = (Math.abs(w * dx) + Math.abs(h * dy)) / 2;
+                const fill = ctx.createLinearGradient(w / 2 - dx * half, h / 2 - dy * half, w / 2 + dx * half, h / 2 + dy * half);
+                const list = gradientColors.length ? gradientColors : ["#2b1055", "#1c4f7a"];
+                list.forEach((c, i) => fill.addColorStop(list.length > 1 ? i / (list.length - 1) : 0, c));
+                ctx.fillStyle = fill;
+                ctx.fillRect(0, 0, w, h);
+                break;
+            }
         }
 
-        if (grain)
+        if (grain && material !== "outline")
             GrainDraw.draw(ctx, w, h, true);
 
-        if (edgeHighlight) {
+        if (edgeHighlight && material !== "outline") {
             ctx.fillStyle = edgeTone(0x2e);
             ctx.fillRect(0, 0, w, 1);
             ctx.fillStyle = Qt.rgba(0, 0, 0, 0x26 / 255);
@@ -191,6 +209,13 @@ Canvas {
                 edge();
                 ctx.restore();
             }
+        } else if (material === "outline") {
+            const lw = Math.max(0.5, outlineWidth);
+            ctx.lineWidth = lw;
+            ctx.strokeStyle = edgeTone(0xbf);
+            ctx.beginPath();
+            ctx.roundedRect(lw / 2, lw / 2, w - lw, h - lw, Math.max(0, r - lw / 2), Math.max(0, r - lw / 2));
+            ctx.stroke();
         } else {
             ctx.strokeStyle = material === "solid" ? edgeTone(0x99) : edgeTone(0x1f);
             edge();

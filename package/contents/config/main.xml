@@ -390,6 +390,38 @@
         <entry name="atmosphereGlowStrength" type="Double">
             <default>1</default>
         </entry>
+        <!-- Solid card in the Plasma accent colour. -->
+        <entry name="solidFollowAccent" type="Bool">
+            <default>false</default>
+        </entry>
+        <!-- Gradient material: start colour. -->
+        <entry name="gradientColor1" type="String">
+            <default>#2b1055</default>
+        </entry>
+        <!-- Gradient material: second colour. -->
+        <entry name="gradientColor2" type="String">
+            <default>#1c4f7a</default>
+        </entry>
+        <!-- Gradient material: optional third colour; empty = two colours. -->
+        <entry name="gradientColor3" type="String">
+            <default></default>
+        </entry>
+        <!-- Gradient direction in degrees (CSS: 0 = upwards, 90 = to the right). -->
+        <entry name="gradientAngle" type="Int">
+            <default>135</default>
+        </entry>
+        <!-- Gradient starts in the Plasma accent colour. -->
+        <entry name="gradientFollowAccent" type="Bool">
+            <default>false</default>
+        </entry>
+        <!-- Outline material: line width in px. -->
+        <entry name="outlineWidth" type="Double">
+            <default>1.5</default>
+        </entry>
+        <!-- Edge lines and rim light in the Plasma accent colour. -->
+        <entry name="edgeFollowAccent" type="Bool">
+            <default>false</default>
+        </entry>
         <!-- Per-section text and number colours as JSON:
              {"cpu":{"text":"#ffffff","value":"#44ddaa"}}; empty = inherit. -->
         <entry name="sectionColors" type="String">

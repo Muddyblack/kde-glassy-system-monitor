@@ -483,6 +483,102 @@ TestCase {
         compare([custom.r, custom.g, custom.b, custom.a], [1, 0, 0, 0.4], "the tint's own alpha is ignored");
     }
 
+    function loadDefaults() {
+        const x = new XMLHttpRequest();
+        x.open("GET", Qt.resolvedUrl("../package/contents/config/main.xml"), false);
+        x.send();
+        return HyprConfig.defaults(x.responseText);
+    }
+
+    // Every setting the Card tab edits is part of a card style, and every
+    // card style key is a real setting.
+    function test_cardStyleKeysCoverTheCardTab() {
+        const defaults = loadDefaults(), keys = {};
+        Schema.SECTIONS.filter(t => t.tab === "card").forEach(t => t.rows.forEach(r => {
+                if (r.k)
+                    keys[r.k] = true;
+                if (r.set)
+                    Object.keys(r.set("#123456", defaults) || {}).forEach(k => keys[k] = true);
+            }));
+        for (const k in keys)
+            verify(Looks.CARD_KEYS.indexOf(k) !== -1, "card tab key missing from Looks.CARD_KEYS: " + k);
+        Looks.CARD_KEYS.forEach(k => verify(defaults[k] !== undefined, "unknown card key " + k));
+        Looks.CARD_STYLES.forEach(c => Object.keys(c.s).forEach(k => verify(Looks.CARD_KEYS.indexOf(k) !== -1, c.id + ": " + k)));
+    }
+
+    // A card style swaps only the card; a look still swaps everything.
+    function test_cardStyleKeepsLayout() {
+        const defaults = loadDefaults();
+        const draft = Object.assign({}, defaults, {
+            sections: "gpu,disk",
+            layoutColumns: 2,
+            cpuColor: "#ff0000",
+            surfaceStyle: "solid",
+            edgeColor: "#00ff00"
+        });
+        const style = Looks.CARD_STYLES.find(c => c.id === "card-you-glass");
+        const next = Looks.apply(draft, defaults, style.s, true);
+        compare([next.sections, next.layoutColumns, next.cpuColor], ["gpu,disk", 2, "#ff0000"]);
+        compare([next.surfaceStyle, next.glassTint, next.edgeColor], ["glass", "accent", defaults.edgeColor], "card keys reset, then the style");
+        verify(Looks.matches(next, defaults, style.s, true));
+        verify(!Looks.matches(next, defaults, style.s), "as a full look it would not match");
+        compare(Object.keys(Looks.extract(next, defaults, true)).sort(), Object.keys(style.s).sort());
+        // Shared as JSON it stays a card style and drops anything else.
+        const json = Looks.encode("Mine", Object.assign({
+            sections: "cpu"
+        }, style.s), defaults, true);
+        const back = Looks.decode(json, defaults);
+        verify(back.card);
+        compare(back.settings, style.s);
+        verify(!Looks.decode(Looks.encode("Look", {
+            sections: "cpu"
+        }, defaults), defaults).card);
+    }
+
+    function test_gradientOutlineAndSolidAccent() {
+        compare(Sections.gradientColors({}, "#22aaff"), ["#2b1055", "#1c4f7a"]);
+        compare(Sections.gradientColors({
+            gradientColor3: "#ffffff",
+            gradientFollowAccent: true
+        }, "#22aaff"), ["#22aaff", "#1c4f7a", "#ffffff"]);
+        compare(Sections.textColor({
+            useSystemTextColor: true,
+            surfaceStyle: "gradient"
+        }, "#eff0f1", ""), "#eef1f5", "light text on the dark default gradient");
+        compare(Sections.textColor({
+            useSystemTextColor: true,
+            surfaceStyle: "gradient",
+            gradientColor1: "#ffffff",
+            gradientColor2: "#eeeeee"
+        }, "#eff0f1", ""), "#1e241d");
+        compare(Sections.textColor({
+            useSystemTextColor: true,
+            surfaceStyle: "outline"
+        }, "#eff0f1", ""), "#eff0f1", "outline follows the theme");
+        compare(Sections.solidColor({
+            solidFollowAccent: true,
+            solidColor: "#000000"
+        }, "#ffdd55"), "#ffdd55");
+        compare(Sections.textColor({
+            useSystemTextColor: true,
+            surfaceStyle: "solid",
+            solidFollowAccent: true
+        }, "#eff0f1", "#ffdd55"), "#1e241d", "dark text on a light accent");
+        compare(Sections.textColor({
+            useSystemTextColor: true,
+            surfaceStyle: "solid",
+            solidFollowAccent: true
+        }, "#eff0f1", "#123456"), "#eef1f5");
+        compare(Sections.edgeColor({
+            edgeColor: "#ff0000"
+        }, "#22aaff"), "#ff0000");
+        compare(Sections.edgeColor({
+            edgeColor: "#ff0000",
+            edgeFollowAccent: true
+        }, "#22aaff"), "#22aaff");
+        compare(Sections.edgeColor({}, ""), "#ffffff");
+    }
+
     // Two-colour custom tint, the accent tint, and the accent-following cards.
     function test_accentAndSecondTintColour() {
         const two = Sections.glassTint("glass", "custom", "#ff0000", 1, "", "", "#0000ff", "");

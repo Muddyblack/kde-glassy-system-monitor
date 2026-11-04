@@ -211,7 +211,9 @@ Item {
                 glass: "row_glassColor",
                 liquid: "row_glassColor",
                 solid: "row_solidColor",
-                atmosphere: "row_atmosphereColor1"
+                atmosphere: "row_atmosphereColor1",
+                gradient: "row_gradientColor2",
+                outline: "row_outlineWidth"
             };
             studio.selectTab("card");
             for (const m in rows) {

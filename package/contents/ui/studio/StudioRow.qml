@@ -247,6 +247,7 @@ Item {
         id: looksComponent
         LookGallery {
             studio: row.studio
+            cards: !!row.rowData.cards
         }
     }
     Component {

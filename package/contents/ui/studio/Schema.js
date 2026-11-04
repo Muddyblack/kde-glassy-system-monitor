@@ -67,6 +67,7 @@ var SWATCHES = ["#44ddaa", "#22aaff", "#aa66ff", "#ff6688", "#ff9933", "#ffaa22"
 var GLASS = ["#800d0f1a", "#99000000", "#66101828", "#801a1024", "#6610231d", "#40ffffff", "#00000000"];
 var SOLID = ["#efefe6", "#ffffff", "#d8dece", "#1b1e24", "#060907", "#0d1b2a", "#2b1d3a", "#123524"];
 var ACCENT_DESC = "Uses the Plasma accent colour and changes with it, including colour schemes made from the wallpaper (KDE Material You Colors).";
+var GRADIENT = ["#2b1055", "#1c4f7a", "#7f1d4f", "#0f4c3a", "#3a1c71", "#d76d77", "#ffaf7b", "#44ddaa", "#22aaff", "#aa66ff"];
 var DEPTH = ["#000000", "#060907", "#0d1b2a", "#1b1e24", "#2b1d3a", "#123524", "#3a1420"];
 var INK = ["#ffffff", "#eef1f5", "#c8d0da", "#8a93a0", "#1e241d", "#000000", "#44ddaa", "#22aaff", "#ffaa22"];
 
@@ -82,9 +83,12 @@ var PALETTES = {
 
 // Card materials; "tint" is the classic tinted card, the rest come from the
 // audio visualizer.
-var MATERIALS = [["tint", "Tint"], ["glass", "Glass"], ["liquid", "Liquid glass"], ["solid", "Solid"], ["atmosphere", "Atmosphere"]];
+var MATERIALS = [["tint", "Tint"], ["glass", "Glass"], ["liquid", "Liquid glass"], ["solid", "Solid"], ["atmosphere", "Atmosphere"], ["gradient", "Gradient"], ["outline", "Outline"]];
 function tint(s) {
     return !s.surfaceStyle || s.surfaceStyle === "tint";
+}
+function material(id) {
+    return function (s) { return s.surfaceStyle === id; };
 }
 function glassy(s) {
     return s.surfaceStyle === "glass" || s.surfaceStyle === "liquid";
@@ -114,6 +118,9 @@ function sectionColor(id, part, label, desc) {
 var SECTIONS = [
     tab("presets", "Looks", [
         { id: "looks", type: "looks", full: true, label: "", desc: "presets looks save import export json share neon dashboard minimal gauges gaming laptop" }
+    ]),
+    tab("presets", "Card styles", [
+        { id: "cardStyles", type: "looks", cards: true, full: true, label: "", desc: "card styles material you accent glass neon edge aurora paper save import export own material" }
     ]),
     tab("layout", "Sections", [
         { id: "sections", type: "sections", full: true, label: "What the widget shows", desc: "Switch sections on, drag them into order by the grip, and give each chart section its own size and style. One widget shows them all; a panel pill shows the first, or the ones picked under Layout › In a panel." },
@@ -193,8 +200,9 @@ var SECTIONS = [
         { k: "glassTintColor2", type: "color", label: "Second colour", desc: "The tint fades into this one towards the bottom right.", auto: "Same colour", swatches: SWATCHES,
           when: function (s) { return glassy(s) && s.glassTint === "custom"; } },
         { k: "glassTintStrength", type: "range", label: "Tint strength", desc: "How much colour the glass carries, for every tint. 100% is the stock look; 0% leaves only the blur.", min: 0, max: 2, step: 0.05, fmt: "pct", when: glassy },
+        { k: "solidFollowAccent", type: "switch", label: "Follow accent colour", desc: ACCENT_DESC + " Text turns light or dark to stay readable.", when: material("solid") },
         { k: "solidColor", type: "color", label: "Card colour", desc: "Text turns light on a dark card while it follows the theme.", auto: "Paper", swatches: SOLID,
-          when: function (s) { return s.surfaceStyle === "solid"; },
+          when: function (s) { return s.surfaceStyle === "solid" && !s.solidFollowAccent; },
           get: function (s) { return Sections.solidColor(s); },
           set: function (v, s) {
               var patch = { solidColor: v || "" };
@@ -215,6 +223,13 @@ var SECTIONS = [
           when: function (s) { return s.surfaceStyle === "atmosphere"; } },
         { k: "atmosphereGlowStrength", type: "range", label: "Glow strength", min: 0, max: 1.25, step: 0.05, fmt: "pct",
           when: function (s) { return s.surfaceStyle === "atmosphere"; } },
+        { k: "gradientFollowAccent", type: "switch", label: "Start from accent", desc: ACCENT_DESC, when: material("gradient") },
+        { k: "gradientColor1", type: "color", label: "First colour", swatches: GRADIENT,
+          when: function (s) { return s.surfaceStyle === "gradient" && !s.gradientFollowAccent; } },
+        { k: "gradientColor2", type: "color", label: "Second colour", swatches: GRADIENT, when: material("gradient") },
+        { k: "gradientColor3", type: "color", label: "Third colour", desc: "Optional; the gradient runs through all three.", auto: "None", swatches: GRADIENT, when: material("gradient") },
+        { k: "gradientAngle", type: "range", label: "Direction", desc: "0° runs upwards, 90° to the right.", min: 0, max: 360, step: 15, fmt: "deg", when: material("gradient") },
+        { k: "outlineWidth", type: "range", label: "Line width", desc: "No fill, just the line; its colour is the edge colour below.", min: 0.5, max: 6, step: 0.5, fmt: "fixed1", when: material("outline") },
         { k: "frostedGlass", type: "switch", label: "Frosted", desc: "Blur the tint into a soft glass gradient.", when: tint },
         { k: "frostStrength", type: "range", label: "Frost", min: 0, max: 1, step: 0.05, fmt: "pct", when: function (s) { return tint(s) && s.frostedGlass; } },
         { k: "glassBlur", type: "range", label: "Wallpaper blur", desc: "How frosted the glass looks. 0% turns blur off; text and charts stay sharp.", min: 0, max: 1, step: 0.01, fmt: "pct", when: glassy },
@@ -231,12 +246,14 @@ var SECTIONS = [
         { k: "shadowColor", type: "color", label: "Shadow colour", desc: "A coloured shadow reads as a glow on dark wallpapers.", auto: "Black", swatches: SWATCHES,
           when: function (s) { return s.cardShadow === "soft" || s.cardShadow === "lifted"; } },
         { k: "cardBorder", type: "switch", label: "Glass edge", desc: "Hairline border and a line of light along the top." },
-        { k: "edgeColor", type: "color", label: "Edge colour", desc: "The edge lines and rim light of every material.", auto: "White", swatches: SWATCHES,
+        { k: "edgeFollowAccent", type: "switch", label: "Edge follows accent", desc: "The edge lines and rim light in the Plasma accent colour.",
           when: function (s) { return !tint(s) || s.cardBorder; } },
+        { k: "edgeColor", type: "color", label: "Edge colour", desc: "The edge lines and rim light of every material.", auto: "White", swatches: SWATCHES,
+          when: function (s) { return (!tint(s) || s.cardBorder) && !s.edgeFollowAccent; } },
         { k: "grain", type: "switch", label: "Film grain", desc: "Stops gradients from banding." }
     ]),
     tab("card", "Corners", [
-        { id: "radius", type: "range", label: "Corner radius", desc: "Glass, solid and atmosphere use one radius for all corners.", min: 0, max: 30, step: 1, fmt: "px",
+        { id: "radius", type: "range", label: "Corner radius", desc: "Every material but Tint uses one radius for all corners.", min: 0, max: 30, step: 1, fmt: "px",
           get: function (s) { return s.bgRadiusTL; },
           set: function (v) { return { bgRadiusTL: v, bgRadiusTR: v, bgRadiusBR: v, bgRadiusBL: v }; } },
         { k: "bgRadiusTL", type: "range", label: "Top left", min: 0, max: 30, step: 1, fmt: "px", when: tint },
@@ -471,6 +488,7 @@ function format(kind, v) {
     case "s": return Number(v) + " s";
     case "samples": return Math.round(v) + "";
     case "celsius": return Math.round(v) + " °C";
+    case "deg": return Math.round(v) + "°";
     default: return String(v);
     }
 }

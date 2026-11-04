@@ -158,28 +158,58 @@ function withSectionColor(text, id, part, value) {
     return Object.keys(map).length ? JSON.stringify(map) : "";
 }
 
-// The solid card's own colour, or "" for the paper default. Older settings
-// gave solid an opaque `bgColor`, which still counts.
-function solidColor(cfg) {
+// The solid card's own colour (or the accent when it follows it), or ""
+// for the paper default. Older settings gave solid an opaque `bgColor`,
+// which still counts.
+function solidColor(cfg, accent) {
+    if (cfg.solidFollowAccent && isColor(accent))
+        return String(accent);
     if (isColor(cfg.solidColor))
         return String(cfg.solidColor);
     var bg = String(cfg.bgColor || "");
     return isColor(bg) && rgba(bg).a >= 1 ? bg : "";
 }
 
-// Text colour of the card: the user's; on the solid material dark ink on a
-// light card and light ink on a dark one; otherwise the theme's.
-function textColor(cfg, system) {
+// The gradient material's colours, two or three, start to end; the first
+// can follow the accent.
+function gradientColors(cfg, accent) {
+    var out = [cfg.gradientFollowAccent && isColor(accent) ? String(accent) : ownColor(cfg.gradientColor1, "#2b1055"), ownColor(cfg.gradientColor2, "#1c4f7a")];
+    if (isColor(cfg.gradientColor3))
+        out.push(String(cfg.gradientColor3));
+    return out;
+}
+
+// Edge lines and rim light: the accent, the user's colour, or white.
+function edgeColor(cfg, accent) {
+    return cfg.edgeFollowAccent && isColor(accent) ? String(accent) : ownColor(cfg.edgeColor, "#ffffff");
+}
+
+// The opaque colour text sits on, for materials that have one: the solid
+// card (paper when unset) and the gradient's average; "" otherwise.
+function cardBase(cfg, accent) {
+    if (cfg.surfaceStyle === "solid")
+        return solidColor(cfg, accent) || "#efefe6";
+    if (cfg.surfaceStyle !== "gradient")
+        return "";
+    var list = gradientColors(cfg, accent).map(rgba), mean = { r: 0, g: 0, b: 0 };
+    list.forEach(function (c) { mean.r += c.r / list.length; mean.g += c.g / list.length; mean.b += c.b / list.length; });
+    var hex = function (v) { return ("0" + Math.round(v * 255).toString(16)).slice(-2); };
+    return "#" + hex(mean.r) + hex(mean.g) + hex(mean.b);
+}
+
+// Text colour of the card: the user's; on an opaque card (solid, gradient)
+// dark ink on a light one and light ink on a dark one; otherwise the theme's.
+function textColor(cfg, system, accent) {
     if (!cfg.useSystemTextColor)
         return String(cfg.customTextColor || "#ffffff");
-    if (cfg.surfaceStyle !== "solid")
+    var base = cardBase(cfg, accent);
+    if (!base)
         return String(system);
-    var solid = solidColor(cfg);
-    return solid && luminance(solid) < 0.45 ? "#eef1f5" : "#1e241d";
+    return luminance(base) < 0.45 ? "#eef1f5" : "#1e241d";
 }
 // One section's text colour: its own, else the card's.
-function sectionInk(cfg, id, system) {
-    return sectionColor(cfg, id, "text") || textColor(cfg, system);
+function sectionInk(cfg, id, system, accent) {
+    return sectionColor(cfg, id, "text") || textColor(cfg, system, accent);
 }
 
 // The colours that light the colour-led materials: the atmosphere's own

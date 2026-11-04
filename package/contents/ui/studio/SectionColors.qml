@@ -15,7 +15,7 @@ Column {
     readonly property var draft: studio.draft
     readonly property var ids: Sections.parse(draft.sections, draft.activeSection)
     readonly property var own: Sections.sectionColors(draft.sectionColors)
-    readonly property string cardInk: Sections.textColor(draft, "#eff0f1")
+    readonly property string cardInk: Sections.textColor(draft, "#eff0f1", String(studio.previewAccent))
     // "cpu|text", "cpu|value" or "cpu|chart|cpuColor"; "" when closed.
     property string open: ""
     readonly property real labelWidth: Math.min(130, width * 0.3)
