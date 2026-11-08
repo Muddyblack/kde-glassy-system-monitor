@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import "SectionModels.js" as SectionModels
+import "Sections.js" as Sections
 
 ColumnLayout {
     id: section
@@ -8,6 +9,9 @@ ColumnLayout {
     required property var monitor
     required property var cfg
     readonly property string sectionId: "ping"
+    // This section's own text and number colours (Colours › Per section).
+    readonly property color ink: Sections.sectionColor(cfg, sectionId, "text") || monitor.textColor
+    readonly property string numbers: Sections.sectionColor(cfg, sectionId, "value")
     // Shared with the website studio; see SectionModels.js.
     readonly property var model: SectionModels.ping(monitor, cfg)
     readonly property real preferredHeight: header.implicitHeight + chart.wantedHeight + (stats.visible ? stats.implicitHeight : 0) + 14
@@ -18,14 +22,14 @@ ColumnLayout {
     component Stat: Column {
         property string label
         property string value
-        property color tint: section.monitor.textColor
+        property color tint: section.ink
         spacing: 1
         Text {
             font.family: section.monitor.fontFamily
             text: parent.label
-            color: section.monitor.textColor
+            color: section.ink
             opacity: 0.38
-            font.pixelSize: 7
+            font.pixelSize: Math.round(7 * section.monitor.textScale)
             font.letterSpacing: 0.8
         }
         Text {
@@ -33,7 +37,7 @@ ColumnLayout {
             text: parent.value
             color: parent.tint
             opacity: 0.85
-            font.pixelSize: 10
+            font.pixelSize: Math.round(10 * section.monitor.textScale)
             font.bold: true
             Behavior on color {
                 ColorAnimation {
@@ -46,11 +50,12 @@ ColumnLayout {
     SectionHeader {
         id: header
         fontFamily: section.monitor.fontFamily
+        textScale: section.monitor.textScale
         Layout.fillWidth: true
         title: section.model.title
         reading: section.model.reading
-        readingColor: section.model.readingColor || section.monitor.textColor
-        textColor: section.monitor.textColor
+        readingColor: section.numbers || (section.model.readingColor || section.ink)
+        textColor: section.ink
 
         // Target chips: pick which host the chart follows.
         Repeater {
@@ -61,7 +66,7 @@ ColumnLayout {
                 readonly property bool current: section.monitor.activeTarget === index
                 anchors.verticalCenter: parent ? parent.verticalCenter : undefined
                 width: Math.min(90, chipText.implicitWidth + 14)
-                height: 18
+                height: Math.round(18 * section.monitor.textScale)
                 radius: height / 2
                 color: current ? Qt.alpha(section.monitor.pingColor, 0.22) : Qt.rgba(1, 1, 1, 0.06)
                 border.color: current ? Qt.alpha(section.monitor.pingColor, 0.6) : Qt.rgba(1, 1, 1, 0.14)
@@ -77,8 +82,8 @@ ColumnLayout {
                     anchors.centerIn: parent
                     width: Math.min(implicitWidth, 76)
                     text: parent.modelData
-                    color: parent.current ? section.monitor.pingColor : Qt.rgba(section.monitor.textColor.r, section.monitor.textColor.g, section.monitor.textColor.b, 0.55)
-                    font.pixelSize: 9
+                    color: parent.current ? section.monitor.pingColor : Qt.rgba(section.ink.r, section.ink.g, section.ink.b, 0.55)
+                    font.pixelSize: Math.round(9 * section.monitor.textScale)
                     elide: Text.ElideRight
                 }
                 MouseArea {
@@ -121,7 +126,7 @@ ColumnLayout {
                 required property var modelData
                 label: modelData.label
                 value: modelData.value
-                tint: modelData.color || section.monitor.textColor
+                tint: section.numbers || modelData.color || section.ink
             }
         }
         Item {

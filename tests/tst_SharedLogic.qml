@@ -4,6 +4,7 @@ import "../package/contents/ui/Sections.js" as Sections
 import "../package/contents/ui/SectionModels.js" as SectionModels
 import "../package/contents/ui/diagram/DiagramData.js" as Data
 import "../package/contents/ui/studio/Looks.js" as Looks
+import "../hyprland/Configuration.js" as HyprConfig
 import "../package/contents/ui/studio/Schema.js" as Schema
 import "../package/contents/ui/Probes.js" as Probes
 import "../package/contents/ui/Format.js" as Format
@@ -280,6 +281,40 @@ TestCase {
                     verify(hypr.indexOf(row.k) !== -1 || xml.indexOf('name="' + row.k + '"') !== -1, "studio row for unknown setting " + row.k);
     }
 
+    // The new colour settings survive a shared look and the Hyprland file.
+    function test_colourSettingsRoundTripThroughJson() {
+        const x = new XMLHttpRequest();
+        x.open("GET", Qt.resolvedUrl("../package/contents/config/main.xml"), false);
+        x.send();
+        const defaults = HyprConfig.defaults(x.responseText);
+        const mine = {
+            surfaceStyle: "solid",
+            solidColor: "#1b1e24",
+            atmosphereColor1: "#ff6688",
+            atmosphereColor2: "#22aaff",
+            atmosphereColor3: "#0d1b2a",
+            glassTintStrength: 1.5,
+            edgeColor: "#ff6688",
+            shadowColor: "#22aaff",
+            atmosphereFollowAccent: true,
+            atmosphereGlowSize: 1.4,
+            sectionColors: Sections.withSectionColor(Sections.withSectionColor("", "cpu", "text", "#ffaa22"), "gpu", "value", "#ffffff")
+        };
+        const draft = Object.assign({}, defaults, mine);
+        // Presets › Export / Import and the website's Copy look.
+        const look = Looks.decode(Looks.encode("Mine", Looks.extract(draft, defaults), defaults), defaults);
+        compare(look.settings, mine);
+        const applied = Looks.apply(defaults, defaults, look.settings);
+        compare(Sections.sectionColor(applied, "cpu", "text"), "#ffaa22");
+        compare(Sections.sectionColor(applied, "gpu", "value"), "#ffffff");
+        // A different look clears them again.
+        compare(Looks.apply(applied, defaults, {}).sectionColors, "");
+        // ~/.config/glassy-system-monitor/hyprland.json keeps only the changes.
+        const saved = JSON.stringify(HyprConfig.overrides(defaults, draft));
+        compare(Object.assign({}, defaults, HyprConfig.parsePreferences(saved)), draft);
+        compare(Object.keys(JSON.parse(saved)).sort(), Object.keys(mine).sort());
+    }
+
     // The panel pill: which sections, and readings of a fixed width.
     function test_panelShowsPickedSectionsElseTheFirst() {
         compare(Sections.panelIds({
@@ -366,6 +401,214 @@ TestCase {
         compare(on.series("donut")[0].color, "#ff4444", "gauges take the current level's colour");
         compare(on.readingColor, "#ff4444");
         compare(on.markers[0].value, 70);
+    }
+
+    function test_sectionColoursRoundTrip() {
+        let text = Sections.withSectionColor("", "cpu", "text", "#FF0000");
+        compare(JSON.parse(text), {
+            cpu: {
+                text: "#ff0000"
+            }
+        });
+        text = Sections.withSectionColor(text, "cpu", "value", "#00ff0080");
+        compare(Sections.sectionColor({
+            sectionColors: text
+        }, "cpu", "value"), "#00ff0080");
+        compare(Sections.sectionColor({
+            sectionColors: text
+        }, "memory", "text"), "", "other sections inherit");
+        text = Sections.withSectionColor(text, "cpu", "text", "");
+        text = Sections.withSectionColor(text, "cpu", "value", "");
+        compare(text, "", "nothing left is stored as empty");
+        compare(Sections.sectionColors('{"cpu":{"text":"red"},"bogus":{"text":"#ffffff"}}'), {}, "junk is ignored");
+        compare(Sections.sectionColors("not json"), {});
+        compare(Sections.sectionInk({
+            sectionColors: '{"gpu":{"text":"#123456"}}',
+            useSystemTextColor: true
+        }, "gpu", "#eff0f1"), "#123456");
+        compare(Sections.sectionInk({
+            useSystemTextColor: true
+        }, "gpu", "#eff0f1"), "#eff0f1");
+    }
+
+    function test_cardColoursPerMaterial() {
+        compare(Sections.solidColor({
+            solidColor: "",
+            bgColor: "#800d0f1a"
+        }), "", "paper by default");
+        compare(Sections.solidColor({
+            solidColor: "",
+            bgColor: "#ff060907"
+        }), "#ff060907", "older opaque tint still counts");
+        compare(Sections.solidColor({
+            solidColor: "#1b1e24",
+            bgColor: "#ff060907"
+        }), "#1b1e24");
+        compare(Sections.textColor({
+            useSystemTextColor: true,
+            surfaceStyle: "solid",
+            solidColor: "#1b1e24"
+        }, "#000000"), "#eef1f5", "light ink on a dark solid card");
+        compare(Sections.textColor({
+            useSystemTextColor: true,
+            surfaceStyle: "solid",
+            solidColor: "#ffffff"
+        }, "#eff0f1"), "#1e241d");
+        const cfg = {
+            surfaceStyle: "atmosphere",
+            cpuColor: "#111111",
+            memColor: "#222222",
+            atmosphereColor1: "#abcdef",
+            atmosphereColor2: ""
+        };
+        compare(Sections.materialColors(["cpu", "memory"], cfg, "#4aa8ff"), ["#abcdef", "#222222", Sections.depthColor("#abcdef", "#222222")]);
+        cfg.atmosphereColor3 = "#0d1b2a";
+        compare(Sections.materialColors(["cpu", "memory"], cfg, "#4aa8ff")[2], "#0d1b2a");
+        cfg.surfaceStyle = "glass";
+        compare(Sections.materialColors(["cpu", "memory"], cfg, "#4aa8ff"), ["#111111", "#222222", Sections.depthColor("#111111", "#222222")], "only the atmosphere uses its own lights");
+        compare(Sections.depthColor("#ffffff", "#ffffff"), "#4d4d4d");
+    }
+
+    // Tint strength scales every glass tint's opacity, capped at opaque.
+    function test_glassTintStrength() {
+        const alphas = (strength, tint) => Sections.glassTint("glass", tint, "#3daee9", strength, "#ff0000", "#00ff00").map(s => s[1].a);
+        for (const tint of ["clear", "frost", "smoke", "cover", "custom"]) {
+            const stock = alphas(1, tint);
+            verify(stock.every(a => a > 0 && a < 1), tint);
+            compare(alphas(undefined, tint), stock, "unset is the stock look");
+            verify(alphas(0, tint).every(a => a === 0), tint + " at 0%");
+            alphas(2, tint).forEach((a, i) => fuzzyCompare(a, Math.min(1, stock[i] * 2), 1e-9));
+        }
+        const custom = Sections.glassTint("liquid", "custom", "#80ff0000", 1, "", "")[0][1];
+        compare([custom.r, custom.g, custom.b, custom.a], [1, 0, 0, 0.4], "the tint's own alpha is ignored");
+    }
+
+    function loadDefaults() {
+        const x = new XMLHttpRequest();
+        x.open("GET", Qt.resolvedUrl("../package/contents/config/main.xml"), false);
+        x.send();
+        return HyprConfig.defaults(x.responseText);
+    }
+
+    // Every setting the Card tab edits is part of a card style, and every
+    // card style key is a real setting.
+    function test_cardStyleKeysCoverTheCardTab() {
+        const defaults = loadDefaults(), keys = {};
+        Schema.SECTIONS.filter(t => t.tab === "card").forEach(t => t.rows.forEach(r => {
+                if (r.k)
+                    keys[r.k] = true;
+                if (r.set)
+                    Object.keys(r.set("#123456", defaults) || {}).forEach(k => keys[k] = true);
+            }));
+        for (const k in keys)
+            verify(Looks.CARD_KEYS.indexOf(k) !== -1, "card tab key missing from Looks.CARD_KEYS: " + k);
+        Looks.CARD_KEYS.forEach(k => verify(defaults[k] !== undefined, "unknown card key " + k));
+        Looks.CARD_STYLES.forEach(c => Object.keys(c.s).forEach(k => verify(Looks.CARD_KEYS.indexOf(k) !== -1, c.id + ": " + k)));
+    }
+
+    // A card style swaps only the card; a look still swaps everything.
+    function test_cardStyleKeepsLayout() {
+        const defaults = loadDefaults();
+        const draft = Object.assign({}, defaults, {
+            sections: "gpu,disk",
+            layoutColumns: 2,
+            cpuColor: "#ff0000",
+            surfaceStyle: "solid",
+            edgeColor: "#00ff00"
+        });
+        const style = Looks.CARD_STYLES.find(c => c.id === "card-you-glass");
+        const next = Looks.apply(draft, defaults, style.s, true);
+        compare([next.sections, next.layoutColumns, next.cpuColor], ["gpu,disk", 2, "#ff0000"]);
+        compare([next.surfaceStyle, next.glassTint, next.edgeColor], ["glass", "accent", defaults.edgeColor], "card keys reset, then the style");
+        verify(Looks.matches(next, defaults, style.s, true));
+        verify(!Looks.matches(next, defaults, style.s), "as a full look it would not match");
+        compare(Object.keys(Looks.extract(next, defaults, true)).sort(), Object.keys(style.s).sort());
+        // Shared as JSON it stays a card style and drops anything else.
+        const json = Looks.encode("Mine", Object.assign({
+            sections: "cpu"
+        }, style.s), defaults, true);
+        const back = Looks.decode(json, defaults);
+        verify(back.card);
+        compare(back.settings, style.s);
+        verify(!Looks.decode(Looks.encode("Look", {
+            sections: "cpu"
+        }, defaults), defaults).card);
+    }
+
+    function test_gradientOutlineAndSolidAccent() {
+        compare(Sections.gradientColors({}, "#22aaff"), ["#2b1055", "#1c4f7a"]);
+        compare(Sections.gradientColors({
+            gradientColor3: "#ffffff",
+            gradientFollowAccent: true
+        }, "#22aaff"), ["#22aaff", "#1c4f7a", "#ffffff"]);
+        compare(Sections.textColor({
+            useSystemTextColor: true,
+            surfaceStyle: "gradient"
+        }, "#eff0f1", ""), "#eef1f5", "light text on the dark default gradient");
+        compare(Sections.textColor({
+            useSystemTextColor: true,
+            surfaceStyle: "gradient",
+            gradientColor1: "#ffffff",
+            gradientColor2: "#eeeeee"
+        }, "#eff0f1", ""), "#1e241d");
+        compare(Sections.textColor({
+            useSystemTextColor: true,
+            surfaceStyle: "outline"
+        }, "#eff0f1", ""), "#eff0f1", "outline follows the theme");
+        compare(Sections.solidColor({
+            solidFollowAccent: true,
+            solidColor: "#000000"
+        }, "#ffdd55"), "#ffdd55");
+        compare(Sections.textColor({
+            useSystemTextColor: true,
+            surfaceStyle: "solid",
+            solidFollowAccent: true
+        }, "#eff0f1", "#ffdd55"), "#1e241d", "dark text on a light accent");
+        compare(Sections.textColor({
+            useSystemTextColor: true,
+            surfaceStyle: "solid",
+            solidFollowAccent: true
+        }, "#eff0f1", "#123456"), "#eef1f5");
+        compare(Sections.edgeColor({
+            edgeColor: "#ff0000"
+        }, "#22aaff"), "#ff0000");
+        compare(Sections.edgeColor({
+            edgeColor: "#ff0000",
+            edgeFollowAccent: true
+        }, "#22aaff"), "#22aaff");
+        compare(Sections.edgeColor({}, ""), "#ffffff");
+    }
+
+    // Two-colour custom tint, the accent tint, and the accent-following cards.
+    function test_accentAndSecondTintColour() {
+        const two = Sections.glassTint("glass", "custom", "#ff0000", 1, "", "", "#0000ff", "");
+        compare([two[0][1].r, two[0][1].b, two[1][1].r, two[1][1].b], [1, 0, 0, 1]);
+        const same = Sections.glassTint("glass", "custom", "#ff0000", 1, "", "", "", "");
+        compare(same[1][1].r, 1, "no second colour repeats the first");
+        const accent = Sections.glassTint("liquid", "accent", "#ff0000", 1, "", "", "", "#00ff00");
+        compare([accent[0][1].g, accent[1][1].g, accent[0][1].r], [1, 1, 0]);
+        compare(Sections.tintFill({
+            bgColor: "#800d0f1a"
+        }, "#22aaff"), "#800d0f1a");
+        compare(Sections.tintFill({
+            bgColor: "#80000000",
+            tintFollowAccent: true
+        }, "#ffaa00"), "#80664400", "the card tinted towards the accent, at its opacity");
+        compare(Sections.tintFill({
+            bgColor: "#ffffff",
+            tintFollowAccent: true
+        }, "#000000"), "#ff999999");
+        const cfg = {
+            surfaceStyle: "atmosphere",
+            cpuColor: "#111111",
+            atmosphereColor1: "#abcdef",
+            atmosphereFollowAccent: true
+        };
+        compare(Sections.materialColors(["cpu"], cfg, "#22aaff")[0], "#22aaff");
+        cfg.atmosphereFollowAccent = false;
+        compare(Sections.materialColors(["cpu"], cfg, "#22aaff")[0], "#abcdef");
+        compare(Sections.ownColor("", "#ffffff"), "#ffffff");
+        compare(Sections.ownColor("#ff6688", "#ffffff"), "#ff6688");
     }
 
     function test_textColourFollowsSolidCard() {
@@ -1377,6 +1620,18 @@ TestCase {
         compare(p.load, 2, "the platform counter covers the whole machine");
         const wrapped = Probes.parsePower("rapl intel-rapl:1 900 5000000 psys");
         compare(Probes.powerSources(Probes.parsePower("rapl intel-rapl:1 4999000 5000000 psys"), wrapped, 1).list[0].watts, 1.9e-3 / 1, "counter wraparound");
+        // A Corsair PSU reports the wall draw: it is the total, not one more part (#22).
+        const c0 = Probes.parsePower("rapl intel-rapl:0 1000000 262143328850 package-0");
+        const c1 = Probes.parsePower("rapl intel-rapl:0 111600000 262143328850 package-0\nhwmon corsairpsu:/sys/x 192000000 corsairpsu\nhwmon amdgpu:/sys/y 48000000 amdgpu");
+        const psu = Probes.powerSources(c0, c1, 2);
+        compare(psu.list.map(x => x.label), ["CPU package", "PSU (Corsair)", "GPU (AMD)"]);
+        compare(psu.load, 192, "the PSU covers the whole machine");
+        compare(Probes.powerSources(c0, c1, 2, "components").load, 55.3 + 48, "CPU + GPU only, PSU left out");
+        compare(Probes.powerSources(c0, c1, 2, "amdgpu:/sys/y").load, 48, "a picked source is the total");
+        compare(Probes.powerSources(c0, c1, 2, "gone:/sys/z").load, 192, "a missing pick falls back to automatic");
+        const acpi = Probes.powerSources(null, Probes.parsePower("hwmon power_meter:/sys/acpi 230000000 power_meter\nhwmon amdgpu:/sys/y 48000000 amdgpu"), 0);
+        compare(acpi.list[0].label, "System (ACPI meter)");
+        compare(acpi.load, 230, "the ACPI power meter covers the whole machine");
         compare(Probes.setProfileCmd("x'; rm -rf ~"), "");
         verify(Probes.setProfileCmd("performance").indexOf("<'performance'>") !== -1);
         compare(SectionModels.profiles({

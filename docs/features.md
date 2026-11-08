@@ -21,6 +21,9 @@
 - **Looks**: eleven built-in looks, including Liquid Glass, Paper, Atmosphere and Terminal; save
   your own or share one as JSON. A look never carries commands, hosts or devices, so an imported
   one cannot run anything
+- **Card styles**: looks limited to the card (material, colours, edges, shadow, corners) that
+  swap the card under any layout; five built in (Material You glass, Accent frost, Aurora, Neon
+  edge, Accent paper), save and share your own the same way
 - **Spacing**: compact, normal or roomy padding around the card and between sections
 
 ## Sections
@@ -87,12 +90,24 @@ be answered. The network window stays local.
 
 - **GPU charts**: line, area, history bars, donut and pie from one fragment shader with an
   analytic glow; the canvas renderer stays as a switch and is used where there is no GPU
-- **Card materials**: tint, glass, liquid glass, solid and atmosphere, with wallpaper blur,
-  refraction, pointer light, opacity, shadow and grain
+- **Card materials**: tint, glass, liquid glass, solid, atmosphere, gradient (two or three colours
+  at any angle) and outline (just the line), with wallpaper blur, refraction, pointer light,
+  opacity, shadow and grain
 - **Colour by load**: CPU, memory and GPU shift to warning and critical colours at your thresholds
 - **Chart styles**: line, area, history bars, donut, pie, meters, or numbers only
 - **Theming**: Plasma's accent colour or your own per section, palettes (Glassy, Aurora, Ember,
   Ice, Terminal, Monochrome), each card corner rounded on its own
+- **Per-section colours**: text, numbers and chart colours for every section, side by side under
+  Colours › Per section or in each section's own tab
+- **Card colour for every material**: tint, glass, liquid glass, solid and the atmosphere's two lights
+  and depth; a tint strength (0–200%) sets how much colour glass and liquid glass carry, and a
+  second colour turns the custom glass tint into a two-colour gradient
+- **Follow the accent colour**: the tint card, the glass tint, the solid card, the gradient's first
+  colour, the edge and the atmosphere's top light can
+  follow the Plasma accent, so wallpaper-driven schemes such as
+  [KDE Material You Colors](https://github.com/luisbocanegra/kde-material-you-colors) recolour the card live
+- **Edges, light and shadow**: edge/rim colour for every material, the liquid glass light colour,
+  a coloured shadow, and the atmosphere's glow size and strength
 - **Panel pill**: a compact reading for panels and bars
 - **Poll rate**: one base interval drives every sensor
 
@@ -106,7 +121,7 @@ card or a panel pill, over a choice of wallpapers.
 |---|---|
 | **Presets** | Built-in looks, your saved looks, copy and import looks as JSON |
 | **Layout** | Sections on/off, drag to reorder, size S/M/L, chart style and full width per section; columns or exact section coordinates; panel pill; placement on Hyprland |
-| **Appearance** | Charts (style, history, curves, glow, labels, colour by load), Card (material, frost, edge, corners), Colours (palettes, text and font) |
+| **Appearance** | Charts (style, history, curves, glow, labels, colour by load), Card (material and its colour, frost, edge, corners), Colours (palettes, text and font, per-section text/number/chart colours) |
 | **Sections** | One tab per section: title, colours, hosts, devices, thresholds, commands; sensor selection and names |
 | **Performance** | GPU shader or canvas renderer, update interval, smooth scrolling, frame-rate cap |
 | **Info** | Version and update check, project stats, licence, links |

@@ -549,12 +549,17 @@ function parsePower(text) {
 }
 
 var RAPL_LABELS = { "package-0": "CPU package", "package-1": "CPU package 2", psys: "Platform", dram: "Memory" };
-var HWMON_LABELS = { amdgpu: "GPU (AMD)", zenpower: "CPU (AMD)", nouveau: "GPU (Nouveau)", xe: "GPU (Intel)", i915: "GPU (Intel)" };
+// Meters that report the whole machine's draw: Corsair iCUE PSUs and the
+// ACPI power meter. Any other source can be picked as the total (`mode`).
+var PSU_NAMES = /^(corsairpsu|corsair-psu|corsair_psu|power_meter)$/;
+var HWMON_LABELS = { corsairpsu: "PSU (Corsair)", power_meter: "System (ACPI meter)", amdgpu: "GPU (AMD)", zenpower: "CPU (AMD)", nouveau: "GPU (Nouveau)", xe: "GPU (Intel)", i915: "GPU (Intel)" };
 
 // Watts per source between two parsePower() results `dt` seconds apart:
-// [{ id, label, watts }], plus `load`, the whole machine where a sensor
-// covers it (platform "psys"), else the sum of CPU packages and GPUs.
-function powerSources(prev, next, dt) {
+// [{ id, label, watts }], plus `load`. `mode` (the powerTotal setting) picks
+// the load: "components" sums CPU packages and GPUs; a source id takes that
+// source; "auto" (or a picked source that is missing this poll) takes a
+// whole-machine meter (platform "psys", a PSU) where there is one, else the sum.
+function powerSources(prev, next, dt, mode) {
     var list = [];
     if (prev && dt > 0)
         for (var id in next.rapl) {
@@ -568,9 +573,12 @@ function powerSources(prev, next, dt) {
                 list.push({ id: id, label: RAPL_LABELS[b.name] || b.name, watts: d / dt / 1e6, platform: b.name === "psys", kind: /^package-/.test(b.name) ? "cpu" : "", counter: true });
         }
     next.hwmon.concat(next.nvidia).forEach(function (h) {
-        list.push({ id: h.id, label: HWMON_LABELS[h.name] || (h.name === "nvidia" ? "GPU (NVIDIA)" : h.name), watts: h.watts, kind: /^(zenpower|zenpower3|amd_energy|coretemp)$/.test(h.name) ? "cpu" : /^(amdgpu|nouveau|xe|i915|nvidia)$/.test(h.name) ? "gpu" : "" });
+        list.push({ id: h.id, label: HWMON_LABELS[h.name] || (h.name === "nvidia" ? "GPU (NVIDIA)" : h.name), watts: h.watts, kind: /^(zenpower|zenpower3|amd_energy|coretemp)$/.test(h.name) ? "cpu" : /^(amdgpu|nouveau|xe|i915|nvidia)$/.test(h.name) ? "gpu" : "", platform: PSU_NAMES.test(h.name) });
     });
-    var platform = list.filter(function (s) { return s.platform; })[0];
+    var picked = list.filter(function (s) { return s.id === mode; })[0];
+    if (picked)
+        return { list: list, load: picked.watts };
+    var platform = mode === "components" ? null : list.filter(function (s) { return s.platform; })[0];
     var load = platform ? platform.watts : list.filter(function (s) { return !s.platform && s.label !== "Memory"; }).reduce(function (a, s) { return a + s.watts; }, 0);
     return { list: list, load: load };
 }

@@ -59,7 +59,7 @@ QQC2.Popup {
                 font.family: connDialog.monitor.fontFamily
                 text: "Active Connections"
                 color: connDialog.monitor.textColor
-                font.pixelSize: 12
+                font.pixelSize: Math.round(12 * connDialog.monitor.textScale)
                 font.bold: true
                 Layout.fillWidth: true
             }
@@ -68,7 +68,7 @@ QQC2.Popup {
                 visible: connDialog.connections.length > 0
                 text: connDialog.connections.length + ""
                 color: Qt.rgba(connDialog.monitor.textColor.r, connDialog.monitor.textColor.g, connDialog.monitor.textColor.b, 0.45)
-                font.pixelSize: 10
+                font.pixelSize: Math.round(10 * connDialog.monitor.textScale)
             }
             QQC2.ToolButton {
                 text: "↻"
@@ -97,7 +97,7 @@ QQC2.Popup {
             Layout.fillWidth: true
             text: "Fetching connectionsâ¦"
             color: Qt.rgba(connDialog.monitor.textColor.r, connDialog.monitor.textColor.g, connDialog.monitor.textColor.b, 0.5)
-            font.pixelSize: 11
+            font.pixelSize: Math.round(11 * connDialog.monitor.textScale)
             horizontalAlignment: Text.AlignHCenter
         }
 
@@ -107,7 +107,7 @@ QQC2.Popup {
             Layout.fillWidth: true
             text: "No external connections"
             color: Qt.rgba(connDialog.monitor.textColor.r, connDialog.monitor.textColor.g, connDialog.monitor.textColor.b, 0.4)
-            font.pixelSize: 11
+            font.pixelSize: Math.round(11 * connDialog.monitor.textScale)
             horizontalAlignment: Text.AlignHCenter
         }
 
@@ -161,7 +161,7 @@ QQC2.Popup {
                                 font.family: connDialog.monitor.fontFamily
                                 text: modelData.procName
                                 color: connDialog.monitor.textColor
-                                font.pixelSize: 11
+                                font.pixelSize: Math.round(11 * connDialog.monitor.textScale)
                                 font.bold: true
                                 elide: Text.ElideRight
                                 Layout.maximumWidth: 110
@@ -178,7 +178,7 @@ QQC2.Popup {
                                     anchors.centerIn: parent
                                     text: modelData.proto.toUpperCase()
                                     color: modelData.proto === "tcp" ? Qt.rgba(0.4, 0.8, 1.0, 0.9) : Qt.rgba(0.5, 1.0, 0.5, 0.9)
-                                    font.pixelSize: 8
+                                    font.pixelSize: Math.round(8 * connDialog.monitor.textScale)
                                     font.bold: true
                                 }
                             }
@@ -189,7 +189,7 @@ QQC2.Popup {
                                 font.family: connDialog.monitor.fontFamily
                                 text: ":" + modelData.port
                                 color: Qt.rgba(connDialog.monitor.textColor.r, connDialog.monitor.textColor.g, connDialog.monitor.textColor.b, 0.45)
-                                font.pixelSize: 10
+                                font.pixelSize: Math.round(10 * connDialog.monitor.textScale)
                             }
                         }
 
@@ -200,13 +200,13 @@ QQC2.Popup {
                                 font.family: connDialog.monitor.fontFamily
                                 visible: modelData.flag !== ""
                                 text: modelData.flag
-                                font.pixelSize: 11
+                                font.pixelSize: Math.round(11 * connDialog.monitor.textScale)
                             }
                             Text {
                                 font.family: connDialog.monitor.fontFamily
                                 text: modelData.hostname !== "" ? modelData.hostname : modelData.remoteHost
                                 color: Qt.rgba(connDialog.monitor.textColor.r, connDialog.monitor.textColor.g, connDialog.monitor.textColor.b, 0.6)
-                                font.pixelSize: 10
+                                font.pixelSize: Math.round(10 * connDialog.monitor.textScale)
                                 elide: Text.ElideRight
                                 Layout.fillWidth: true
                             }
@@ -215,7 +215,7 @@ QQC2.Popup {
                                 visible: modelData.hostname !== "" && modelData.remoteHost !== modelData.hostname
                                 text: modelData.remoteHost
                                 color: Qt.rgba(connDialog.monitor.textColor.r, connDialog.monitor.textColor.g, connDialog.monitor.textColor.b, 0.3)
-                                font.pixelSize: 8
+                                font.pixelSize: Math.round(8 * connDialog.monitor.textScale)
                                 elide: Text.ElideLeft
                                 Layout.maximumWidth: 90
                             }

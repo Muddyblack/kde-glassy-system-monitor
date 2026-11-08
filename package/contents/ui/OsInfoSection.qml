@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import "Sections.js" as Sections
 
 ColumnLayout {
     id: section
@@ -7,6 +8,9 @@ ColumnLayout {
     required property var monitor
     required property var cfg
     readonly property string sectionId: "system"
+    // This section's own text and number colours (Colours › Per section).
+    readonly property color ink: Sections.sectionColor(cfg, sectionId, "text") || monitor.textColor
+    readonly property string numbers: Sections.sectionColor(cfg, sectionId, "value")
     readonly property real preferredHeight: implicitHeight + 8
     readonly property real minimumHeight: preferredHeight
 
@@ -14,11 +18,13 @@ ColumnLayout {
 
     SectionHeader {
         fontFamily: section.monitor.fontFamily
+        textScale: section.monitor.textScale
         Layout.fillWidth: true
         Layout.bottomMargin: 4
         title: section.monitor.sectionTitle("system")
         reading: section.monitor.osUptime
-        textColor: section.monitor.textColor
+        textColor: section.ink
+        readingColor: section.numbers || section.ink
     }
 
     readonly property bool _fetch: section.monitor.osFetchActive
@@ -38,7 +44,7 @@ ColumnLayout {
     // Label column. Fetch tools emit far longer keys than the built-in labels
     // ("Display (AUOE48D)", "Battery (L20L2PF0)"), so the column scales with the
     // widget instead of being fixed at the built-in 46 px.
-    readonly property int _labelW: _fetch ? Math.max(52, Math.min(118, Math.round(width * 0.40))) : 46
+    readonly property int _labelW: Math.round((_fetch ? Math.max(52, Math.min(118, width * 0.40 / monitor.textScale)) : 46) * monitor.textScale)
 
     // ── Header: distro logo + banner ──────────────────────────────────────────
     RowLayout {
@@ -64,8 +70,8 @@ ColumnLayout {
                 font.family: section.monitor.fontFamily
                 Layout.fillWidth: true
                 text: section.monitor.osFetchTitle || section.monitor.osDistro
-                color: section.monitor.textColor
-                font.pixelSize: 12
+                color: section.ink
+                font.pixelSize: Math.round(12 * section.monitor.textScale)
                 font.bold: true
                 elide: Text.ElideRight
             }
@@ -73,8 +79,8 @@ ColumnLayout {
                 font.family: section.monitor.fontFamily
                 Layout.fillWidth: true
                 text: section._fetch ? section.monitor.osFetchTool : section.monitor.osHostname + (section.monitor.remoteHost ? " · over SSH" : "")
-                color: Qt.rgba(section.monitor.textColor.r, section.monitor.textColor.g, section.monitor.textColor.b, 0.40)
-                font.pixelSize: 9
+                color: Qt.rgba(section.ink.r, section.ink.g, section.ink.b, 0.40)
+                font.pixelSize: Math.round(9 * section.monitor.textScale)
                 elide: Text.ElideRight
             }
         }
@@ -96,8 +102,8 @@ ColumnLayout {
             id: rawText
             font.family: section.monitor.fontFamily
             text: section._rawText
-            color: section.monitor.textColor
-            font.pixelSize: 10
+            color: section.ink
+            font.pixelSize: Math.round(10 * section.monitor.textScale)
             textFormat: Text.PlainText
             lineHeight: 1.15
         }
@@ -123,11 +129,11 @@ ColumnLayout {
 
                 Item {
                     Layout.fillWidth: true
-                    height: 22
+                    height: Math.round(22 * section.monitor.textScale)
 
                     Rectangle {
                         anchors.fill: parent
-                        color: Qt.rgba(section.monitor.textColor.r, section.monitor.textColor.g, section.monitor.textColor.b, index % 2 === 0 ? 0.0 : 0.04)
+                        color: Qt.rgba(section.ink.r, section.ink.g, section.ink.b, index % 2 === 0 ? 0.0 : 0.04)
                         radius: 2
                     }
 
@@ -138,8 +144,8 @@ ColumnLayout {
                         anchors.leftMargin: 2
                         anchors.verticalCenter: parent.verticalCenter
                         text: modelData.lbl
-                        color: Qt.rgba(section.monitor.textColor.r, section.monitor.textColor.g, section.monitor.textColor.b, 0.40)
-                        font.pixelSize: 10
+                        color: Qt.rgba(section.ink.r, section.ink.g, section.ink.b, 0.40)
+                        font.pixelSize: Math.round(10 * section.monitor.textScale)
                         width: section._labelW
                         elide: Text.ElideRight
                     }
@@ -151,8 +157,8 @@ ColumnLayout {
                         anchors.rightMargin: 2
                         anchors.verticalCenter: parent.verticalCenter
                         text: modelData.val || "…"
-                        color: section.monitor.textColor
-                        font.pixelSize: 11
+                        color: section.numbers || section.ink
+                        font.pixelSize: Math.round(11 * section.monitor.textScale)
                         font.bold: modelData.val !== ""
                         elide: Text.ElideRight
                     }

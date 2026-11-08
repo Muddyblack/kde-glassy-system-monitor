@@ -8,6 +8,9 @@ Flow {
 
     required property var monitor
     property var entries: []
+    // The section's text colour, and its number colour ("" keeps each line's).
+    property color ink: monitor.textColor
+    property string numbers: ""
     property real indent: 0
 
     leftPadding: indent
@@ -20,7 +23,8 @@ Flow {
             required property var modelData
             readonly property bool shown: !legend.monitor.isLineDisabled(modelData.key)
             readonly property color tint: modelData.color
-            readonly property color ink: legend.monitor.textColor
+            readonly property color ink: legend.ink
+            readonly property color valueTint: legend.numbers || tint
             implicitWidth: row.implicitWidth
             implicitHeight: row.implicitHeight
             opacity: legend.monitor.hoveredLine !== "" && legend.monitor.hoveredLine !== modelData.key ? 0.55 : 1
@@ -42,7 +46,7 @@ Flow {
                     anchors.verticalCenter: parent.verticalCenter
                     text: entry.modelData.label
                     color: Qt.rgba(entry.ink.r, entry.ink.g, entry.ink.b, entry.shown ? 0.7 : 0.3)
-                    font.pixelSize: 10
+                    font.pixelSize: Math.round(10 * legend.monitor.textScale)
                     font.strikeout: !entry.shown
                 }
                 Text {
@@ -50,8 +54,8 @@ Flow {
                     anchors.verticalCenter: parent.verticalCenter
                     visible: text !== ""
                     text: entry.modelData.value || ""
-                    color: entry.shown ? entry.tint : Qt.rgba(entry.tint.r, entry.tint.g, entry.tint.b, 0.3)
-                    font.pixelSize: 11
+                    color: entry.shown ? entry.valueTint : Qt.rgba(entry.valueTint.r, entry.valueTint.g, entry.valueTint.b, 0.3)
+                    font.pixelSize: Math.round(11 * legend.monitor.textScale)
                     font.bold: true
                 }
             }
