@@ -1627,6 +1627,11 @@ TestCase {
         compare(psu.list.map(x => x.label), ["CPU package", "PSU (Corsair)", "GPU (AMD)"]);
         compare(psu.load, 192, "the PSU covers the whole machine");
         compare(Probes.powerSources(c0, c1, 2, "components").load, 55.3 + 48, "CPU + GPU only, PSU left out");
+        compare(Probes.powerSources(c0, c1, 2, "amdgpu:/sys/y").load, 48, "a picked source is the total");
+        compare(Probes.powerSources(c0, c1, 2, "gone:/sys/z").load, 192, "a missing pick falls back to automatic");
+        const acpi = Probes.powerSources(null, Probes.parsePower("hwmon power_meter:/sys/acpi 230000000 power_meter\nhwmon amdgpu:/sys/y 48000000 amdgpu"), 0);
+        compare(acpi.list[0].label, "System (ACPI meter)");
+        compare(acpi.load, 230, "the ACPI power meter covers the whole machine");
         compare(Probes.setProfileCmd("x'; rm -rf ~"), "");
         verify(Probes.setProfileCmd("performance").indexOf("<'performance'>") !== -1);
         compare(SectionModels.profiles({

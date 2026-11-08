@@ -540,7 +540,7 @@ $('#envPicker').addEventListener('click', e => { const b = e.target.closest('[da
 
 /* ─── Studio: settings built from Schema.SECTIONS ──────────────── */
 const SWATCHES = Schema.SWATCHES;
-const DEMO_OPTIONS = { ifaces: [['auto', 'Automatic'], ['wlp2s0', 'wlp2s0'], ['enp5s0', 'enp5s0'], ['wg0', 'wg0'], ['docker0', 'docker0']], disks: [['auto', 'Automatic'], ['nvme0n1', 'nvme0n1'], ['sda', 'sda']], gpus: [['auto', 'Automatic'], ['0000:03:00.0', 'card1 · 0000:03:00.0']], screens: [['', 'First screen'], ['all', 'Every screen'], ['DP-1', 'DP-1'], ['HDMI-A-1', 'HDMI-A-1']] };
+const DEMO_OPTIONS = { ifaces: [['auto', 'Automatic'], ['wlp2s0', 'wlp2s0'], ['enp5s0', 'enp5s0'], ['wg0', 'wg0'], ['docker0', 'docker0']], disks: [['auto', 'Automatic'], ['nvme0n1', 'nvme0n1'], ['sda', 'sda']], gpus: [['auto', 'Automatic'], ['0000:03:00.0', 'card1 · 0000:03:00.0']], powers: [['auto', 'Automatic'], ['components', 'CPU + GPU'], ['corsairpsu:/sys/devices/pci0000:00/usb1/1-4', 'PSU (Corsair)'], ['intel-rapl:0', 'CPU package'], ['hwmon3', 'GPU (AMD)']], screens: [['', 'First screen'], ['all', 'Every screen'], ['DP-1', 'DP-1'], ['HDMI-A-1', 'HDMI-A-1']] };
 let rows = [];
 function tilePreview(style, value) {
     if (style === 'material') return `<span class="tpv-mat"><i class="sp sp-${value === 'tint' ? 'color' : esc(value)}"></i></span>`;

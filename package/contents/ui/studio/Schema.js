@@ -344,7 +344,7 @@ var SECTIONS = [
         title("powerTitle", "Power"),
         { id: "powerNote", type: "note", full: true, note: "power" },
         { k: "powerChart", type: "seg", label: "Chart", desc: "Also switchable in the widget.", opts: [["power", "Power (W)"], ["battery", "Battery %"], ["temp", "Temperature"]] },
-        { k: "powerTotal", type: "seg", label: "Total draw", desc: "Auto uses a PSU or platform sensor (e.g. Corsair) when there is one; CPU + GPU adds only the components.", opts: [["auto", "PSU / platform"], ["components", "CPU + GPU"]] },
+        { k: "powerTotal", type: "select", label: "Total draw", desc: "Automatic uses a whole-machine meter (platform counter, Corsair PSU, ACPI meter) when there is one, else adds CPU and GPU. Or pick the source that measures your whole system.", opts: "powers" },
         { k: "powerShowProfiles", type: "switch", label: "Power profile buttons", desc: "Balanced, performance and saver, through power-profiles-daemon." },
         { k: "powerShowSources", type: "switch", label: "Where the power goes", desc: "CPU package, GPU and platform draw from energy counters and power sensors." },
         { k: "powerShowPressure", type: "switch", label: "Pressure", desc: "How long tasks waited for CPU and memory (PSI)." },

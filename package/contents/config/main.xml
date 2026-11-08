@@ -297,7 +297,7 @@
         <entry name="powerChart" type="String">
             <default>power</default>
         </entry>
-        <!-- What the measured draw adds up: auto (a PSU or platform sensor if there is one, else CPU + GPU), or components (CPU + GPU only). -->
+        <!-- The measured total: auto (a whole-machine meter such as a PSU if there is one, else CPU + GPU), components (CPU + GPU only), or one source's id. -->
         <entry name="powerTotal" type="String">
             <default>auto</default>
         </entry>

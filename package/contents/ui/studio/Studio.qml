@@ -88,6 +88,8 @@ Rectangle {
             list = list.concat(m.availableIfaces.filter(i => i !== "auto").map(i => [i, i]));
         else if (m && kind === "disks")
             list = list.concat(m.availableDisks.filter(d => d !== "auto").map(d => [d, d]));
+        else if (kind === "powers")
+            list = [["auto", "Automatic"], ["components", "CPU + GPU"]].concat(m ? m.powerSources.map(s => [s.id, s.label]) : []);
         else if (m && kind === "gpus")
             list = list.concat(m.gpuDevices.map(g => [g.pci || g.card, g.card + (g.pci ? " · " + g.pci : "")]));
         if (current && !list.some(o => String(o[0]) === String(current)))
