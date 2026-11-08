@@ -29,7 +29,7 @@ ColumnLayout {
             text: parent.label
             color: section.ink
             opacity: 0.38
-            font.pixelSize: 7
+            font.pixelSize: Math.round(7 * section.monitor.textScale)
             font.letterSpacing: 0.8
         }
         Text {
@@ -37,7 +37,7 @@ ColumnLayout {
             text: parent.value
             color: parent.tint
             opacity: 0.85
-            font.pixelSize: 10
+            font.pixelSize: Math.round(10 * section.monitor.textScale)
             font.bold: true
             Behavior on color {
                 ColorAnimation {
@@ -50,6 +50,7 @@ ColumnLayout {
     SectionHeader {
         id: header
         fontFamily: section.monitor.fontFamily
+        textScale: section.monitor.textScale
         Layout.fillWidth: true
         title: section.model.title
         reading: section.model.reading
@@ -65,7 +66,7 @@ ColumnLayout {
                 readonly property bool current: section.monitor.activeTarget === index
                 anchors.verticalCenter: parent ? parent.verticalCenter : undefined
                 width: Math.min(90, chipText.implicitWidth + 14)
-                height: 18
+                height: Math.round(18 * section.monitor.textScale)
                 radius: height / 2
                 color: current ? Qt.alpha(section.monitor.pingColor, 0.22) : Qt.rgba(1, 1, 1, 0.06)
                 border.color: current ? Qt.alpha(section.monitor.pingColor, 0.6) : Qt.rgba(1, 1, 1, 0.14)
@@ -82,7 +83,7 @@ ColumnLayout {
                     width: Math.min(implicitWidth, 76)
                     text: parent.modelData
                     color: parent.current ? section.monitor.pingColor : Qt.rgba(section.ink.r, section.ink.g, section.ink.b, 0.55)
-                    font.pixelSize: 9
+                    font.pixelSize: Math.round(9 * section.monitor.textScale)
                     elide: Text.ElideRight
                 }
                 MouseArea {

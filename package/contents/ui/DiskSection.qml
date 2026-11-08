@@ -22,6 +22,7 @@ ColumnLayout {
     SectionHeader {
         id: header
         fontFamily: section.monitor.fontFamily
+        textScale: section.monitor.textScale
         Layout.fillWidth: true
         title: section.model.title
         reading: section.model.reading
@@ -33,7 +34,7 @@ ColumnLayout {
             text: section.monitor.activeDisk
             color: section.ink
             opacity: 0.38
-            font.pixelSize: 9
+            font.pixelSize: Math.round(9 * section.monitor.textScale)
         }
     }
 

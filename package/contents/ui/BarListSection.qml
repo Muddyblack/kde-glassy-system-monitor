@@ -37,6 +37,7 @@ ColumnLayout {
     SectionHeader {
         id: header
         fontFamily: section.monitor.fontFamily
+        textScale: section.monitor.textScale
         Layout.fillWidth: true
         Layout.bottomMargin: 2
         title: section.model.title
@@ -52,7 +53,7 @@ ColumnLayout {
         Layout.preferredHeight: section.rowHeight
         text: section.model.empty
         color: section.inkAlpha(0.4)
-        font.pixelSize: 11
+        font.pixelSize: Math.round(11 * section.monitor.textScale)
         verticalAlignment: Text.AlignVCenter
     }
 
@@ -90,7 +91,7 @@ ColumnLayout {
                 Layout.maximumWidth: row.dot ? section.width * 0.45 : -1
                 text: row.modelData.label
                 color: section.inkAlpha(0.72)
-                font.pixelSize: 11
+                font.pixelSize: Math.round(11 * section.monitor.textScale)
                 elide: Text.ElideMiddle
             }
             Rectangle {
@@ -113,7 +114,7 @@ ColumnLayout {
                 Layout.fillWidth: row.dot
                 text: row.modelData.detail
                 color: section.inkAlpha(0.45)
-                font.pixelSize: 10
+                font.pixelSize: Math.round(10 * section.monitor.textScale)
                 elide: Text.ElideRight
             }
             Text {
@@ -122,7 +123,7 @@ ColumnLayout {
                 horizontalAlignment: Text.AlignRight
                 text: row.armed ? "end?" : row.modelData.value
                 color: row.armed ? "#ff5555" : section.numbers || row.tint
-                font.pixelSize: 11
+                font.pixelSize: Math.round(11 * section.monitor.textScale)
                 font.bold: true
             }
             Text {
@@ -132,7 +133,7 @@ ColumnLayout {
                 text: "✕"
                 opacity: row.armed ? 1 : rowHover.hovered ? 0.7 : 0
                 color: row.armed || killArea.containsMouse ? "#ff5555" : section.ink
-                font.pixelSize: 10
+                font.pixelSize: Math.round(10 * section.monitor.textScale)
                 MouseArea {
                     id: killArea
                     anchors.fill: parent

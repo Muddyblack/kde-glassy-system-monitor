@@ -63,6 +63,7 @@ QtObject {
         m.powerSources = sources;
         m.powerLoadW = sources.reduce((a, x) => a + x.watts, 0);
         m.powerLoadHistory = m.appendHistory(m.powerLoadHistory, m.powerLoadW);
+        m.samplePower();
         m.powerProfiles = DemoData.PROFILES;
         if (!m.powerProfile)
             m.powerProfile = "balanced";

@@ -57,6 +57,7 @@ Diagram {
     // Axis, grid and centre text follow the section's own text colour.
     textColor: Sections.sectionColor(cfg, sectionId, "text") || monitor.textColor
     fontFamily: monitor.fontFamily
+    textScale: monitor.textScale
     onScreen: monitor.onScreen
     onPaintRequested: monitor.notePaintRequested()
     onPainted: monitor.notePainted()

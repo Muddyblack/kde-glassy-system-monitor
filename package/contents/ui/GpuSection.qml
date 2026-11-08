@@ -30,6 +30,7 @@ ColumnLayout {
     SectionHeader {
         id: header
         fontFamily: section.monitor.fontFamily
+        textScale: section.monitor.textScale
         Layout.fillWidth: true
         title: section.model.title
         reading: section.model.reading
@@ -48,7 +49,7 @@ ColumnLayout {
                 anchors.centerIn: parent
                 text: section.vendor ? section.vendor[0] : ""
                 color: section.vendor ? section.vendor[1] : "transparent"
-                font.pixelSize: 9
+                font.pixelSize: Math.round(9 * section.monitor.textScale)
                 font.bold: true
                 font.letterSpacing: 0.5
             }
@@ -59,7 +60,7 @@ ColumnLayout {
             visible: section.monitor.gpuFreqMhz > 0
             text: section.monitor.gpuFreqMhz + " MHz"
             color: section.dimText
-            font.pixelSize: 10
+            font.pixelSize: Math.round(10 * section.monitor.textScale)
         }
         Text {
             font.family: section.monitor.fontFamily
@@ -67,7 +68,7 @@ ColumnLayout {
             visible: section.monitor.gpuVendor === "" && section.monitor.gpuNoDataTicks > 3
             text: "No GPU data"
             color: section.dimText
-            font.pixelSize: 10
+            font.pixelSize: Math.round(10 * section.monitor.textScale)
         }
     }
 
@@ -106,7 +107,7 @@ ColumnLayout {
                 font.family: section.monitor.fontFamily
                 text: "VRAM"
                 color: section.dimText
-                font.pixelSize: 10
+                font.pixelSize: Math.round(10 * section.monitor.textScale)
                 font.bold: true
             }
             Rectangle {
@@ -136,7 +137,7 @@ ColumnLayout {
                 font.family: section.monitor.fontFamily
                 text: section.monitor.gpuVramTotal > 0 ? Format.bytes(section.monitor.gpuVramUsed) + " / " + Format.bytes(section.monitor.gpuVramTotal) : Format.bytes(section.monitor.gpuVramUsed)
                 color: section.dimText
-                font.pixelSize: 10
+                font.pixelSize: Math.round(10 * section.monitor.textScale)
             }
         }
 
@@ -159,13 +160,13 @@ ColumnLayout {
                         font.family: section.monitor.fontFamily
                         text: parent.modelData[0]
                         color: section.dimText
-                        font.pixelSize: 10
+                        font.pixelSize: Math.round(10 * section.monitor.textScale)
                     }
                     Text {
                         font.family: section.monitor.fontFamily
                         text: parent.modelData[1].toFixed(0) + "%"
                         color: parent.busy ? section.numbers || section.monitor.gpuColor : section.dimText
-                        font.pixelSize: 10
+                        font.pixelSize: Math.round(10 * section.monitor.textScale)
                         font.bold: parent.busy
                     }
                 }

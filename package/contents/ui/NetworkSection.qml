@@ -26,7 +26,7 @@ ColumnLayout {
     TextMetrics {
         id: fullLinks
         font.family: section.monitor.fontFamily
-        font.pixelSize: 10
+        font.pixelSize: Math.round(10 * section.monitor.textScale)
         text: (section.monitor.activeIface !== "" ? section.monitor.activeIface + " ▾" : "") + "○ connections⧉ window"
     }
     readonly property bool shortLinks: fullLinks.advanceWidth + 20 > header.room
@@ -36,7 +36,7 @@ ColumnLayout {
         font.family: section.monitor.fontFamily
         signal activated
         color: area.containsMouse ? section.ink : section.dimText
-        font.pixelSize: 10
+        font.pixelSize: Math.round(10 * section.monitor.textScale)
         MouseArea {
             id: area
             anchors.fill: parent
@@ -50,6 +50,7 @@ ColumnLayout {
     SectionHeader {
         id: header
         fontFamily: section.monitor.fontFamily
+        textScale: section.monitor.textScale
         Layout.fillWidth: true
         title: section.model.title
         reading: section.model.reading
@@ -99,7 +100,7 @@ ColumnLayout {
             visible: !!section.cfg.netShowInfo && text !== ""
             text: [section.monitor.netSsid, section.monitor.netIpAddr].filter(Boolean).join(" · ")
             color: section.dimText
-            font.pixelSize: 10
+            font.pixelSize: Math.round(10 * section.monitor.textScale)
         }
     }
 
@@ -144,7 +145,7 @@ ColumnLayout {
                 text: modelData.text
                 color: section.numbers || modelData.color
                 opacity: 0.8
-                font.pixelSize: 10
+                font.pixelSize: Math.round(10 * section.monitor.textScale)
             }
         }
     }

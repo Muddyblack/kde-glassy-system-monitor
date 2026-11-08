@@ -24,6 +24,7 @@ ColumnLayout {
     SectionHeader {
         id: header
         fontFamily: section.monitor.fontFamily
+        textScale: section.monitor.textScale
         Layout.fillWidth: true
         title: section.model.title
         reading: section.model.reading
@@ -65,7 +66,7 @@ ColumnLayout {
                     text: parent.modelData.label
                     color: section.ink
                     opacity: 0.38
-                    font.pixelSize: 7
+                    font.pixelSize: Math.round(7 * section.monitor.textScale)
                     font.letterSpacing: 0.8
                 }
                 Text {
@@ -73,7 +74,7 @@ ColumnLayout {
                     text: parent.modelData.value
                     color: section.numbers || parent.modelData.color || section.ink
                     opacity: 0.85
-                    font.pixelSize: 10
+                    font.pixelSize: Math.round(10 * section.monitor.textScale)
                     font.bold: true
                 }
             }

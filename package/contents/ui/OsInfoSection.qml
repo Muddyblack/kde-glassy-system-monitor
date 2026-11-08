@@ -18,6 +18,7 @@ ColumnLayout {
 
     SectionHeader {
         fontFamily: section.monitor.fontFamily
+        textScale: section.monitor.textScale
         Layout.fillWidth: true
         Layout.bottomMargin: 4
         title: section.monitor.sectionTitle("system")
@@ -43,7 +44,7 @@ ColumnLayout {
     // Label column. Fetch tools emit far longer keys than the built-in labels
     // ("Display (AUOE48D)", "Battery (L20L2PF0)"), so the column scales with the
     // widget instead of being fixed at the built-in 46 px.
-    readonly property int _labelW: _fetch ? Math.max(52, Math.min(118, Math.round(width * 0.40))) : 46
+    readonly property int _labelW: Math.round((_fetch ? Math.max(52, Math.min(118, width * 0.40 / monitor.textScale)) : 46) * monitor.textScale)
 
     // ── Header: distro logo + banner ──────────────────────────────────────────
     RowLayout {
@@ -70,7 +71,7 @@ ColumnLayout {
                 Layout.fillWidth: true
                 text: section.monitor.osFetchTitle || section.monitor.osDistro
                 color: section.ink
-                font.pixelSize: 12
+                font.pixelSize: Math.round(12 * section.monitor.textScale)
                 font.bold: true
                 elide: Text.ElideRight
             }
@@ -79,7 +80,7 @@ ColumnLayout {
                 Layout.fillWidth: true
                 text: section._fetch ? section.monitor.osFetchTool : section.monitor.osHostname + (section.monitor.remoteHost ? " · over SSH" : "")
                 color: Qt.rgba(section.ink.r, section.ink.g, section.ink.b, 0.40)
-                font.pixelSize: 9
+                font.pixelSize: Math.round(9 * section.monitor.textScale)
                 elide: Text.ElideRight
             }
         }
@@ -102,7 +103,7 @@ ColumnLayout {
             font.family: section.monitor.fontFamily
             text: section._rawText
             color: section.ink
-            font.pixelSize: 10
+            font.pixelSize: Math.round(10 * section.monitor.textScale)
             textFormat: Text.PlainText
             lineHeight: 1.15
         }
@@ -128,7 +129,7 @@ ColumnLayout {
 
                 Item {
                     Layout.fillWidth: true
-                    height: 22
+                    height: Math.round(22 * section.monitor.textScale)
 
                     Rectangle {
                         anchors.fill: parent
@@ -144,7 +145,7 @@ ColumnLayout {
                         anchors.verticalCenter: parent.verticalCenter
                         text: modelData.lbl
                         color: Qt.rgba(section.ink.r, section.ink.g, section.ink.b, 0.40)
-                        font.pixelSize: 10
+                        font.pixelSize: Math.round(10 * section.monitor.textScale)
                         width: section._labelW
                         elide: Text.ElideRight
                     }
@@ -157,7 +158,7 @@ ColumnLayout {
                         anchors.verticalCenter: parent.verticalCenter
                         text: modelData.val || "…"
                         color: section.numbers || section.ink
-                        font.pixelSize: 11
+                        font.pixelSize: Math.round(11 * section.monitor.textScale)
                         font.bold: modelData.val !== ""
                         elide: Text.ElideRight
                     }

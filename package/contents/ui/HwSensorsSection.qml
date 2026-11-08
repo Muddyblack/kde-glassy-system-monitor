@@ -21,6 +21,7 @@ ColumnLayout {
 
     SectionHeader {
         fontFamily: section.monitor.fontFamily
+        textScale: section.monitor.textScale
         Layout.fillWidth: true
         Layout.bottomMargin: 4
         title: section.monitor.sectionTitle("sensors")
@@ -42,7 +43,7 @@ ColumnLayout {
         Layout.fillWidth: true
         text: section.monitor.hardwareSensors.length ? "No sensors chosen.\nPick them in the settings under Sections › Sensors." : "No sensor data.\nRun: sudo sensors-detect\nor install lm-sensors."
         color: Qt.rgba(section.ink.r, section.ink.g, section.ink.b, 0.40)
-        font.pixelSize: 11
+        font.pixelSize: Math.round(11 * section.monitor.textScale)
         horizontalAlignment: Text.AlignHCenter
         wrapMode: Text.WordWrap
     }

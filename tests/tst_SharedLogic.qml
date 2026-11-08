@@ -1620,6 +1620,13 @@ TestCase {
         compare(p.load, 2, "the platform counter covers the whole machine");
         const wrapped = Probes.parsePower("rapl intel-rapl:1 900 5000000 psys");
         compare(Probes.powerSources(Probes.parsePower("rapl intel-rapl:1 4999000 5000000 psys"), wrapped, 1).list[0].watts, 1.9e-3 / 1, "counter wraparound");
+        // A Corsair PSU reports the wall draw: it is the total, not one more part (#22).
+        const c0 = Probes.parsePower("rapl intel-rapl:0 1000000 262143328850 package-0");
+        const c1 = Probes.parsePower("rapl intel-rapl:0 111600000 262143328850 package-0\nhwmon corsairpsu:/sys/x 192000000 corsairpsu\nhwmon amdgpu:/sys/y 48000000 amdgpu");
+        const psu = Probes.powerSources(c0, c1, 2);
+        compare(psu.list.map(x => x.label), ["CPU package", "PSU (Corsair)", "GPU (AMD)"]);
+        compare(psu.load, 192, "the PSU covers the whole machine");
+        compare(Probes.powerSources(c0, c1, 2, "components").load, 55.3 + 48, "CPU + GPU only, PSU left out");
         compare(Probes.setProfileCmd("x'; rm -rf ~"), "");
         verify(Probes.setProfileCmd("performance").indexOf("<'performance'>") !== -1);
         compare(SectionModels.profiles({

@@ -57,6 +57,7 @@ ColumnLayout {
 
     SectionHeader {
         fontFamily: section.monitor.fontFamily
+        textScale: section.monitor.textScale
         Layout.fillWidth: true
         title: section.monitor.sectionTitle("power")
         reading: section.battery ? section.monitor.batteryPercent + "%" : section.monitor.hasPowerSensors ? Format.watts(section.monitor.powerLoadW) : ""
@@ -103,7 +104,7 @@ ColumnLayout {
                     visible: section.monitor.batteryStatus === "Charging"
                     text: "⚡"
                     color: "#ffffff"
-                    font.pixelSize: 10
+                    font.pixelSize: Math.round(10 * section.monitor.textScale)
                     style: Text.Outline
                     styleColor: Qt.rgba(0, 0, 0, 0.5)
                 }
@@ -126,7 +127,7 @@ ColumnLayout {
                 text: section.battery ? (section.monitor.batteryModel || "Battery") : "Measured draw"
                 color: section.ink
                 opacity: 0.85
-                font.pixelSize: 11
+                font.pixelSize: Math.round(11 * section.monitor.textScale)
                 font.bold: true
                 elide: Text.ElideRight
             }
@@ -135,7 +136,7 @@ ColumnLayout {
                 font.family: section.monitor.fontFamily
                 text: section.battery ? section.statusText : section.monitor.powerSources.map(s => s.label).join(" · ")
                 color: section.inkAlpha(0.55)
-                font.pixelSize: 10
+                font.pixelSize: Math.round(10 * section.monitor.textScale)
                 elide: Text.ElideRight
             }
         }
@@ -147,7 +148,7 @@ ColumnLayout {
                 readonly property real w: section.battery ? section.monitor.batteryPowerW : section.monitor.powerLoadW
                 text: (section.battery && w > 0.05 ? "+" : "") + Math.abs(w).toFixed(1) + "W"
                 color: section.numbers || (section.battery ? (w > 0.05 ? "#44dd88" : w < -0.05 ? "#ffaa22" : section.ink) : SectionModels.color(section.cfg, "powerLoadColor", "#ffaa22"))
-                font.pixelSize: 20
+                font.pixelSize: Math.round(20 * section.monitor.textScale)
                 font.bold: true
                 font.features: ({
                         "tnum": 1
@@ -159,7 +160,7 @@ ColumnLayout {
                 font.family: section.monitor.fontFamily
                 text: Format.watts(section.monitor.powerLoadW) + " load"
                 color: section.inkAlpha(0.5)
-                font.pixelSize: 9
+                font.pixelSize: Math.round(9 * section.monitor.textScale)
             }
         }
     }
@@ -170,7 +171,7 @@ ColumnLayout {
         Layout.fillWidth: true
         text: "No battery or power sensors"
         color: section.inkAlpha(0.3)
-        font.pixelSize: 11
+        font.pixelSize: Math.round(11 * section.monitor.textScale)
         horizontalAlignment: Text.AlignHCenter
     }
 
@@ -181,7 +182,7 @@ ColumnLayout {
         property bool on: false
         signal picked
         Layout.fillWidth: true
-        implicitHeight: 20
+        implicitHeight: Math.round(20 * section.monitor.textScale)
         radius: 5
         color: on ? section.inkAlpha(0.14) : segArea.containsMouse ? section.inkAlpha(0.06) : "transparent"
         Text {
@@ -190,7 +191,7 @@ ColumnLayout {
             text: seg.label
             color: section.ink
             opacity: seg.on ? 0.95 : 0.55
-            font.pixelSize: 10
+            font.pixelSize: Math.round(10 * section.monitor.textScale)
             font.bold: seg.on
         }
         MouseArea {
@@ -226,7 +227,7 @@ ColumnLayout {
         cfg: section.cfg
         sectionId: "power"
         style: sectionStyle || "area"
-        smoothScroll: false
+        clock: section.monitor.powerClock
         maxValue: section.chartModel.maxValue
         ticks: section.chartModel.ticks
         series: section.chartModel.series
@@ -251,7 +252,7 @@ ColumnLayout {
             font.family: section.monitor.fontFamily
             text: "Profile"
             color: section.inkAlpha(0.45)
-            font.pixelSize: 10
+            font.pixelSize: Math.round(10 * section.monitor.textScale)
             Layout.rightMargin: 4
         }
         Repeater {
@@ -271,7 +272,7 @@ ColumnLayout {
         property string value
         property color tint: section.ink
         Layout.fillWidth: true
-        implicitHeight: 22
+        implicitHeight: Math.round(22 * section.monitor.textScale)
         radius: 4
         color: section.inkAlpha(0.05)
         border.color: section.inkAlpha(0.08)
@@ -283,7 +284,7 @@ ColumnLayout {
             font.family: section.monitor.fontFamily
             text: parent.label
             color: section.inkAlpha(0.55)
-            font.pixelSize: 10
+            font.pixelSize: Math.round(10 * section.monitor.textScale)
         }
         Text {
             anchors.right: parent.right
@@ -292,7 +293,7 @@ ColumnLayout {
             font.family: section.monitor.fontFamily
             text: parent.value
             color: section.numbers || parent.tint
-            font.pixelSize: 10
+            font.pixelSize: Math.round(10 * section.monitor.textScale)
             font.bold: true
         }
     }
@@ -336,13 +337,13 @@ ColumnLayout {
                 font.family: section.monitor.fontFamily
                 text: "Battery health"
                 color: section.inkAlpha(0.55)
-                font.pixelSize: 10
+                font.pixelSize: Math.round(10 * section.monitor.textScale)
             }
             Text {
                 font.family: section.monitor.fontFamily
                 text: parent.parent.health.toFixed(1) + "%"
                 color: section.numbers || parent.parent.tint
-                font.pixelSize: 10
+                font.pixelSize: Math.round(10 * section.monitor.textScale)
                 font.bold: true
             }
         }
@@ -378,11 +379,11 @@ ColumnLayout {
         Layout.fillWidth: true
         spacing: 6
         Text {
-            Layout.preferredWidth: 90
+            Layout.preferredWidth: Math.round(90 * section.monitor.textScale)
             font.family: section.monitor.fontFamily
             text: parent.label
             color: section.inkAlpha(0.45)
-            font.pixelSize: 10
+            font.pixelSize: Math.round(10 * section.monitor.textScale)
         }
         Rectangle {
             Layout.fillWidth: true
@@ -404,12 +405,12 @@ ColumnLayout {
             }
         }
         Text {
-            Layout.preferredWidth: 52
+            Layout.preferredWidth: Math.round(52 * section.monitor.textScale)
             horizontalAlignment: Text.AlignRight
             font.family: section.monitor.fontFamily
             text: parent.value.toFixed(2) + "%"
             color: section.numbers || (parent.value >= 10 ? parent.barColor : section.inkAlpha(0.65))
-            font.pixelSize: 10
+            font.pixelSize: Math.round(10 * section.monitor.textScale)
             font.bold: parent.value >= 5
         }
     }

@@ -99,6 +99,8 @@ Kirigami.Page {
     property bool cfg_showYLabelsDefault
     property string cfg_bgColor
     property string cfg_bgColorDefault
+    property real cfg_textScale
+    property real cfg_textScaleDefault
     property string cfg_fontFamily
     property string cfg_fontFamilyDefault
     property real cfg_bgRadiusTL
@@ -167,6 +169,8 @@ Kirigami.Page {
     property int cfg_containerCountDefault
     property string cfg_powerChart
     property string cfg_powerChartDefault
+    property string cfg_powerTotal
+    property string cfg_powerTotalDefault
     property bool cfg_powerShowProfiles
     property bool cfg_powerShowProfilesDefault
     property bool cfg_powerShowSources

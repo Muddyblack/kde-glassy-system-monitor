@@ -23,6 +23,7 @@ ColumnLayout {
     SectionHeader {
         id: header
         fontFamily: section.monitor.fontFamily
+        textScale: section.monitor.textScale
         Layout.fillWidth: true
         title: section.model.title
         reading: section.model.reading
@@ -79,7 +80,7 @@ ColumnLayout {
                 readonly property bool shown: !section.monitor.isCoreDisabled(index)
                 readonly property color tint: section.model.coreColors[index % section.model.coreColors.length]
                 Layout.fillWidth: true
-                implicitHeight: 20
+                implicitHeight: Math.round(20 * section.monitor.textScale)
 
                 RowLayout {
                     anchors.fill: parent
@@ -100,7 +101,7 @@ ColumnLayout {
                         text: "Core " + (coreItem.index + 1)
                         color: section.ink
                         opacity: coreItem.shown ? 0.7 : 0.35
-                        font.pixelSize: 10
+                        font.pixelSize: Math.round(10 * section.monitor.textScale)
                         font.strikeout: !coreItem.shown
                         elide: Text.ElideRight
                     }
@@ -109,7 +110,7 @@ ColumnLayout {
                         text: (section.monitor.corePercents[coreItem.index] || 0).toFixed(0) + "%"
                         color: section.numbers || coreItem.tint
                         opacity: coreItem.shown ? 1 : 0.4
-                        font.pixelSize: 10
+                        font.pixelSize: Math.round(10 * section.monitor.textScale)
                         font.bold: true
                         horizontalAlignment: Text.AlignRight
                         Layout.minimumWidth: 30

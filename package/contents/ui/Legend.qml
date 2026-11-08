@@ -46,7 +46,7 @@ Flow {
                     anchors.verticalCenter: parent.verticalCenter
                     text: entry.modelData.label
                     color: Qt.rgba(entry.ink.r, entry.ink.g, entry.ink.b, entry.shown ? 0.7 : 0.3)
-                    font.pixelSize: 10
+                    font.pixelSize: Math.round(10 * legend.monitor.textScale)
                     font.strikeout: !entry.shown
                 }
                 Text {
@@ -55,7 +55,7 @@ Flow {
                     visible: text !== ""
                     text: entry.modelData.value || ""
                     color: entry.shown ? entry.valueTint : Qt.rgba(entry.valueTint.r, entry.valueTint.g, entry.valueTint.b, 0.3)
-                    font.pixelSize: 11
+                    font.pixelSize: Math.round(11 * legend.monitor.textScale)
                     font.bold: true
                 }
             }

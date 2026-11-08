@@ -9,6 +9,8 @@ Item {
     property color readingColor: textColor
     property color textColor: "white"
     property string fontFamily: Qt.application.font.family
+    // Text size multiplier (Look › Text size).
+    property real textScale: 1
     // Optional extra content between title and reading (chips, totals).
     default property alias extra: middle.data
     // Width left for that extra content between title and reading.
@@ -28,7 +30,7 @@ Item {
         text: header.title
         color: header.textColor
         opacity: 0.85
-        font.pixelSize: 13
+        font.pixelSize: Math.round(13 * header.textScale)
         font.bold: true
         font.letterSpacing: 0.3
         elide: Text.ElideRight
@@ -52,7 +54,7 @@ Item {
         text: header.reading
         color: header.readingColor
         opacity: header.lineShown ? 1 : 0.3
-        font.pixelSize: 14
+        font.pixelSize: Math.round(14 * header.textScale)
         font.bold: true
         font.strikeout: !header.lineShown
         Behavior on color {

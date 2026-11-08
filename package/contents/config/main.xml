@@ -180,6 +180,11 @@
         <entry name="bgColor" type="String">
             <default>#800d0f1a</default>
         </entry>
+        <entry name="textScale" type="Double">
+            <default>1.0</default>
+            <min>0.7</min>
+            <max>2.5</max>
+        </entry>
         <entry name="fontFamily" type="String">
             <default>system</default>
         </entry>
@@ -291,6 +296,10 @@
         <!-- Power section: chart tab (power, battery, temp) and what shows below it. -->
         <entry name="powerChart" type="String">
             <default>power</default>
+        </entry>
+        <!-- What the measured draw adds up: auto (a PSU or platform sensor if there is one, else CPU + GPU), or components (CPU + GPU only). -->
+        <entry name="powerTotal" type="String">
+            <default>auto</default>
         </entry>
         <entry name="powerShowProfiles" type="Bool">
             <default>true</default>
