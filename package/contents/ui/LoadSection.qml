@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import "SectionModels.js" as SectionModels
+import "Sections.js" as Sections
 
 // Load average over time (1, 5 and 15 minutes; the dashed line is every CPU
 // busy), with uptime and task counts under the chart.
@@ -10,6 +11,9 @@ ColumnLayout {
     required property var monitor
     required property var cfg
     readonly property string sectionId: "load"
+    // This section's own text and number colours (Colours › Per section).
+    readonly property color ink: Sections.sectionColor(cfg, sectionId, "text") || monitor.textColor
+    readonly property string numbers: Sections.sectionColor(cfg, sectionId, "value")
     // Shared with the website studio; see SectionModels.js.
     readonly property var model: SectionModels.load(monitor, cfg)
     readonly property real preferredHeight: header.implicitHeight + chart.wantedHeight + stats.implicitHeight + (legend.visible ? legend.implicitHeight : 0) + 16
@@ -20,11 +24,12 @@ ColumnLayout {
     SectionHeader {
         id: header
         fontFamily: section.monitor.fontFamily
+        textScale: section.monitor.textScale
         Layout.fillWidth: true
         title: section.model.title
         reading: section.model.reading
-        readingColor: section.model.readingColor || section.monitor.textColor
-        textColor: section.monitor.textColor
+        readingColor: section.numbers || (section.model.readingColor || section.ink)
+        textColor: section.ink
         monitor: section.monitor
         lineKey: "load1"
     }
@@ -59,17 +64,17 @@ ColumnLayout {
                 Text {
                     font.family: section.monitor.fontFamily
                     text: parent.modelData.label
-                    color: section.monitor.textColor
+                    color: section.ink
                     opacity: 0.38
-                    font.pixelSize: 7
+                    font.pixelSize: Math.round(7 * section.monitor.textScale)
                     font.letterSpacing: 0.8
                 }
                 Text {
                     font.family: section.monitor.fontFamily
                     text: parent.modelData.value
-                    color: parent.modelData.color || section.monitor.textColor
+                    color: section.numbers || parent.modelData.color || section.ink
                     opacity: 0.85
-                    font.pixelSize: 10
+                    font.pixelSize: Math.round(10 * section.monitor.textScale)
                     font.bold: true
                 }
             }
@@ -84,6 +89,8 @@ ColumnLayout {
         Layout.fillWidth: true
         visible: !!section.cfg.showLegend
         monitor: section.monitor
+        ink: section.ink
+        numbers: section.numbers
         indent: chart.plotLeft
         entries: section.model.legend
     }

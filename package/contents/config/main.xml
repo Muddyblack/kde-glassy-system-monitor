@@ -180,6 +180,11 @@
         <entry name="bgColor" type="String">
             <default>#800d0f1a</default>
         </entry>
+        <entry name="textScale" type="Double">
+            <default>1.0</default>
+            <min>0.7</min>
+            <max>2.5</max>
+        </entry>
         <entry name="fontFamily" type="String">
             <default>system</default>
         </entry>
@@ -292,6 +297,10 @@
         <entry name="powerChart" type="String">
             <default>power</default>
         </entry>
+        <!-- The measured total: auto (a whole-machine meter such as a PSU if there is one, else CPU + GPU), components (CPU + GPU only), or one source's id. -->
+        <entry name="powerTotal" type="String">
+            <default>auto</default>
+        </entry>
         <entry name="powerShowProfiles" type="Bool">
             <default>true</default>
         </entry>
@@ -330,6 +339,10 @@
         <entry name="glassTintColor" type="String">
             <default>#3daee9</default>
         </entry>
+        <!-- Opacity of the glass tint; 1 = the stock look, up to 2. -->
+        <entry name="glassTintStrength" type="Double">
+            <default>1</default>
+        </entry>
         <entry name="glassBlur" type="Double">
             <default>0.85</default>
         </entry>
@@ -338,6 +351,90 @@
         </entry>
         <entry name="glassSpecular" type="Bool">
             <default>true</default>
+        </entry>
+        <!-- Solid card colour; empty = the light paper card. -->
+        <entry name="solidColor" type="String">
+            <default></default>
+        </entry>
+        <!-- Atmosphere light colours; empty = the first section colours. -->
+        <entry name="atmosphereColor1" type="String">
+            <default></default>
+        </entry>
+        <entry name="atmosphereColor2" type="String">
+            <default></default>
+        </entry>
+        <!-- Atmosphere depth beneath the lights; empty = a dark mix of both. -->
+        <entry name="atmosphereColor3" type="String">
+            <default></default>
+        </entry>
+        <!-- Tint card in the Plasma accent colour, at the card colour's opacity. -->
+        <entry name="tintFollowAccent" type="Bool">
+            <default>false</default>
+        </entry>
+        <!-- Far end of the Custom glass tint; empty = glassTintColor. -->
+        <entry name="glassTintColor2" type="String">
+            <default></default>
+        </entry>
+        <!-- Edge lines and rim light of every material; empty = white. -->
+        <entry name="edgeColor" type="String">
+            <default></default>
+        </entry>
+        <!-- Liquid glass light (pointer shine and Fresnel rim); empty = white. -->
+        <entry name="highlightColor" type="String">
+            <default></default>
+        </entry>
+        <!-- Card shadow colour; empty = black. -->
+        <entry name="shadowColor" type="String">
+            <default></default>
+        </entry>
+        <!-- Atmosphere top light follows the Plasma accent colour. -->
+        <entry name="atmosphereFollowAccent" type="Bool">
+            <default>false</default>
+        </entry>
+        <!-- Atmosphere glow size; 1 = stock. -->
+        <entry name="atmosphereGlowSize" type="Double">
+            <default>1</default>
+        </entry>
+        <!-- Atmosphere glow strength; 1 = stock. -->
+        <entry name="atmosphereGlowStrength" type="Double">
+            <default>1</default>
+        </entry>
+        <!-- Solid card in the Plasma accent colour. -->
+        <entry name="solidFollowAccent" type="Bool">
+            <default>false</default>
+        </entry>
+        <!-- Gradient material: start colour. -->
+        <entry name="gradientColor1" type="String">
+            <default>#2b1055</default>
+        </entry>
+        <!-- Gradient material: second colour. -->
+        <entry name="gradientColor2" type="String">
+            <default>#1c4f7a</default>
+        </entry>
+        <!-- Gradient material: optional third colour; empty = two colours. -->
+        <entry name="gradientColor3" type="String">
+            <default></default>
+        </entry>
+        <!-- Gradient direction in degrees (CSS: 0 = upwards, 90 = to the right). -->
+        <entry name="gradientAngle" type="Int">
+            <default>135</default>
+        </entry>
+        <!-- Gradient starts in the Plasma accent colour. -->
+        <entry name="gradientFollowAccent" type="Bool">
+            <default>false</default>
+        </entry>
+        <!-- Outline material: line width in px. -->
+        <entry name="outlineWidth" type="Double">
+            <default>1.5</default>
+        </entry>
+        <!-- Edge lines and rim light in the Plasma accent colour. -->
+        <entry name="edgeFollowAccent" type="Bool">
+            <default>false</default>
+        </entry>
+        <!-- Per-section text and number colours as JSON:
+             {"cpu":{"text":"#ffffff","value":"#44ddaa"}}; empty = inherit. -->
+        <entry name="sectionColors" type="String">
+            <default></default>
         </entry>
         <entry name="compositorGlass" type="Bool">
             <default>false</default>

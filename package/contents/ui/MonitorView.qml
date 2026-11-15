@@ -17,7 +17,7 @@ Item {
     // This view's sections, from its own settings (a preview may show a
     // layout the core it reads from was not configured for).
     readonly property var sectionIds: Sections.parse(cfg.sections, cfg.activeSection)
-    readonly property var materialColors: Sections.colors(sectionIds, cfg, String(monitor.accentColor || "#4aa8ff"))
+    readonly property var materialColors: Sections.materialColors(sectionIds, cfg, String(monitor.accentColor || "#4aa8ff"))
     readonly property int margin: ({
             compact: 6,
             roomy: 14
@@ -106,7 +106,8 @@ Item {
         id: glass
         anchors.fill: parent
         material: view.cfg.surfaceStyle || "tint"
-        fill: view.cfg.bgColor || "#800d0f1a"
+        fill: Sections.tintFill(view.cfg, String(monitor.accentColor))
+        solidColor: Sections.solidColor(view.cfg, String(monitor.accentColor)) || "transparent"
         radiusTL: view.cfg.bgRadiusTL ?? 12
         radiusTR: view.cfg.bgRadiusTR ?? 12
         radiusBR: view.cfg.bgRadiusBR ?? 12
@@ -116,6 +117,17 @@ Item {
         border: view.cfg.cardBorder !== false
         glassTint: view.cfg.glassTint || "clear"
         glassTintColor: view.cfg.glassTintColor || "#3daee9"
+        tintStrength: view.cfg.glassTintStrength ?? 1
+        glassTintColor2: Sections.ownColor(view.cfg.glassTintColor2, "transparent")
+        accent: monitor.accentColor
+        edgeColor: Sections.edgeColor(view.cfg, String(monitor.accentColor))
+        highlightColor: Sections.ownColor(view.cfg.highlightColor, "#ffffff")
+        shadowColor: Sections.ownColor(view.cfg.shadowColor, "#000000")
+        glowSize: view.cfg.atmosphereGlowSize ?? 1
+        glowStrength: view.cfg.atmosphereGlowStrength ?? 1
+        gradientColors: Sections.gradientColors(view.cfg, String(monitor.accentColor))
+        gradientAngle: view.cfg.gradientAngle ?? 135
+        outlineWidth: view.cfg.outlineWidth ?? 1.5
         glassBlur: view.cfg.glassBlur ?? 0.85
         refraction: view.cfg.glassRefraction ?? 0.5
         specular: view.cfg.glassSpecular !== false
@@ -124,6 +136,7 @@ Item {
         grain: view.cfg.grain === true
         color1: view.materialColors[0]
         color2: view.materialColors[1]
+        color3: view.materialColors[2]
         backdrop: view.backdrop
     }
 

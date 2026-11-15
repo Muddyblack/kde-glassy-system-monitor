@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import "SensorConfig.js" as Sensors
+import "Sections.js" as Sections
 
 // The sensor readings chosen for one section (see SensorConfig.js):
 // "grouped" rows under a header per device (Sensors), "bars" (Power's
@@ -19,13 +20,16 @@ ColumnLayout {
     // and the bars animate.
     readonly property string rowKeys: JSON.stringify(rows.map(s => s.id))
     readonly property int count: shown.length
+    // The host section's own text and number colours.
+    readonly property color text: Sections.sectionColor(cfg, targetSection, "text") || monitor.textColor
+    readonly property string numbers: Sections.sectionColor(cfg, targetSection, "value")
 
     function ink(alpha) {
-        return Qt.rgba(monitor.textColor.r, monitor.textColor.g, monitor.textColor.b, alpha);
+        return Qt.rgba(text.r, text.g, text.b, alpha);
     }
     function tint(sensor) {
         const c = Sensors.tint(sensor, cfg);
-        return c ? Qt.color(c) : monitor.textColor;
+        return c ? Qt.color(c) : text;
     }
 
     visible: count > 0
@@ -46,7 +50,7 @@ ColumnLayout {
                 readonly property color tint: readings.tint(sensor)
                 Layout.fillWidth: true
                 Layout.preferredWidth: 1
-                implicitHeight: 20
+                implicitHeight: Math.round(20 * readings.monitor.textScale)
                 spacing: 5
                 Rectangle {
                     implicitWidth: 8
@@ -57,19 +61,19 @@ ColumnLayout {
                 Text {
                     Layout.fillWidth: true
                     font.family: readings.monitor.fontFamily
-                    font.pixelSize: 10
+                    font.pixelSize: Math.round(10 * readings.monitor.textScale)
                     text: cell.sensor.label || ""
                     textFormat: Text.PlainText
-                    color: readings.monitor.textColor
+                    color: readings.text
                     opacity: 0.7
                     elide: Text.ElideRight
                 }
                 Text {
                     font.family: readings.monitor.fontFamily
-                    font.pixelSize: 10
+                    font.pixelSize: Math.round(10 * readings.monitor.textScale)
                     font.bold: true
                     text: Sensors.reading(cell.sensor)
-                    color: cell.tint
+                    color: readings.numbers || cell.tint
                 }
             }
         }
@@ -85,7 +89,7 @@ ColumnLayout {
             readonly property real fill: Sensors.ratio(sensor, readings.cfg, readings.maxWatts)
             Layout.fillWidth: true
             Layout.topMargin: sensor.header && index > 0 ? 5 : 0
-            implicitHeight: sensor.header ? 16 : 20
+            implicitHeight: Math.round((sensor.header ? 16 : 20) * readings.monitor.textScale)
 
             // Device header: name, rule, hottest reading.
             RowLayout {
@@ -97,7 +101,7 @@ ColumnLayout {
                     text: row.sensor.label || ""
                     textFormat: Text.PlainText
                     color: readings.ink(0.85)
-                    font.pixelSize: 10
+                    font.pixelSize: Math.round(10 * readings.monitor.textScale)
                     font.bold: true
                     font.letterSpacing: 0.4
                 }
@@ -115,7 +119,7 @@ ColumnLayout {
                         value: row.sensor.value,
                         crit: row.sensor.crit
                     }, readings.cfg)
-                    font.pixelSize: 9
+                    font.pixelSize: Math.round(9 * readings.monitor.textScale)
                     font.bold: true
                 }
             }
@@ -130,11 +134,11 @@ ColumnLayout {
                     anchors.left: parent.left
                     anchors.leftMargin: readings.layout === "grouped" ? 4 : 0
                     anchors.verticalCenter: parent.verticalCenter
-                    width: Math.min(readings.layout === "grouped" ? 90 : 110, parent.width * 0.34)
+                    width: Math.min((readings.layout === "grouped" ? 90 : 110) * readings.monitor.textScale, parent.width * 0.34)
                     text: row.sensor.label || ""
                     textFormat: Text.PlainText
                     color: readings.ink(0.62)
-                    font.pixelSize: readings.layout === "grouped" ? 11 : 10
+                    font.pixelSize: Math.round((readings.layout === "grouped" ? 11 : 10) * readings.monitor.textScale)
                     elide: Text.ElideRight
                 }
                 Item {
@@ -224,11 +228,11 @@ ColumnLayout {
                     anchors.right: parent.right
                     anchors.rightMargin: readings.layout === "grouped" ? 4 : 0
                     anchors.verticalCenter: parent.verticalCenter
-                    width: 64
+                    width: Math.round(64 * readings.monitor.textScale)
                     horizontalAlignment: Text.AlignRight
                     text: Sensors.reading(row.sensor)
-                    color: row.tint
-                    font.pixelSize: readings.layout === "grouped" ? 11 : 10
+                    color: readings.numbers || row.tint
+                    font.pixelSize: Math.round((readings.layout === "grouped" ? 11 : 10) * readings.monitor.textScale)
                     font.bold: true
                     elide: Text.ElideRight
                 }

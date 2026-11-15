@@ -166,6 +166,75 @@ Item {
             compare(JSON.parse(root.draft.sectionPositions).cpu.x, 40);
         }
 
+        function test_sectionColorGridEditsTextNumbersAndCharts() {
+            studio.selectTab("colors");
+            wait(50);
+            const grid = find("sectionColorGrid");
+            verify(grid && grid.visible);
+            const dot = find("dot_cpu_text");
+            verify(dot, "one text dot per shown section");
+            verify(!find("dot_gpu_text"), "hidden sections stay out");
+            mouseClick(dot);
+            compare(grid.open, "cpu|text", "a click opens that dot's swatches");
+            grid.pick(grid.open, "#ff0000");
+            compare(JSON.parse(root.draft.sectionColors).cpu.text, "#ff0000");
+            grid.pick("cpu|chart|cpuColor", "#00ff00");
+            compare(root.draft.cpuColor, "#00ff00");
+            // The crossed-out swatch goes back to the card's colour.
+            grid.pick("cpu|text", "");
+            compare(root.draft.sectionColors, "");
+            mouseClick(dot);
+            compare(grid.open, "", "a second click closes it");
+        }
+        function test_sectionTabsCarryTextAndNumberColours() {
+            studio.selectTab("memory");
+            wait(50);
+            verify(find("row_memoryTextColor").visible);
+            verify(find("row_memoryNumberColor").visible);
+            // Every colour of a section sits in its one Colours group.
+            for (const id of Schema.GROUPS.sections) {
+                const groups = Schema.SECTIONS.filter(t => t.tab === id);
+                for (const g of groups)
+                    for (const r of g.rows)
+                        if (r.type === "color")
+                            compare(g.title, "Colours", id + ": " + (r.k || r.id));
+            }
+            const ping = Schema.SECTIONS.filter(t => t.tab === "ping").map(t => t.title);
+            compare(ping.indexOf("Colours"), 1, "right after the main group");
+            // Fresh settings are the Glassy palette.
+            const palette = Schema.SECTIONS.filter(t => t.tab === "colors")[0].rows[0];
+            compare(palette.get(root.defaults), ["glassy"]);
+        }
+        function test_everyMaterialHasACardColour() {
+            const rows = {
+                tint: "row_bgColor",
+                glass: "row_glassColor",
+                liquid: "row_glassColor",
+                solid: "row_solidColor",
+                atmosphere: "row_atmosphereColor1",
+                gradient: "row_gradientColor2",
+                outline: "row_outlineWidth"
+            };
+            studio.selectTab("card");
+            for (const m in rows) {
+                studio.update({
+                    surfaceStyle: m
+                });
+                wait(30);
+                const row = find(rows[m]);
+                verify(row && row.visible, m);
+            }
+            // Picking a glass colour switches the tint to Custom in one click.
+            studio.update({
+                surfaceStyle: "glass",
+                glassTint: "clear"
+            });
+            const sch = Schema.SECTIONS.filter(t => t.tab === "card")[0].rows.filter(r => r.id === "glassColor")[0];
+            studio.update(Schema.rowPatch(sch, "#123456", root.draft));
+            compare(root.draft.glassTint, "custom");
+            compare(root.draft.glassTintColor, "#123456");
+        }
+
         function test_everyTabIsReachable() {
             root.draft = Object.assign({}, root.draft, {
                 sections: Schema.GROUPS.sections.join(",")

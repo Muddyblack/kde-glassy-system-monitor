@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import "SectionModels.js" as SectionModels
+import "Sections.js" as Sections
 
 ColumnLayout {
     id: section
@@ -8,6 +9,9 @@ ColumnLayout {
     required property var monitor
     required property var cfg
     readonly property string sectionId: "custom"
+    // This section's own text and number colours (Colours › Per section).
+    readonly property color ink: Sections.sectionColor(cfg, sectionId, "text") || monitor.textColor
+    readonly property string numbers: Sections.sectionColor(cfg, sectionId, "value")
     // Shared with the website studio; see SectionModels.js.
     readonly property var model: SectionModels.custom(monitor, cfg)
     readonly property real preferredHeight: header.implicitHeight + chart.wantedHeight + 12
@@ -18,11 +22,12 @@ ColumnLayout {
     SectionHeader {
         id: header
         fontFamily: section.monitor.fontFamily
+        textScale: section.monitor.textScale
         Layout.fillWidth: true
         title: section.model.title
         reading: section.model.reading
-        readingColor: section.model.readingColor || section.monitor.textColor
-        textColor: section.monitor.textColor
+        readingColor: section.numbers || (section.model.readingColor || section.ink)
+        textColor: section.ink
     }
 
     MetricChart {

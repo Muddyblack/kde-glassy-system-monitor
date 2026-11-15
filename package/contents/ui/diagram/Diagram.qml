@@ -34,6 +34,8 @@ Item {
     property color gapColor: "#ff4444"
     property color textColor: "white"
     property string fontFamily: Qt.application.font.family
+    // Multiplies the axis and meter label sizes (and the axis gutter).
+    property real textScale: 1
     // "gpu" (fragment shader) or "canvas" (Context2D, the pre-shader path).
     property string renderer: "gpu"
     property bool onScreen: true
@@ -42,7 +44,7 @@ Item {
 
     readonly property bool scrolling: Data.scrolls(style)
     readonly property bool meter: style === "meter"
-    readonly property real plotLeft: scrolling && axis ? 38 : 0
+    readonly property real plotLeft: scrolling && axis ? Math.round(38 * textScale) : 0
     readonly property real plotWidth: Math.max(0, width - plotLeft)
     readonly property real step: plotWidth / Math.max(1, Math.max(10, historySize) - 1)
     readonly property var normalized: series.map(s => Data.normalize(s, {
@@ -53,7 +55,7 @@ Item {
     // The API is Unknown until the window is exposed; assume a GPU until then.
     readonly property bool shaderCapable: GraphicsInfo.api !== GraphicsInfo.Software
     readonly property bool usingShader: renderer === "gpu" && shaderCapable && !(gpuLoader.item && gpuLoader.item.failed)
-    // Labels at least 20 px apart: the ends always, middle ones when there's room.
+    // Labels at least 20 px (scaled) apart: the ends always, middle ones when there's room.
     readonly property var visibleTicks: {
         const out = [];
         let lastY = -1e9;
@@ -61,9 +63,9 @@ Item {
         sorted.forEach((t, i) => {
             const y = Data.yOf(t.value, maxValue, height);
             const end = i === 0 || i === sorted.length - 1;
-            if (end && i > 0 && y - lastY < 20 && out.length > 1)
+            if (end && i > 0 && y - lastY < 20 * textScale && out.length > 1)
                 out.pop();
-            if (end || y - lastY >= 20) {
+            if (end || y - lastY >= 20 * textScale) {
                 out.push(t);
                 lastY = y;
             }
@@ -106,13 +108,13 @@ Item {
             required property var modelData
             readonly property int split: modelData.text.lastIndexOf(" ")
             x: chart.plotLeft - 4 - width
-            y: Data.yOf(modelData.value, chart.maxValue, chart.height) - 9
+            y: Data.yOf(modelData.value, chart.maxValue, chart.height) - Math.round(9 * chart.textScale)
             Text {
                 font.family: chart.fontFamily
                 anchors.right: parent.right
                 text: parent.split > 0 ? parent.modelData.text.slice(0, parent.split) : parent.modelData.text
                 color: Qt.rgba(chart.textColor.r, chart.textColor.g, chart.textColor.b, 0.65)
-                font.pixelSize: 10
+                font.pixelSize: Math.round(10 * chart.textScale)
                 font.bold: true
             }
             Text {
@@ -121,7 +123,7 @@ Item {
                 visible: parent.split > 0
                 text: parent.modelData.text.slice(parent.split + 1)
                 color: Qt.rgba(chart.textColor.r, chart.textColor.g, chart.textColor.b, 0.38)
-                font.pixelSize: 8
+                font.pixelSize: Math.round(8 * chart.textScale)
             }
         }
     }
@@ -181,7 +183,7 @@ Item {
                         text: parent.parent.modelData.label
                         elide: Text.ElideRight
                         color: Qt.rgba(chart.textColor.r, chart.textColor.g, chart.textColor.b, 0.65)
-                        font.pixelSize: 9
+                        font.pixelSize: Math.round(9 * chart.textScale)
                     }
                     Text {
                         id: reading
@@ -189,7 +191,7 @@ Item {
                         anchors.right: parent.right
                         text: parent.parent.modelData.text
                         color: Qt.rgba(chart.textColor.r, chart.textColor.g, chart.textColor.b, 0.9)
-                        font.pixelSize: 9
+                        font.pixelSize: Math.round(9 * chart.textScale)
                         font.bold: true
                     }
                 }

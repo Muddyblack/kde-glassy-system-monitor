@@ -17,6 +17,34 @@ function isLookKey(key) {
     return NOT_LOOK.indexOf(key) === -1 && key !== "__proto__" && key !== "constructor" && key !== "prototype";
 }
 
+// A card style is a look limited to the card: material, its colours,
+// edges, shadow and corners. It swaps the card under any layout. Every key
+// of the studio's Card tab belongs here (tst_SharedLogic checks).
+var CARD_KEYS = ["surfaceStyle", "bgColor", "tintFollowAccent", "frostedGlass", "frostStrength", "glassTint", "glassTintColor", "glassTintColor2",
+    "glassTintStrength", "glassBlur", "compositorGlass", "glassRefraction", "glassSpecular", "highlightColor", "solidColor", "solidFollowAccent",
+    "atmosphereFollowAccent", "atmosphereColor1", "atmosphereColor2", "atmosphereColor3", "atmosphereGlowSize", "atmosphereGlowStrength",
+    "gradientColor1", "gradientColor2", "gradientColor3", "gradientAngle", "gradientFollowAccent", "outlineWidth",
+    "cardOpacity", "cardShadow", "shadowColor", "cardBorder", "edgeColor", "edgeFollowAccent", "grain", "bgRadiusTL", "bgRadiusTR", "bgRadiusBR", "bgRadiusBL"];
+// `card` limits a look function to CARD_KEYS.
+function inScope(key, card) {
+    return isLookKey(key) && (!card || CARD_KEYS.indexOf(key) !== -1);
+}
+
+var CARD_STYLES = [
+    { id: "card-you-glass", card: true, name: "Material You glass", note: "Glass tinted by the Plasma accent; follows your wallpaper's scheme.",
+      s: { surfaceStyle: "glass", glassTint: "accent", glassTintStrength: 1.3, cardShadow: "soft", bgRadiusTL: 18, bgRadiusTR: 18, bgRadiusBR: 18, bgRadiusBL: 18 } },
+    { id: "card-you-frost", card: true, name: "Accent frost", note: "The classic frosted tint, shaded by the accent.",
+      s: { tintFollowAccent: true, bgColor: "#99000000", cardShadow: "soft" } },
+    { id: "card-aurora", card: true, name: "Aurora", note: "Atmosphere lit by the accent, with a wide glow.",
+      s: { surfaceStyle: "atmosphere", atmosphereFollowAccent: true, atmosphereGlowSize: 1.4, grain: true, cardShadow: "soft",
+           bgRadiusTL: 20, bgRadiusTR: 20, bgRadiusBR: 20, bgRadiusBL: 20 } },
+    { id: "card-neon-edge", card: true, name: "Neon edge", note: "Smoked liquid glass with a coloured rim, light and glow.",
+      s: { surfaceStyle: "liquid", glassTint: "smoke", edgeColor: "#22aaff", highlightColor: "#aa66ff", cardShadow: "lifted", shadowColor: "#2266ff",
+           bgRadiusTL: 16, bgRadiusTR: 16, bgRadiusBR: 16, bgRadiusBL: 16 } },
+    { id: "card-accent-paper", card: true, name: "Accent paper", note: "A solid card in the accent colour; text picks light or dark.",
+      s: { surfaceStyle: "solid", solidFollowAccent: true, cardShadow: "lifted", bgRadiusTL: 14, bgRadiusTR: 14, bgRadiusBR: 14, bgRadiusBL: 14 } }
+];
+
 var BUILT_IN = [
     { id: "glassy", name: "Glassy", note: "The defaults: one CPU line on frosted glass.", s: {} },
     { id: "dashboard", name: "Dashboard", note: "Four metrics in two columns, network across the middle.",
@@ -30,7 +58,7 @@ var BUILT_IN = [
       s: { sections: "cpu,memory,network", bgColor: "#00000000", cardBorder: false, frostedGlass: false, glowLine: false, showYLabels: false,
            showLegend: false, lineWidth: 1.4, cpuColor: "#f2f2f2", memColor: "#c8c8c8", dlColor: "#f2f2f2", ulColor: "#9a9a9a" } },
     { id: "terminal", name: "Terminal", note: "Phosphor bars and monospace text on a square black card.",
-      s: { sections: "cpu,memory,network", surfaceStyle: "solid", bgColor: "#ff060907", bgRadiusTL: 0, bgRadiusTR: 0, bgRadiusBR: 0, bgRadiusBL: 0,
+      s: { sections: "cpu,memory,network", surfaceStyle: "solid", solidColor: "#060907", bgRadiusTL: 0, bgRadiusTR: 0, bgRadiusBR: 0, bgRadiusBL: 0,
            cardBorder: false, cardShadow: "none", grain: false, chartType: 1, historySize: 36, glowLine: true, bloomStrength: 0.3,
            showGridLines: true, fontFamily: "monospace", useSystemTextColor: false, customTextColor: "#b8f5c4",
            cpuColor: "#39ff7a", memColor: "#2de2e6", swapColor: "#ffb000", dlColor: "#39ff7a", ulColor: "#ffb000",
@@ -51,41 +79,43 @@ var BUILT_IN = [
            bgRadiusTL: 20, bgRadiusTR: 20, bgRadiusBR: 20, bgRadiusBL: 20, cpuColor: "#ff4f81", gpuColor: "#7a5cff", dlColor: "#4aa8ff", ulColor: "#ff9e4a" } }
 ];
 
-// Settings of `from` that belong to a look and differ from `defaults`.
-function extract(from, defaults) {
+// Settings of `from` that belong to a look (or card style) and differ from
+// `defaults`.
+function extract(from, defaults, card) {
     var out = {};
     for (var key in from)
-        if (isLookKey(key) && defaults[key] !== undefined && JSON.stringify(from[key]) !== JSON.stringify(defaults[key]))
+        if (inScope(key, card) && defaults[key] !== undefined && JSON.stringify(from[key]) !== JSON.stringify(defaults[key]))
             out[key] = from[key];
     return out;
 }
 
 // The draft with a look applied: every look setting back to its default,
-// then the look on top. Everything else in the draft stays.
-function apply(draft, defaults, settings) {
+// then the look on top. Everything else in the draft stays. A card style
+// resets and sets only the card.
+function apply(draft, defaults, settings, card) {
     var next = Object.assign({}, draft);
     for (var key in defaults)
-        if (isLookKey(key))
+        if (inScope(key, card))
             next[key] = defaults[key];
     for (key in settings)
-        if (isLookKey(key) && defaults[key] !== undefined)
+        if (inScope(key, card) && defaults[key] !== undefined)
             next[key] = settings[key];
     return next;
 }
 
-function matches(draft, defaults, settings) {
-    var target = apply(draft, defaults, settings);
+function matches(draft, defaults, settings, card) {
+    var target = apply(draft, defaults, settings, card);
     for (var key in defaults)
-        if (isLookKey(key) && JSON.stringify(target[key]) !== JSON.stringify(draft[key]))
+        if (inScope(key, card) && JSON.stringify(target[key]) !== JSON.stringify(draft[key]))
             return false;
     return true;
 }
 
 // Only known look keys with the type the default has.
-function clean(settings, defaults) {
+function clean(settings, defaults, card) {
     var out = {};
     Object.keys(settings).forEach(function (key) {
-        if (!isLookKey(key) || defaults[key] === undefined)
+        if (!inScope(key, card) || defaults[key] === undefined)
             return;
         var value = settings[key];
         if (typeof value !== typeof defaults[key] || (typeof value === "number" && !isFinite(value)) || (value !== null && typeof value === "object"))
@@ -95,8 +125,12 @@ function clean(settings, defaults) {
     return out;
 }
 
-function encode(name, settings, defaults) {
-    return JSON.stringify({ format: FORMAT, version: 1, name: String(name || "Shared look"), settings: clean(settings, defaults) });
+function encode(name, settings, defaults, card) {
+    var data = { format: FORMAT, version: 1, name: String(name || (card ? "Shared card style" : "Shared look")) };
+    if (card)
+        data.kind = "card";
+    data.settings = clean(settings, defaults, card);
+    return JSON.stringify(data);
 }
 
 function decode(text, defaults) {
@@ -108,7 +142,11 @@ function decode(text, defaults) {
     var settings = data.settings === undefined ? data : data.settings;
     if (!settings || typeof settings !== "object" || Array.isArray(settings))
         throw new Error("Settings must be an object.");
-    return { name: typeof data.name === "string" && data.name.trim() ? data.name.trim() : "Imported look", settings: clean(settings, defaults) };
+    var card = data.kind === "card";
+    var out = { name: typeof data.name === "string" && data.name.trim() ? data.name.trim() : card ? "Imported card style" : "Imported look", settings: clean(settings, defaults, card) };
+    if (card)
+        out.card = true;
+    return out;
 }
 
 // The saved list lives in the userPresets setting as JSON.

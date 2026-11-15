@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import "Sections.js" as Sections
 
 // A section that is a list of labelled bars: storage and top processes.
 // `model` comes from SectionModels (shared with the website).
@@ -9,13 +10,15 @@ ColumnLayout {
     required property var monitor
     required property var cfg
     required property string sectionId
+    // This section's own text and number colours (Colours › Per section).
+    readonly property color ink: Sections.sectionColor(cfg, sectionId, "text") || monitor.textColor
+    readonly property string numbers: Sections.sectionColor(cfg, sectionId, "value")
     required property var model
     readonly property real rowHeight: 20
     // Rows never scroll or cut: the section is as tall as its rows.
     readonly property real preferredHeight: header.implicitHeight + Math.max(1, model.rows.length) * rowHeight + 10
     readonly property real minimumHeight: preferredHeight
 
-    readonly property color ink: monitor.textColor
     function inkAlpha(a) {
         return Qt.rgba(ink.r, ink.g, ink.b, a);
     }
@@ -34,11 +37,12 @@ ColumnLayout {
     SectionHeader {
         id: header
         fontFamily: section.monitor.fontFamily
+        textScale: section.monitor.textScale
         Layout.fillWidth: true
         Layout.bottomMargin: 2
         title: section.model.title
         reading: section.model.reading
-        readingColor: section.model.readingColor || section.inkAlpha(0.55)
+        readingColor: section.numbers || (section.model.readingColor || section.inkAlpha(0.55))
         textColor: section.ink
     }
 
@@ -49,7 +53,7 @@ ColumnLayout {
         Layout.preferredHeight: section.rowHeight
         text: section.model.empty
         color: section.inkAlpha(0.4)
-        font.pixelSize: 11
+        font.pixelSize: Math.round(11 * section.monitor.textScale)
         verticalAlignment: Text.AlignVCenter
     }
 
@@ -87,7 +91,7 @@ ColumnLayout {
                 Layout.maximumWidth: row.dot ? section.width * 0.45 : -1
                 text: row.modelData.label
                 color: section.inkAlpha(0.72)
-                font.pixelSize: 11
+                font.pixelSize: Math.round(11 * section.monitor.textScale)
                 elide: Text.ElideMiddle
             }
             Rectangle {
@@ -110,7 +114,7 @@ ColumnLayout {
                 Layout.fillWidth: row.dot
                 text: row.modelData.detail
                 color: section.inkAlpha(0.45)
-                font.pixelSize: 10
+                font.pixelSize: Math.round(10 * section.monitor.textScale)
                 elide: Text.ElideRight
             }
             Text {
@@ -118,8 +122,8 @@ ColumnLayout {
                 Layout.preferredWidth: Math.max(44, implicitWidth)
                 horizontalAlignment: Text.AlignRight
                 text: row.armed ? "end?" : row.modelData.value
-                color: row.armed ? "#ff5555" : row.tint
-                font.pixelSize: 11
+                color: row.armed ? "#ff5555" : section.numbers || row.tint
+                font.pixelSize: Math.round(11 * section.monitor.textScale)
                 font.bold: true
             }
             Text {
@@ -129,7 +133,7 @@ ColumnLayout {
                 text: "✕"
                 opacity: row.armed ? 1 : rowHover.hovered ? 0.7 : 0
                 color: row.armed || killArea.containsMouse ? "#ff5555" : section.ink
-                font.pixelSize: 10
+                font.pixelSize: Math.round(10 * section.monitor.textScale)
                 MouseArea {
                     id: killArea
                     anchors.fill: parent

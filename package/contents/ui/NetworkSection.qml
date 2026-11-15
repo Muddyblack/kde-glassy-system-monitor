@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import "SectionModels.js" as SectionModels
 import QtQuick.Controls as QQC2
+import "Sections.js" as Sections
 
 ColumnLayout {
     id: section
@@ -9,9 +10,12 @@ ColumnLayout {
     required property var monitor
     required property var cfg
     readonly property string sectionId: "network"
+    // This section's own text and number colours (Colours › Per section).
+    readonly property color ink: Sections.sectionColor(cfg, sectionId, "text") || monitor.textColor
+    readonly property string numbers: Sections.sectionColor(cfg, sectionId, "value")
     // Shared with the website studio; see SectionModels.js.
     readonly property var model: SectionModels.network(monitor, cfg)
-    readonly property color dimText: Qt.rgba(monitor.textColor.r, monitor.textColor.g, monitor.textColor.b, 0.42)
+    readonly property color dimText: Qt.rgba(ink.r, ink.g, ink.b, 0.42)
     readonly property real preferredHeight: header.implicitHeight + chart.wantedHeight + (legend.visible ? legend.implicitHeight : 0) + totals.implicitHeight + 14
     readonly property real minimumHeight: preferredHeight - chart.slack
 
@@ -22,7 +26,7 @@ ColumnLayout {
     TextMetrics {
         id: fullLinks
         font.family: section.monitor.fontFamily
-        font.pixelSize: 10
+        font.pixelSize: Math.round(10 * section.monitor.textScale)
         text: (section.monitor.activeIface !== "" ? section.monitor.activeIface + " ▾" : "") + "○ connections⧉ window"
     }
     readonly property bool shortLinks: fullLinks.advanceWidth + 20 > header.room
@@ -31,8 +35,8 @@ ColumnLayout {
         id: link
         font.family: section.monitor.fontFamily
         signal activated
-        color: area.containsMouse ? section.monitor.textColor : section.dimText
-        font.pixelSize: 10
+        color: area.containsMouse ? section.ink : section.dimText
+        font.pixelSize: Math.round(10 * section.monitor.textScale)
         MouseArea {
             id: area
             anchors.fill: parent
@@ -46,11 +50,12 @@ ColumnLayout {
     SectionHeader {
         id: header
         fontFamily: section.monitor.fontFamily
+        textScale: section.monitor.textScale
         Layout.fillWidth: true
         title: section.model.title
         reading: section.model.reading
-        readingColor: section.model.readingColor || section.monitor.textColor
-        textColor: section.monitor.textColor
+        readingColor: section.numbers || (section.model.readingColor || section.ink)
+        textColor: section.ink
 
         Link {
             anchors.verticalCenter: parent.verticalCenter
@@ -95,7 +100,7 @@ ColumnLayout {
             visible: !!section.cfg.netShowInfo && text !== ""
             text: [section.monitor.netSsid, section.monitor.netIpAddr].filter(Boolean).join(" · ")
             color: section.dimText
-            font.pixelSize: 10
+            font.pixelSize: Math.round(10 * section.monitor.textScale)
         }
     }
 
@@ -138,9 +143,9 @@ ColumnLayout {
                 required property int index
                 Layout.fillWidth: index === 0
                 text: modelData.text
-                color: modelData.color
+                color: section.numbers || modelData.color
                 opacity: 0.8
-                font.pixelSize: 10
+                font.pixelSize: Math.round(10 * section.monitor.textScale)
             }
         }
     }
@@ -150,6 +155,8 @@ ColumnLayout {
         Layout.fillWidth: true
         visible: !!section.cfg.showLegend && section.model.legend.length > 0
         monitor: section.monitor
+        ink: section.ink
+        numbers: section.numbers
         indent: chart.plotLeft
         entries: section.model.legend
     }

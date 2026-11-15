@@ -94,11 +94,18 @@ Item {
                     looks: looksComponent,
                     ifaces: ifacesComponent,
                     projectInfo: projectInfoComponent,
-                    fetchFields: fetchFieldsComponent
+                    fetchFields: fetchFieldsComponent,
+                    sectionColors: sectionColorsComponent
                 })[row.rowData.type] ?? null
         }
     }
 
+    Component {
+        id: sectionColorsComponent
+        SectionColors {
+            studio: row.studio
+        }
+    }
     Component {
         id: fetchFieldsComponent
         FetchFieldPicker {
@@ -166,13 +173,14 @@ Item {
         id: colorComponent
         // One row wide, so an unstacked row does not wrap after every swatch.
         Item {
-            implicitWidth: (row.rowData.swatches.length + 1) * 29 - 7
+            implicitWidth: (row.rowData.swatches.length + (row.rowData.auto ? 2 : 1)) * 29 - 7
             implicitHeight: swatches.implicitHeight
             StudioSwatches {
                 id: swatches
                 width: parent.width
                 swatches: row.rowData.swatches
-                value: String(row.value)
+                autoLabel: row.rowData.auto || ""
+                value: String(row.value ?? "")
                 onActivated: value => row.commit(value)
             }
         }
@@ -239,6 +247,7 @@ Item {
         id: looksComponent
         LookGallery {
             studio: row.studio
+            cards: !!row.rowData.cards
         }
     }
     Component {

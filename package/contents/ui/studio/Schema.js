@@ -65,10 +65,15 @@ var STYLE_NAMES = ["line", "bars", "area", "donut", "pie", "meter", "text"];
 
 var SWATCHES = ["#44ddaa", "#22aaff", "#aa66ff", "#ff6688", "#ff9933", "#ffaa22", "#ff6e40", "#39ff14", "#ffffff"];
 var GLASS = ["#800d0f1a", "#99000000", "#66101828", "#801a1024", "#6610231d", "#40ffffff", "#00000000"];
+var SOLID = ["#efefe6", "#ffffff", "#d8dece", "#1b1e24", "#060907", "#0d1b2a", "#2b1d3a", "#123524"];
+var ACCENT_DESC = "Uses the Plasma accent colour and changes with it, including colour schemes made from the wallpaper (KDE Material You Colors).";
+var GRADIENT = ["#2b1055", "#1c4f7a", "#7f1d4f", "#0f4c3a", "#3a1c71", "#d76d77", "#ffaf7b", "#44ddaa", "#22aaff", "#aa66ff"];
+var DEPTH = ["#000000", "#060907", "#0d1b2a", "#1b1e24", "#2b1d3a", "#123524", "#3a1420"];
+var INK = ["#ffffff", "#eef1f5", "#c8d0da", "#8a93a0", "#1e241d", "#000000", "#44ddaa", "#22aaff", "#ffaa22"];
 
 // Named colour sets for every metric at once.
 var PALETTES = {
-    glassy: { label: "Glassy", colors: { cpuColor: "#44ddaa", memColor: "#aa66ff", swapColor: "#ff6688", dlColor: "#22aaff", ulColor: "#ff9933", diskRdColor: "#22ddff", diskWrColor: "#ffaa22", gpuColor: "#ff6e40", pingColor: "#39ff14", customCmdColor: "#ffaa00", storageColor: "#44ddaa", processColor: "#22aaff" } },
+    glassy: { label: "Glassy", colors: { cpuColor: "#44ddaa", memColor: "#aa66ff", swapColor: "#ff6688", dlColor: "#22aaff", ulColor: "#ff9933", diskRdColor: "#22ddff", diskWrColor: "#ffaa22", gpuColor: "#ff6e40", pingColor: "#39ff14", customCmdColor: "#ffaa00", storageColor: "#44ddaa", processColor: "#4aa8ff" } },
     aurora: { label: "Aurora", colors: { cpuColor: "#5ef2c1", memColor: "#b57bff", swapColor: "#ff7ad9", dlColor: "#4aa8ff", ulColor: "#8f6bff", diskRdColor: "#86d6ff", diskWrColor: "#cdb8ff", gpuColor: "#5ef2c1", pingColor: "#5ef2c1", customCmdColor: "#4aa8ff", storageColor: "#5ef2c1", processColor: "#4aa8ff" } },
     ember: { label: "Ember", colors: { cpuColor: "#ffc36b", memColor: "#ff6a3d", swapColor: "#d6246e", dlColor: "#ffc36b", ulColor: "#ff6a3d", diskRdColor: "#ffd6b8", diskWrColor: "#ff8a7a", gpuColor: "#ff4f81", pingColor: "#ffc36b", customCmdColor: "#ff6a3d", storageColor: "#ffc36b", processColor: "#ffc36b" } },
     ice: { label: "Ice", colors: { cpuColor: "#86d6ff", memColor: "#e6f9ff", swapColor: "#3a7bd5", dlColor: "#86d6ff", ulColor: "#3a7bd5", diskRdColor: "#e6f9ff", diskWrColor: "#86d6ff", gpuColor: "#3a7bd5", pingColor: "#86d6ff", customCmdColor: "#e6f9ff", storageColor: "#86d6ff", processColor: "#86d6ff" } },
@@ -78,9 +83,12 @@ var PALETTES = {
 
 // Card materials; "tint" is the classic tinted card, the rest come from the
 // audio visualizer.
-var MATERIALS = [["tint", "Tint"], ["glass", "Glass"], ["liquid", "Liquid glass"], ["solid", "Solid"], ["atmosphere", "Atmosphere"]];
+var MATERIALS = [["tint", "Tint"], ["glass", "Glass"], ["liquid", "Liquid glass"], ["solid", "Solid"], ["atmosphere", "Atmosphere"], ["gradient", "Gradient"], ["outline", "Outline"]];
 function tint(s) {
     return !s.surfaceStyle || s.surfaceStyle === "tint";
+}
+function material(id) {
+    return function (s) { return s.surfaceStyle === id; };
 }
 function glassy(s) {
     return s.surfaceStyle === "glass" || s.surfaceStyle === "liquid";
@@ -98,10 +106,21 @@ function title(key, fallback) {
 function color(key, label, desc) {
     return { k: key, type: "color", label: label, desc: desc || "", swatches: SWATCHES };
 }
+// A section's own text or number colour (Sections.sectionColors); the
+// crossed-out swatch goes back to the card's.
+function sectionColor(id, part, label, desc) {
+    return { id: id + (part === "text" ? "TextColor" : "NumberColor"), type: "color", label: label, desc: desc, auto: part === "text" ? "Card text" : "Default",
+             swatches: part === "text" ? INK : SWATCHES,
+             get: function (s) { return Sections.sectionColor(s, id, part); },
+             set: function (v, s) { return { sectionColors: Sections.withSectionColor(s.sectionColors, id, part, v) }; } };
+}
 
 var SECTIONS = [
     tab("presets", "Looks", [
         { id: "looks", type: "looks", full: true, label: "", desc: "presets looks save import export json share neon dashboard minimal gauges gaming laptop" }
+    ]),
+    tab("presets", "Card styles", [
+        { id: "cardStyles", type: "looks", cards: true, full: true, label: "", desc: "card styles material you accent glass neon edge aurora paper save import export own material" }
     ]),
     tab("layout", "Sections", [
         { id: "sections", type: "sections", full: true, label: "What the widget shows", desc: "Switch sections on, drag them into order by the grip, and give each chart section its own size and style. One widget shows them all; a panel pill shows the first, or the ones picked under Layout › In a panel." },
@@ -172,28 +191,69 @@ var SECTIONS = [
         { k: "surfaceStyle", type: "tiles", full: true, label: "Material", tw: 84,
           opts: MATERIALS.map(function (m) { return { v: m[0], label: m[1], pv: "material" }; }) },
         { id: "cardNote", type: "note", full: true, note: "glass", when: glassy },
-        { k: "bgColor", type: "color", label: "Tint", desc: "Colour and opacity of the card. The last swatch removes the card.", swatches: GLASS, when: tint },
+        { k: "bgColor", type: "color", label: "Card colour", desc: "Colour and opacity of the tint. The last swatch removes the card.", swatches: GLASS, when: tint },
+        { k: "tintFollowAccent", type: "switch", label: "Follow accent colour", desc: ACCENT_DESC + " Tints the card colour towards it, keeping its opacity, so text stays readable.", when: tint },
+        { k: "glassTint", type: "seg", label: "Glass tint", opts: [["clear", "Clear"], ["frost", "Frost"], ["smoke", "Smoke"], ["cover", "Section colours"], ["accent", "Accent"], ["custom", "Custom"]], when: glassy },
+        { id: "glassColor", type: "color", label: "Card colour", desc: "Tints the glass; picking one switches the tint to Custom.", swatches: SWATCHES, when: glassy,
+          get: function (s) { return s.glassTint === "custom" ? s.glassTintColor : ""; },
+          set: function (v) { return { glassTint: "custom", glassTintColor: v }; } },
+        { k: "glassTintColor2", type: "color", label: "Second colour", desc: "The tint fades into this one towards the bottom right.", auto: "Same colour", swatches: SWATCHES,
+          when: function (s) { return glassy(s) && s.glassTint === "custom"; } },
+        { k: "glassTintStrength", type: "range", label: "Tint strength", desc: "How much colour the glass carries, for every tint. 100% is the stock look; 0% leaves only the blur.", min: 0, max: 2, step: 0.05, fmt: "pct", when: glassy },
+        { k: "solidFollowAccent", type: "switch", label: "Follow accent colour", desc: ACCENT_DESC + " Text turns light or dark to stay readable.", when: material("solid") },
+        { k: "solidColor", type: "color", label: "Card colour", desc: "Text turns light on a dark card while it follows the theme.", auto: "Paper", swatches: SOLID,
+          when: function (s) { return s.surfaceStyle === "solid" && !s.solidFollowAccent; },
+          get: function (s) { return Sections.solidColor(s); },
+          set: function (v, s) {
+              var patch = { solidColor: v || "" };
+              // An opaque tint from older settings would otherwise keep winning.
+              if (Sections.solidColor({ bgColor: s.bgColor }))
+                  patch.bgColor = "#800d0f1a";
+              return patch;
+          } },
+        { k: "atmosphereFollowAccent", type: "switch", label: "Top light follows accent", desc: ACCENT_DESC,
+          when: function (s) { return s.surfaceStyle === "atmosphere"; } },
+        { k: "atmosphereColor1", type: "color", label: "Top light", desc: "The glow from the top right corner.", auto: "Section colour", swatches: SWATCHES,
+          when: function (s) { return s.surfaceStyle === "atmosphere" && !s.atmosphereFollowAccent; } },
+        { k: "atmosphereColor2", type: "color", label: "Bottom light", desc: "The glow from the bottom left corner.", auto: "Section colour", swatches: SWATCHES,
+          when: function (s) { return s.surfaceStyle === "atmosphere"; } },
+        { k: "atmosphereColor3", type: "color", label: "Depth", desc: "The colour beneath both lights.", auto: "Mix of the lights", swatches: DEPTH,
+          when: function (s) { return s.surfaceStyle === "atmosphere"; } },
+        { k: "atmosphereGlowSize", type: "range", label: "Glow size", desc: "How far the lights reach into the card.", min: 0.4, max: 1.8, step: 0.05, fmt: "pct",
+          when: function (s) { return s.surfaceStyle === "atmosphere"; } },
+        { k: "atmosphereGlowStrength", type: "range", label: "Glow strength", min: 0, max: 1.25, step: 0.05, fmt: "pct",
+          when: function (s) { return s.surfaceStyle === "atmosphere"; } },
+        { k: "gradientFollowAccent", type: "switch", label: "Start from accent", desc: ACCENT_DESC, when: material("gradient") },
+        { k: "gradientColor1", type: "color", label: "First colour", swatches: GRADIENT,
+          when: function (s) { return s.surfaceStyle === "gradient" && !s.gradientFollowAccent; } },
+        { k: "gradientColor2", type: "color", label: "Second colour", swatches: GRADIENT, when: material("gradient") },
+        { k: "gradientColor3", type: "color", label: "Third colour", desc: "Optional; the gradient runs through all three.", auto: "None", swatches: GRADIENT, when: material("gradient") },
+        { k: "gradientAngle", type: "range", label: "Direction", desc: "0° runs upwards, 90° to the right.", min: 0, max: 360, step: 15, fmt: "deg", when: material("gradient") },
+        { k: "outlineWidth", type: "range", label: "Line width", desc: "No fill, just the line; its colour is the edge colour below.", min: 0.5, max: 6, step: 0.5, fmt: "fixed1", when: material("outline") },
         { k: "frostedGlass", type: "switch", label: "Frosted", desc: "Blur the tint into a soft glass gradient.", when: tint },
         { k: "frostStrength", type: "range", label: "Frost", min: 0, max: 1, step: 0.05, fmt: "pct", when: function (s) { return tint(s) && s.frostedGlass; } },
         { k: "glassBlur", type: "range", label: "Wallpaper blur", desc: "How frosted the glass looks. 0% turns blur off; text and charts stay sharp.", min: 0, max: 1, step: 0.01, fmt: "pct", when: glassy },
         { k: "compositorGlass", type: "switch", label: "Compositor glass", desc: "Asks Plasma for its translucent background with native blur.", when: function (s, env) { return glassy(s) && env !== "hypr"; } },
         { k: "cardOpacity", type: "range", label: "Card opacity", desc: "Only the card fades; text and charts stay solid.", min: 0, max: 1, step: 0.02, fmt: "pct" }
     ]),
-    tab("card", "Glass colour", [
-        { k: "glassTint", type: "seg", label: "Glass tint", opts: [["clear", "Clear"], ["frost", "Frost"], ["smoke", "Smoke"], ["cover", "Section colours"], ["custom", "Custom"]] },
-        { k: "glassTintColor", type: "color", label: "Custom glass colour", swatches: SWATCHES, when: function (s) { return s.glassTint === "custom"; } }
-    ], glassy),
     tab("card", "Liquid glass", [
         { k: "glassRefraction", type: "range", label: "Refraction", desc: "Bends the wallpaper at the edges with a subtle colour fringe.", min: 0, max: 1, step: 0.05, fmt: "pct" },
-        { k: "glassSpecular", type: "switch", label: "Light follows pointer", desc: "A soft highlight tracks the mouse." }
+        { k: "glassSpecular", type: "switch", label: "Light follows pointer", desc: "A soft highlight tracks the mouse." },
+        { k: "highlightColor", type: "color", label: "Light colour", desc: "The pointer light and the shine along the rim.", auto: "White", swatches: SWATCHES }
     ], function (s) { return s.surfaceStyle === "liquid"; }),
     tab("card", "Depth & finish", [
         { k: "cardShadow", type: "seg", label: "Shadow", opts: [["none", "None"], ["soft", "Soft"], ["lifted", "Lifted"]] },
+        { k: "shadowColor", type: "color", label: "Shadow colour", desc: "A coloured shadow reads as a glow on dark wallpapers.", auto: "Black", swatches: SWATCHES,
+          when: function (s) { return s.cardShadow === "soft" || s.cardShadow === "lifted"; } },
         { k: "cardBorder", type: "switch", label: "Glass edge", desc: "Hairline border and a line of light along the top." },
+        { k: "edgeFollowAccent", type: "switch", label: "Edge follows accent", desc: "The edge lines and rim light in the Plasma accent colour.",
+          when: function (s) { return !tint(s) || s.cardBorder; } },
+        { k: "edgeColor", type: "color", label: "Edge colour", desc: "The edge lines and rim light of every material.", auto: "White", swatches: SWATCHES,
+          when: function (s) { return (!tint(s) || s.cardBorder) && !s.edgeFollowAccent; } },
         { k: "grain", type: "switch", label: "Film grain", desc: "Stops gradients from banding." }
     ]),
     tab("card", "Corners", [
-        { id: "radius", type: "range", label: "Corner radius", desc: "Glass, solid and atmosphere use one radius for all corners.", min: 0, max: 30, step: 1, fmt: "px",
+        { id: "radius", type: "range", label: "Corner radius", desc: "Every material but Tint uses one radius for all corners.", min: 0, max: 30, step: 1, fmt: "px",
           get: function (s) { return s.bgRadiusTL; },
           set: function (v) { return { bgRadiusTL: v, bgRadiusTR: v, bgRadiusBR: v, bgRadiusBL: v }; } },
         { k: "bgRadiusTL", type: "range", label: "Top left", min: 0, max: 30, step: 1, fmt: "px", when: tint },
@@ -203,7 +263,7 @@ var SECTIONS = [
     ]),
 
     tab("colors", "Palette", [
-        { id: "palette", type: "chips", single: true, full: true, label: "Metric colours", desc: "Recolours every section at once. Each section's tab can change its own colours after.",
+        { id: "palette", type: "chips", single: true, full: true, label: "Chart colours", desc: "Recolours every chart at once. Fine-tune any section below or in its own tab.",
           opts: Object.keys(PALETTES).map(function (k) { return [k, PALETTES[k].label]; }),
           get: function (s) {
               for (var k in PALETTES) {
@@ -215,15 +275,20 @@ var SECTIONS = [
           },
           set: function (v) { var k = v[v.length - 1]; return k ? PALETTES[k].colors : {}; } }
     ]),
-    tab("colors", "Text", [
+    tab("colors", "Per section", [
+        { id: "sectionColors", type: "sectionColors", full: true, label: "Text, numbers and charts", desc: "Every shown section in one place. Click a dot, then a colour; the crossed-out swatch follows the card again." }
+    ]),
+    tab("colors", "Card text", [
+        { id: "textColor", type: "color", label: "Text colour", desc: "For the whole card; sections can override it above. Crossed out follows the Plasma theme.", auto: "Follow theme", swatches: INK,
+          get: function (s) { return s.useSystemTextColor ? "" : s.customTextColor; },
+          set: function (v) { return v ? { useSystemTextColor: false, customTextColor: v } : { useSystemTextColor: true }; } },
         { k: "fontFamily", type: "seg", label: "Font", opts: [["system", "System"], ["monospace", "Monospace"]] },
-        { k: "useSystemTextColor", type: "seg", label: "Text colour", opts: [[true, "Follow theme"], [false, "Custom"]] },
-        { k: "customTextColor", type: "color", label: "Custom text colour", swatches: ["#ffffff", "#eef1f5", "#c8d0da", "#1e241d", "#000000"], when: function (s) { return !s.useSystemTextColor; } }
+        { k: "textScale", type: "range", label: "Text size", desc: "Scales the text in every section; raise it for small or distant screens.", min: 0.7, max: 2.5, step: 0.05, fmt: "pct" }
     ]),
 
     tab("cpu", "CPU", [
         title("cpuTitle", "CPU"),
-        color("cpuColor", "Colour"),
+        color("cpuColor", "Chart colour"),
         { k: "showCpuCores", type: "switch", label: "Per-core lines", desc: "Every thread as a faint line with a readout grid. Click a core in the widget to hide it." },
         { k: "coreColorsStr", type: "text", label: "Core colours", desc: "Comma-separated, reused in order for more cores.", when: function (s) { return s.showCpuCores; } }
     ]),
@@ -253,9 +318,9 @@ var SECTIONS = [
         { k: "jitterThreshold", type: "range", label: "Jitter warning above", min: 0, max: 200, step: 5, fmt: "ms" },
         { k: "pingThresholdColors", type: "switch", label: "Colour by latency" },
         { k: "pingAlertPulse", type: "switch", label: "Pulse the card on alerts" },
-        color("pingColor", "Normal"),
-        color("pingWarnColor", "Warning"),
-        color("pingCritColor", "Critical and lost packets")
+        color("pingColor", "Chart colour"),
+        color("pingWarnColor", "Slow colour", "Used while Colour by latency is on."),
+        color("pingCritColor", "Critical colour", "Very slow replies and lost packets.")
     ]),
     tab("disk", "Disk I/O", [
         title("diskTitle", "Disk I/O"),
@@ -267,7 +332,7 @@ var SECTIONS = [
         title("gpuTitle", "GPU"),
         { k: "gpuDevice", type: "select", label: "Card", desc: "Automatic prefers a card that reports its load.", opts: "gpus" },
         { k: "gpuShowEngines", type: "switch", label: "VRAM and engines", desc: "Compute, decode and encode shares where the driver reports them." },
-        color("gpuColor", "Colour")
+        color("gpuColor", "Chart colour")
     ]),
     tab("sensors", "Hardware sensors", [
         title("hwSensorsTitle", "Hardware Sensors"),
@@ -279,6 +344,7 @@ var SECTIONS = [
         title("powerTitle", "Power"),
         { id: "powerNote", type: "note", full: true, note: "power" },
         { k: "powerChart", type: "seg", label: "Chart", desc: "Also switchable in the widget.", opts: [["power", "Power (W)"], ["battery", "Battery %"], ["temp", "Temperature"]] },
+        { k: "powerTotal", type: "select", label: "Total draw", desc: "Automatic uses a whole-machine meter (platform counter, Corsair PSU, ACPI meter) when there is one, else adds CPU and GPU. Or pick the source that measures your whole system.", opts: "powers" },
         { k: "powerShowProfiles", type: "switch", label: "Power profile buttons", desc: "Balanced, performance and saver, through power-profiles-daemon." },
         { k: "powerShowSources", type: "switch", label: "Where the power goes", desc: "CPU package, GPU and platform draw from energy counters and power sensors." },
         { k: "powerShowPressure", type: "switch", label: "Pressure", desc: "How long tasks waited for CPU and memory (PSI)." },
@@ -296,28 +362,28 @@ var SECTIONS = [
     tab("storage", "Storage", [
         title("storageTitle", "Storage"),
         { k: "storageMounts", type: "text", label: "Mount points", desc: "Comma-separated, in order. Empty shows every real filesystem of 256 MiB or more.", placeholder: "/, /home, /mnt/data" },
-        color("storageColor", "Colour", "Bars turn amber past 85% full and red past 95%.")
+        color("storageColor", "Chart colour", "Bars turn amber past 85% full and red past 95%.")
     ]),
     tab("processes", "Top processes", [
         title("processesTitle", "Processes"),
         { k: "processSort", type: "seg", label: "Sort by", opts: [["cpu", "CPU"], ["memory", "Memory"]] },
         { k: "processCount", type: "range", label: "Rows", min: 3, max: 10, step: 1, fmt: "samples" },
         { k: "processGroup", type: "switch", label: "Group by name", desc: "A browser's many helper processes become one row." },
-        color("processColor", "Colour")
+        color("processColor", "Chart colour")
     ]),
     tab("load", "Load & uptime", [
         title("loadTitle", "Load"),
-        color("loadColor", "Colour", "The 5 and 15 minute averages are fainter lines of the same colour; the dashed line marks every CPU busy.")
+        color("loadColor", "Chart colour", "The 5 and 15 minute averages are fainter lines of the same colour; the dashed line marks every CPU busy.")
     ]),
     tab("fans", "Fans", [
         title("fansTitle", "Fans"),
         { id: "fansNote", type: "note", full: true, note: "sensors" },
-        color("fanColor", "Colour")
+        color("fanColor", "Chart colour")
     ]),
     tab("services", "Services", [
         title("servicesTitle", "Services"),
         { k: "serviceUnits", type: "text", label: "Watch units", desc: "Comma-separated; prefix user units with user:. Failed units always show.", placeholder: "sshd, docker, user:syncthing" },
-        color("serviceColor", "Colour")
+        color("serviceColor", "Chart colour")
     ]),
     tab("containers", "Containers", [
         title("containersTitle", "Containers"),
@@ -326,7 +392,7 @@ var SECTIONS = [
         { k: "containerSort", type: "seg", label: "Sort by", opts: [["cpu", "CPU"], ["memory", "Memory"], ["name", "Name"]] },
         { k: "containerCount", type: "range", label: "Rows", min: 3, max: 20, step: 1, fmt: "samples" },
         { k: "containerShowStopped", type: "switch", label: "Stopped ones too" },
-        color("containerColor", "Colour")
+        color("containerColor", "Chart colour")
     ]),
     tab("custom", "Custom sensor", [
         title("customCmdTitle", "Custom"),
@@ -334,7 +400,7 @@ var SECTIONS = [
         { k: "customCmdUnit", type: "text", label: "Unit", placeholder: "°C" },
         { k: "customCmdMax", type: "number", label: "Chart maximum" },
         { k: "customCmdInterval", type: "range", label: "Every", min: 1, max: 60, step: 1, fmt: "s" },
-        color("customCmdColor", "Colour")
+        color("customCmdColor", "Chart colour")
     ]),
 
     tab("performance", "Rendering", [
@@ -357,6 +423,27 @@ var SECTIONS = [
     ["gpu", "Sensor readings", "Shown under the GPU chart. GPU power is on by default."],
     ["power", "Where the power goes", "The rows under the Power chart; every measured source by default.", function (s) { return s.powerShowSources !== false; }]].forEach(function (t) {
     SECTIONS.push(tab(t[0], t[1], [{ id: t[0] + "Sensors", type: "sensors", full: true, label: "Choose readings", desc: t[2] + " A new name shows in every section.", sensorSection: t[0] }], t[3]));
+});
+
+// Each section tab keeps all its colours in one "Colours" group, right after
+// its main group: the chart colours from the other groups (and CPU's core
+// colours), then the section's own text and number colours.
+Sections.IDS.forEach(function (id) {
+    var groups = SECTIONS.filter(function (t) { return t.tab === id; });
+    if (!groups.length)
+        return;
+    var rows = [];
+    groups.forEach(function (g) {
+        g.rows = g.rows.filter(function (r) {
+            var colour = r.type === "color" || r.k === "coreColorsStr";
+            if (colour)
+                rows.push(r);
+            return !colour;
+        });
+    });
+    rows.push(sectionColor(id, "text", "Text colour", "Title, labels and axis of this section."),
+              sectionColor(id, "value", "Number colour", "The reading and values; crossed out keeps the chart colours."));
+    SECTIONS.splice(SECTIONS.indexOf(groups[0]) + 1, 0, tab(id, "Colours", rows));
 });
 
 // A switched-off section's settings stay out of the way, search included.
@@ -403,6 +490,7 @@ function format(kind, v) {
     case "s": return Number(v) + " s";
     case "samples": return Math.round(v) + "";
     case "celsius": return Math.round(v) + " °C";
+    case "deg": return Math.round(v) + "°";
     default: return String(v);
     }
 }

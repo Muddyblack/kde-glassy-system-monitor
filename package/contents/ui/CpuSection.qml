@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import "SectionModels.js" as SectionModels
+import "Sections.js" as Sections
 
 ColumnLayout {
     id: section
@@ -8,6 +9,9 @@ ColumnLayout {
     required property var monitor
     required property var cfg
     readonly property string sectionId: "cpu"
+    // This section's own text and number colours (Colours › Per section).
+    readonly property color ink: Sections.sectionColor(cfg, sectionId, "text") || monitor.textColor
+    readonly property string numbers: Sections.sectionColor(cfg, sectionId, "value")
     // Shared with the website studio; see SectionModels.js.
     readonly property var model: SectionModels.cpu(monitor, cfg)
     readonly property bool coresShown: model.cores
@@ -19,11 +23,12 @@ ColumnLayout {
     SectionHeader {
         id: header
         fontFamily: section.monitor.fontFamily
+        textScale: section.monitor.textScale
         Layout.fillWidth: true
         title: section.model.title
         reading: section.model.reading
-        readingColor: section.model.readingColor || section.monitor.textColor
-        textColor: section.monitor.textColor
+        readingColor: section.numbers || (section.model.readingColor || section.ink)
+        textColor: section.ink
         monitor: section.monitor
         lineKey: "cpuTotal"
     }
@@ -52,6 +57,8 @@ ColumnLayout {
         Layout.fillWidth: true
         visible: !!section.cfg.showLegend && section.model.legend.length > 0
         monitor: section.monitor
+        ink: section.ink
+        numbers: section.numbers
         indent: chart.plotLeft
         entries: section.model.legend
     }
@@ -73,7 +80,7 @@ ColumnLayout {
                 readonly property bool shown: !section.monitor.isCoreDisabled(index)
                 readonly property color tint: section.model.coreColors[index % section.model.coreColors.length]
                 Layout.fillWidth: true
-                implicitHeight: 20
+                implicitHeight: Math.round(20 * section.monitor.textScale)
 
                 RowLayout {
                     anchors.fill: parent
@@ -92,18 +99,18 @@ ColumnLayout {
                         font.family: section.monitor.fontFamily
                         Layout.fillWidth: true
                         text: "Core " + (coreItem.index + 1)
-                        color: section.monitor.textColor
+                        color: section.ink
                         opacity: coreItem.shown ? 0.7 : 0.35
-                        font.pixelSize: 10
+                        font.pixelSize: Math.round(10 * section.monitor.textScale)
                         font.strikeout: !coreItem.shown
                         elide: Text.ElideRight
                     }
                     Text {
                         font.family: section.monitor.fontFamily
                         text: (section.monitor.corePercents[coreItem.index] || 0).toFixed(0) + "%"
-                        color: coreItem.tint
+                        color: section.numbers || coreItem.tint
                         opacity: coreItem.shown ? 1 : 0.4
-                        font.pixelSize: 10
+                        font.pixelSize: Math.round(10 * section.monitor.textScale)
                         font.bold: true
                         horizontalAlignment: Text.AlignRight
                         Layout.minimumWidth: 30

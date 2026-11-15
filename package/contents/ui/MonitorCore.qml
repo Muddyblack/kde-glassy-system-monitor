@@ -109,7 +109,9 @@ Item {
     // Alert styling is suppressed entirely when threshold colouring is off, so
     // the ping section stays on the user's own colour no matter the latency.
     readonly property bool pingAlertActive: !!cfg.pingThresholdColors && isAlerting
-    readonly property color textColor: Qt.color(Sections.textColor(cfg, core.systemTextColor))
+    readonly property color textColor: Qt.color(Sections.textColor(cfg, core.systemTextColor, String(core.systemAccent)))
+    // Text size multiplier (Look › Text size); 1 = as designed.
+    readonly property real textScale: Math.max(0.7, Math.min(2.5, Number(cfg.textScale) || 1))
     readonly property string fontFamily: cfg.fontFamily === "monospace" ? "monospace" : Qt.application.font.family
     readonly property color dlColor: Qt.color(cfg.dlColor || "#22aaff")
     readonly property color ulColor: Qt.color(cfg.ulColor || "#ff9933")
@@ -209,11 +211,28 @@ Item {
     }
 
     SampleClock {
+        id: powerClock
+        sampleInterval: 3000
+        minInterval: 400
+        maxInterval: 30000
+        smooth: !!cfg.smoothScroll
+    }
+
+    SampleClock {
         id: gpuClock
         sampleInterval: 2000
         minInterval: 400
         maxInterval: 16000
         smooth: !!cfg.smoothScroll
+    }
+    readonly property real _powerPhaseStart: powerClock.phaseStart
+    readonly property real _powerInterval: powerClock.interval
+
+    // The power chart's histories all advance in one poll, so it samples once
+    // per poll rather than per history.
+    function samplePower() {
+        powerClock.sample();
+        core._ensureScrollTicker();
     }
     readonly property real _gpuPhaseStart: gpuClock.phaseStart
     readonly property real _gpuInterval: gpuClock.interval
@@ -269,6 +288,7 @@ Item {
     property alias diskClock: diskClock
     property alias customClock: custClock
     property alias gpuClock: gpuClock
+    property alias powerClock: powerClock
 
     // Scroll phase to draw for a clock this frame. Reading scrollTick makes a
     // binding on it re-evaluate once per ticker frame.
@@ -393,6 +413,8 @@ Item {
         if (core.showGpuSection && core._phaseActive(core._gpuPhaseStart, core._gpuInterval))
             return true;
         if (core.showLoad && core._phaseActive(core._loadPhaseStart, core._loadInterval))
+            return true;
+        if (core.showPowerSection && core._phaseActive(core._powerPhaseStart, core._powerInterval))
             return true;
         return false;
     }
@@ -2023,7 +2045,7 @@ Item {
         }
 
         const prev = core._powerPrev;
-        const sources = Probes.powerSources(prev ? prev.p : null, p, prev ? (now - prev.t) / 1000 : 0);
+        const sources = Probes.powerSources(prev ? prev.p : null, p, prev ? (now - prev.t) / 1000 : 0, cfg.powerTotal);
         core._powerPrev = {
             p: p,
             t: now
@@ -2033,6 +2055,9 @@ Item {
         core.powerLoadW = sources.load;
         if (sources.list.length)
             core.powerLoadHistory = core.appendHistory(core.powerLoadHistory, sources.load);
+        // One sample for the whole poll: battery and load histories move together.
+        if (core.batteryPresent || sources.list.length)
+            core.samplePower();
 
         if (p.profile)
             core.powerProfile = p.profile;

@@ -1,6 +1,7 @@
 import QtQuick
 import "diagram"
 import "diagram/DiagramData.js" as DiagramData
+import "Sections.js" as Sections
 
 // A Diagram wired to the widget-wide chart settings. Sections only add their
 // series, scale and sample clock. A per-section style from `sectionStyles`
@@ -53,8 +54,10 @@ Diagram {
     bloom: !!cfg.gpuBloom
     axis: !!cfg.showYLabels
     strongGrid: !!cfg.showGridLines
-    textColor: monitor.textColor
+    // Axis, grid and centre text follow the section's own text colour.
+    textColor: Sections.sectionColor(cfg, sectionId, "text") || monitor.textColor
     fontFamily: monitor.fontFamily
+    textScale: monitor.textScale
     onScreen: monitor.onScreen
     onPaintRequested: monitor.notePaintRequested()
     onPainted: monitor.notePainted()

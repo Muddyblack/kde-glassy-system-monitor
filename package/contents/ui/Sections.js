@@ -80,12 +80,201 @@ function colors(ids, cfg, fallback) {
     return out.slice(0, 2);
 }
 
-// Text colour of the card: the user's, dark ink on the light "solid"
-// material, otherwise the theme's.
-function textColor(cfg, system) {
+// The chart colours each section draws with, for the per-section colour grid.
+var CHART_COLORS = {
+    cpu: [["cpuColor", "Line"]],
+    memory: [["memColor", "RAM"], ["swapColor", "Swap"]],
+    network: [["dlColor", "Down"], ["ulColor", "Up"]],
+    ping: [["pingColor", "Normal"], ["pingWarnColor", "Slow"], ["pingCritColor", "Critical"]],
+    disk: [["diskRdColor", "Read"], ["diskWrColor", "Write"]],
+    gpu: [["gpuColor", "Line"]],
+    power: [["powerColor", "Battery"], ["powerLoadColor", "Load"]],
+    storage: [["storageColor", "Bars"]],
+    processes: [["processColor", "Bars"]],
+    load: [["loadColor", "Line"]],
+    fans: [["fanColor", "Bars"]],
+    services: [["serviceColor", "Dots"]],
+    containers: [["containerColor", "Bars"]],
+    custom: [["customCmdColor", "Line"]]
+};
+
+// "#rrggbb" or Qt's "#aarrggbb"; anything else counts as unset.
+function isColor(value) {
+    return /^#([0-9a-f]{6}|[0-9a-f]{8})$/i.test(String(value || ""));
+}
+// Perceived brightness 0–1 and opacity 0–1 of a hex colour.
+function rgba(hex) {
+    var h = String(hex).slice(1), a = 1;
+    if (h.length === 8) {
+        a = parseInt(h.slice(0, 2), 16) / 255;
+        h = h.slice(2);
+    }
+    return { r: parseInt(h.slice(0, 2), 16) / 255, g: parseInt(h.slice(2, 4), 16) / 255, b: parseInt(h.slice(4, 6), 16) / 255, a: a };
+}
+function luminance(hex) {
+    var c = rgba(hex);
+    return 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
+}
+
+// Per-section text and number colours, `sectionColors` as JSON:
+// {"cpu":{"text":"#ffffff","value":"#44ddaa"}}. A missing part inherits.
+var COLOR_PARTS = ["text", "value"];
+function sectionColors(text) {
+    var out = {};
+    try {
+        var data = JSON.parse(text || "{}");
+        if (!data || typeof data !== "object" || Array.isArray(data))
+            return out;
+        IDS.forEach(function (id) {
+            var own = data[id], clean = {};
+            if (!own || typeof own !== "object")
+                return;
+            COLOR_PARTS.forEach(function (part) {
+                if (isColor(own[part]))
+                    clean[part] = String(own[part]).toLowerCase();
+            });
+            if (Object.keys(clean).length)
+                out[id] = clean;
+        });
+    } catch (e) {}
+    return out;
+}
+function sectionColor(cfg, id, part) {
+    var own = sectionColors(cfg.sectionColors)[id];
+    return own && own[part] || "";
+}
+// `sectionColors` with one part changed; "" goes back to inheriting.
+function withSectionColor(text, id, part, value) {
+    var map = sectionColors(text);
+    var own = Object.assign({}, map[id] || {});
+    if (isColor(value))
+        own[part] = String(value).toLowerCase();
+    else
+        delete own[part];
+    if (Object.keys(own).length)
+        map[id] = own;
+    else
+        delete map[id];
+    return Object.keys(map).length ? JSON.stringify(map) : "";
+}
+
+// The solid card's own colour (or the accent when it follows it), or ""
+// for the paper default. Older settings gave solid an opaque `bgColor`,
+// which still counts.
+function solidColor(cfg, accent) {
+    if (cfg.solidFollowAccent && isColor(accent))
+        return String(accent);
+    if (isColor(cfg.solidColor))
+        return String(cfg.solidColor);
+    var bg = String(cfg.bgColor || "");
+    return isColor(bg) && rgba(bg).a >= 1 ? bg : "";
+}
+
+// The gradient material's colours, two or three, start to end; the first
+// can follow the accent.
+function gradientColors(cfg, accent) {
+    var out = [cfg.gradientFollowAccent && isColor(accent) ? String(accent) : ownColor(cfg.gradientColor1, "#2b1055"), ownColor(cfg.gradientColor2, "#1c4f7a")];
+    if (isColor(cfg.gradientColor3))
+        out.push(String(cfg.gradientColor3));
+    return out;
+}
+
+// Edge lines and rim light: the accent, the user's colour, or white.
+function edgeColor(cfg, accent) {
+    return cfg.edgeFollowAccent && isColor(accent) ? String(accent) : ownColor(cfg.edgeColor, "#ffffff");
+}
+
+// The opaque colour text sits on, for materials that have one: the solid
+// card (paper when unset) and the gradient's average; "" otherwise.
+function cardBase(cfg, accent) {
+    if (cfg.surfaceStyle === "solid")
+        return solidColor(cfg, accent) || "#efefe6";
+    if (cfg.surfaceStyle !== "gradient")
+        return "";
+    var list = gradientColors(cfg, accent).map(rgba), mean = { r: 0, g: 0, b: 0 };
+    list.forEach(function (c) { mean.r += c.r / list.length; mean.g += c.g / list.length; mean.b += c.b / list.length; });
+    var hex = function (v) { return ("0" + Math.round(v * 255).toString(16)).slice(-2); };
+    return "#" + hex(mean.r) + hex(mean.g) + hex(mean.b);
+}
+
+// Text colour of the card: the user's; on an opaque card (solid, gradient)
+// dark ink on a light one and light ink on a dark one; otherwise the theme's.
+function textColor(cfg, system, accent) {
     if (!cfg.useSystemTextColor)
         return String(cfg.customTextColor || "#ffffff");
-    return cfg.surfaceStyle === "solid" ? "#1e241d" : String(system);
+    var base = cardBase(cfg, accent);
+    if (!base)
+        return String(system);
+    return luminance(base) < 0.45 ? "#eef1f5" : "#1e241d";
+}
+// One section's text colour: its own, else the card's.
+function sectionInk(cfg, id, system, accent) {
+    return sectionColor(cfg, id, "text") || textColor(cfg, system, accent);
+}
+
+// The colours that light the colour-led materials: the atmosphere's own
+// when set (the top light can follow the accent, which is also the
+// fallback), else the first two section colours; the third is the
+// atmosphere's depth, its own or a dark mix of the two lights.
+function materialColors(ids, cfg, fallback) {
+    var out = colors(ids, cfg, fallback);
+    var atmosphere = cfg.surfaceStyle === "atmosphere";
+    if (atmosphere && cfg.atmosphereFollowAccent && isColor(fallback))
+        out[0] = String(fallback);
+    else if (atmosphere && isColor(cfg.atmosphereColor1))
+        out[0] = String(cfg.atmosphereColor1);
+    if (atmosphere && isColor(cfg.atmosphereColor2))
+        out[1] = String(cfg.atmosphereColor2);
+    out.push(atmosphere && isColor(cfg.atmosphereColor3) ? String(cfg.atmosphereColor3) : depthColor(out[0], out[1]));
+    return out;
+}
+function depthColor(c1, c2) {
+    var a = rgba(c1), b = rgba(c2);
+    var hex = function (v) { return ("0" + Math.round(v * 255).toString(16)).slice(-2); };
+    return "#" + hex(a.r * 0.2 + b.r * 0.1) + hex(a.g * 0.2 + b.g * 0.1) + hex(a.b * 0.2 + b.b * 0.1);
+}
+
+// The glass and liquid tint as a 135° gradient: [[position, {r,g,b,a}], …]
+// with every alpha scaled by `strength` (1 = the stock look). `custom`,
+// `custom2` (the Custom tint's far end, "" = `custom`), `cover1`, `cover2`
+// and `accent` are hex colours.
+function glassTint(material, tint, custom, strength, cover1, cover2, custom2, accent) {
+    var k = Math.max(0, Number(strength === undefined ? 1 : strength));
+    var white = function (a) { return { r: 1, g: 1, b: 1, a: a / 255 }; };
+    var tone = function (hex, a) { var c = rgba(hex); return { r: c.r, g: c.g, b: c.b, a: a }; };
+    var liquid = material === "liquid", stops;
+    if (tint === "frost")
+        stops = liquid ? [[0, white(0x2e)], [0.5, white(0x10)], [1, white(0x22)]] : [[0, white(0x42)], [0.55, white(0x24)], [1, white(0x30)]];
+    else if (tint === "smoke")
+        stops = [[0, { r: 0.07, g: 0.09, b: 0.12, a: 0.64 }], [1, { r: 0.03, g: 0.04, b: 0.07, a: 0.4 }]];
+    else if (tint === "cover")
+        stops = [[0, tone(cover1, 0.38)], [1, tone(cover2, 0.22)]];
+    else if (tint === "custom")
+        stops = [[0, tone(custom, 0.4)], [1, tone(isColor(custom2) ? custom2 : custom, 0.22)]];
+    else if (tint === "accent")
+        stops = [[0, tone(accent || "#3daee9", 0.4)], [1, tone(accent || "#3daee9", 0.22)]];
+    else
+        stops = liquid ? [[0, white(0x1c)], [0.45, white(0x04)], [1, white(0x12)]] : [[0, white(0x24)], [0.55, white(0x08)], [1, white(0x12)]];
+    stops.forEach(function (s) { s[1].a = Math.min(1, s[1].a * k); });
+    return stops;
+}
+
+// The tint card's fill: its own colour, or, following the accent (Material
+// You and the like), that colour tinted towards the accent at its own
+// opacity, so a bright accent still leaves a card the text reads on.
+var ACCENT_MIX = 0.4;
+function tintFill(cfg, accent) {
+    var fill = isColor(cfg.bgColor) ? String(cfg.bgColor) : "#800d0f1a";
+    if (!cfg.tintFollowAccent || !isColor(accent))
+        return fill;
+    var f = rgba(fill), c = rgba(accent);
+    var hex = function (v) { return ("0" + Math.round(v * 255).toString(16)).slice(-2); };
+    var mix = function (a, b) { return hex(a + (b - a) * ACCENT_MIX); };
+    return "#" + hex(f.a) + mix(f.r, c.r) + mix(f.g, c.g) + mix(f.b, c.b);
+}
+// A colour setting, or `fallback` while it is empty.
+function ownColor(value, fallback) {
+    return isColor(value) ? String(value) : fallback;
 }
 
 // The pill's caption: a title the user changed, else a short name. `stock`
