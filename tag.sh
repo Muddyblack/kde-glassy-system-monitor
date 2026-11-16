@@ -8,11 +8,13 @@ set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 METADATA_PATH="package/metadata.json"
 # Files that carry the version besides metadata.json (space separated).
-EXTRA_VERSION_FILES=()
+EXTRA_VERSION_FILES=("package/contents/ui/studio/ProjectVersion.js")
 
 # Rewrite the version in every file that carries it: bump_files OLD NEW
 bump_files() {
     sed -i "s/\"Version\": \"$1\"/\"Version\": \"$2\"/" "$METADATA_PATH"
+    # ProjectVersion.js (the studio's Info tab) is generated from metadata.json.
+    python3 tools/sync_version.py
 }
 
 BETA_FLAG=false

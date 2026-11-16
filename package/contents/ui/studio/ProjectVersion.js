@@ -1,2 +1,2 @@
-// Keep in step with package/metadata.json.
-var current = "2.0.0";
+// Generated from package/metadata.json by tools/sync_version.py. Do not edit.
+var current = "2.1.1";
