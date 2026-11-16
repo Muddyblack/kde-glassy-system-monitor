@@ -175,6 +175,14 @@ function rows(list, cfg, section) {
     return list.filter(function (s) { return chosen.indexOf(s.id) !== -1; }).map(function (s) { return named(s, names); });
 }
 
+// How the Sensors section shows its readings (cfg.hwSensorsDisplay): rows with
+// a bar, rows with the value only, or the compact two/three-column grid.
+var DISPLAYS = [["bars", "Bars"], ["values", "Values only"], ["grid", "Compact grid"]];
+function display(cfg) {
+    var want = cfg && cfg.hwSensorsDisplay;
+    return DISPLAYS.some(function (d) { return d[0] === want; }) ? want : "bars";
+}
+
 // Sensors section rows: a header per device, then its readings.
 function grouped(shown) {
     var out = [];

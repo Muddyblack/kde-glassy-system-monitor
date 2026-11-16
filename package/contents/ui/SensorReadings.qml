@@ -12,6 +12,8 @@ ColumnLayout {
     required property var cfg
     required property string targetSection
     property string layout: "grid"
+    // "bars" draws a bar under each reading, "values" the number alone.
+    property bool showBars: true
 
     readonly property var shown: Sensors.rows(monitor.sensorCatalog, cfg, targetSection)
     readonly property var rows: layout === "grouped" ? Sensors.grouped(shown) : shown
@@ -148,7 +150,7 @@ ColumnLayout {
                     anchors.rightMargin: 6
                     height: parent.height
                     Rectangle {
-                        visible: row.fill >= 0 && row.sensor.type !== "cores"
+                        visible: readings.showBars && row.fill >= 0 && row.sensor.type !== "cores"
                         anchors.left: parent.left
                         anchors.right: parent.right
                         anchors.verticalCenter: parent.verticalCenter
@@ -170,7 +172,7 @@ ColumnLayout {
                         }
                     }
                     Row {
-                        visible: row.sensor.type === "cores"
+                        visible: readings.showBars && row.sensor.type === "cores"
                         anchors.left: parent.left
                         anchors.right: parent.right
                         anchors.verticalCenter: parent.verticalCenter
@@ -213,7 +215,7 @@ ColumnLayout {
                         }
                     }
                     Rectangle {
-                        visible: row.sensor.type === "fan"
+                        visible: readings.showBars && row.sensor.type === "fan"
                         anchors.left: parent.left
                         anchors.right: parent.right
                         anchors.verticalCenter: parent.verticalCenter

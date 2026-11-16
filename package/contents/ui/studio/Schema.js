@@ -1,6 +1,7 @@
 .pragma library
 .import "StudioCatalog.js" as Catalog
 .import "../Sections.js" as Sections
+.import "../SensorConfig.js" as Sensors
 
 // Every setting the studio edits, for Plasma and Hyprland alike. Hosts pass
 // `env` ("kde" or "hypr") to the `when` predicates; `s` is the current draft.
@@ -337,6 +338,7 @@ var SECTIONS = [
     tab("sensors", "Hardware sensors", [
         title("hwSensorsTitle", "Hardware Sensors"),
         { id: "sensorsNote", type: "note", full: true, note: "sensors" },
+        { k: "hwSensorsDisplay", type: "seg", label: "Display", desc: "Bars under each reading, the values alone, or a compact grid without device headers.", opts: Sensors.DISPLAYS },
         { k: "hwTempWarn", type: "range", label: "Warm from", min: 40, max: 110, step: 1, fmt: "celsius" },
         { k: "hwTempCrit", type: "range", label: "Hot from", min: 50, max: 120, step: 1, fmt: "celsius" }
     ]),

@@ -66,6 +66,9 @@ pick single cores. Filter by name or device, and rename a reading with the penci
 double-click: the new name shows in every section. **Defaults** goes back to the automatic
 choice, **Clear** empties the list.
 
+The Sensors section itself can show its readings as **Bars** (the default), **Values only**
+or a **Compact grid** (no device headers): **Sections › Sensors › Display**.
+
 Defaults: Sensors lists temperatures (cores as one row) and fans; CPU shows nothing extra;
 GPU shows GPU power; Power lists every measured source under **Where the power goes**. CPU power
 comes from RAPL package counters or a CPU power sensor readable without root; the first reading

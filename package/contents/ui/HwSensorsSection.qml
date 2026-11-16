@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import "SectionModels.js" as SectionModels
 import "Sections.js" as Sections
+import "SensorConfig.js" as Sensors
 
 ColumnLayout {
     id: section
@@ -35,7 +36,9 @@ ColumnLayout {
         monitor: section.monitor
         cfg: section.cfg
         targetSection: "sensors"
-        layout: "grouped"
+        readonly property string display: Sensors.display(section.cfg)
+        layout: display === "grid" ? "grid" : "grouped"
+        showBars: display === "bars"
     }
     Text {
         font.family: section.monitor.fontFamily

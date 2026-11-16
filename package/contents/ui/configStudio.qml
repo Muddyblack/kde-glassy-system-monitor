@@ -335,6 +335,8 @@ Kirigami.Page {
     property string cfg_diskWrColorDefault
     property string cfg_hwSensorsTitle
     property string cfg_hwSensorsTitleDefault
+    property string cfg_hwSensorsDisplay
+    property string cfg_hwSensorsDisplayDefault
     property int cfg_hwTempWarn
     property int cfg_hwTempWarnDefault
     property int cfg_hwTempCrit

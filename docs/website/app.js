@@ -319,10 +319,13 @@ function barList(cfg, id) {
 function sensorReadings(cfg, section) {
     const shown = Sensors.rows(m.sensorCatalog, cfg, section);
     const tint = s => Sensors.tint(s, cfg) || INK;
-    if (section === 'cpu' || section === 'gpu')
+    // CPU and GPU always use the grid; Sensors only when asked (hwSensorsDisplay).
+    const bars = section !== 'sensors' || Sensors.display(cfg) === 'bars';
+    if (section === 'cpu' || section === 'gpu' || (section === 'sensors' && Sensors.display(cfg) === 'grid'))
         return shown.length ? `<div class="gw-cores">${shown.map(s => `<span><i style="background:${tint(s)}"></i>${esc(s.label)}<b style="color:${num(tint(s))}">${esc(Sensors.reading(s))}</b></span>`).join('')}</div>` : '';
     const maxWatts = Math.max(1, ...shown.filter(s => s.type === 'power').map(s => s.value || 0));
     const middle = s => {
+        if (!bars) return '<span style="flex:1"></span>';
         if (s.type === 'cores') return `<span class="gw-corebars">${s.values.map(v => { const t = { type: 'temp', value: v, crit: s.crit }; return `<i style="height:${Sensors.ratio(t, cfg) * 100}%;background:${Sensors.tint(t, cfg)}"></i>`; }).join('')}</span>`;
         if (s.type === 'fan') return `<span class="gw-mtrack"><i style="width:100%;background:${tint(s)}55"></i></span>`;
         const r = Sensors.ratio(s, cfg, maxWatts);

@@ -1793,4 +1793,11 @@ TestCase {
         }).indexOf("$(cat"), -1, "power");
         verify(Probes.INTERFACES_CMD.indexOf("if $n ${s:-unknown} $k ${a:--} ${v:--}") !== -1, "the interface line format is unchanged");
     }
+
+    // The Display choice reaches the settings and the website from one list.
+    function test_sensorsDisplayIsOfferedInTheStudio() {
+        const row = Schema.SECTIONS.filter(t => t.tab === "sensors")[0].rows.find(r => r.k === "hwSensorsDisplay");
+        verify(row, "the Hardware sensors tab has a Display row");
+        compare(row.opts.map(o => o[0]), ["bars", "values", "grid"]);
+    }
 }
