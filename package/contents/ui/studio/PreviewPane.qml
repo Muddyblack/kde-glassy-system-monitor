@@ -18,22 +18,32 @@ Rectangle {
     readonly property var draft: studio.draft
     // Live reads this machine; Demo plays full, moving sample data.
     property bool live: !!studio.liveMonitor
-    readonly property var monitor: live && studio.liveMonitor ? studio.liveMonitor : demoMonitor
-
-    MonitorCore {
-        id: demoMonitor
-        live: false
-        cfg: pane.draft
-        onScreen: !pane.live && pane.studio.onScreen
-        systemAccent: pane.studio.previewAccent
-        systemTextColor: "#eff0f1"
-        writeConfig: (key, value) => pane.studio.update({
-                [key]: value
-            })
-    }
-    DemoFeeder {
-        monitor: demoMonitor
-        running: !pane.live && pane.studio.onScreen
+    readonly property var monitor: live && studio.liveMonitor ? studio.liveMonitor : demo.monitor
+    // The demo reader and its feeder exist only while the preview plays demo
+    // data: with a live monitor (every real host) they would be a whole
+    // second MonitorCore doing nothing.
+    Loader {
+        id: demo
+        active: !pane.live
+        readonly property var monitor: item ? item.monitor : null
+        sourceComponent: Item {
+            readonly property alias monitor: demoMonitor
+            MonitorCore {
+                id: demoMonitor
+                live: false
+                cfg: pane.draft
+                onScreen: !pane.live && pane.studio.onScreen
+                systemAccent: pane.studio.previewAccent
+                systemTextColor: "#eff0f1"
+                writeConfig: (key, value) => pane.studio.update({
+                        [key]: value
+                    })
+            }
+            DemoFeeder {
+                monitor: demoMonitor
+                running: !pane.live && pane.studio.onScreen
+            }
+        }
     }
     // Where the widget has each section now (see MonitorView.geometry).
     function geometry() {
@@ -97,65 +107,73 @@ Rectangle {
 
     // Panel form: a floating panel with the pill in it, and the card the
     // pill shows on hover (pinned by a click) underneath, as on the desktop.
+    // Built only while that form is shown: it holds a second MonitorView.
     property bool cardPinned: false
-    readonly property bool hoverCardShown: form === "panel" && draft.panelHoverCard !== false && (pill.hovered || cardPinned)
-    Rectangle {
-        id: panelBar
-        visible: pane.form === "panel"
-        anchors.horizontalCenter: parent.horizontalCenter
-        // Near the top while the card shows below it, centred otherwise.
-        y: pane.hoverCardShown ? pane.stageTop + 8 : pane.stageTop + (pane.height - pane.stageTop - pane.stageBottom - height) / 2
-        width: Math.min(pane.width - 40, pill.implicitWidth + 220)
-        height: 44
-        radius: pane.studio.env === "kde" ? 12 : 14
-        color: pane.studio.env === "kde" ? "#e0202326" : "#e611111b"
-        border.width: pane.studio.env === "kde" ? 1 : 2
-        border.color: pane.studio.env === "kde" ? "#14ffffff" : "#5589b4fa"
-        Row {
-            x: 12
-            anchors.verticalCenter: parent.verticalCenter
-            spacing: 8
-            Repeater {
-                model: 3
-                Rectangle {
-                    width: 22
-                    height: 22
-                    radius: 6
-                    color: "#1affffff"
+    Loader {
+        id: panelLoader
+        anchors.fill: parent
+        active: pane.form === "panel"
+        sourceComponent: Item {
+            id: panelForm
+            readonly property bool hoverCardShown: pane.draft.panelHoverCard !== false && (pill.hovered || pane.cardPinned)
+            Rectangle {
+                id: panelBar
+                anchors.horizontalCenter: parent.horizontalCenter
+                // Near the top while the card shows below it, centred otherwise.
+                y: panelForm.hoverCardShown ? pane.stageTop + 8 : pane.stageTop + (pane.height - pane.stageTop - pane.stageBottom - height) / 2
+                width: Math.min(pane.width - 40, pill.implicitWidth + 220)
+                height: 44
+                radius: pane.studio.env === "kde" ? 12 : 14
+                color: pane.studio.env === "kde" ? "#e0202326" : "#e611111b"
+                border.width: pane.studio.env === "kde" ? 1 : 2
+                border.color: pane.studio.env === "kde" ? "#14ffffff" : "#5589b4fa"
+                Row {
+                    x: 12
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: 8
+                    Repeater {
+                        model: 3
+                        Rectangle {
+                            width: 22
+                            height: 22
+                            radius: 6
+                            color: "#1affffff"
+                        }
+                    }
+                }
+                CompactRepresentation {
+                    id: pill
+                    anchors.centerIn: parent
+                    width: implicitWidth
+                    height: 34
+                    monitor: pane.monitor
+                    cfg: pane.draft
+                    inPanel: true
+                    onActivated: pane.cardPinned = !pane.cardPinned
                 }
             }
-        }
-        CompactRepresentation {
-            id: pill
-            anchors.centerIn: parent
-            width: implicitWidth
-            height: 34
-            monitor: pane.monitor
-            cfg: pane.draft
-            inPanel: true
-            onActivated: pane.cardPinned = !pane.cardPinned
-        }
-    }
-    Item {
-        readonly property real room: pane.height - y - pane.stageBottom
-        readonly property real fit: Math.max(0.25, Math.min(1, (pane.width - 40) / hoverCard.width, room / hoverCard.height))
-        visible: pane.hoverCardShown
-        x: Math.max(20, Math.min(pane.width - 20 - width, panelBar.x + pill.x + pill.width / 2 - width / 2))
-        y: panelBar.y + panelBar.height + 8
-        width: hoverCard.width * fit
-        height: hoverCard.height * fit
-        MonitorView {
-            id: hoverCard
-            objectName: "previewHoverCard"
-            // Its own size: the desktop preview is hidden in this form and
-            // measures short.
-            width: Math.max(220, preferredWidth)
-            height: preferredHeight
-            scale: parent.fit
-            transformOrigin: Item.TopLeft
-            monitor: pane.monitor
-            cfg: pane.draft
-            backdrop: backdropImage
+            Item {
+                readonly property real room: pane.height - y - pane.stageBottom
+                readonly property real fit: Math.max(0.25, Math.min(1, (pane.width - 40) / hoverCard.width, room / hoverCard.height))
+                visible: panelForm.hoverCardShown
+                x: Math.max(20, Math.min(pane.width - 20 - width, panelBar.x + pill.x + pill.width / 2 - width / 2))
+                y: panelBar.y + panelBar.height + 8
+                width: hoverCard.width * fit
+                height: hoverCard.height * fit
+                MonitorView {
+                    id: hoverCard
+                    objectName: "previewHoverCard"
+                    // Its own size: the desktop preview is hidden in this form and
+                    // measures short.
+                    width: Math.max(220, preferredWidth)
+                    height: preferredHeight
+                    scale: parent.fit
+                    transformOrigin: Item.TopLeft
+                    monitor: pane.monitor
+                    cfg: pane.draft
+                    backdrop: backdropImage
+                }
+            }
         }
     }
 

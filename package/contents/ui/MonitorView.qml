@@ -155,10 +155,10 @@ Item {
                     y: 0,
                     blur: 22,
                     spread: 2,
-                    color: view.monitor.pingCritColor
+                    color: view.monitor?.pingCritColor
                 }
             ]
-            insetColor: view.monitor.pingCritColor
+            insetColor: view.monitor?.pingCritColor
             SequentialAnimation on opacity {
                 running: true
                 loops: Animation.Infinite

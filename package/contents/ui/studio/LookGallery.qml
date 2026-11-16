@@ -29,6 +29,29 @@ Column {
     readonly property int columns: Math.max(1, Math.floor((width + 10) / 178))
     readonly property real tileWidth: (width - (columns - 1) * 10) / columns
     property bool importing: false
+    property bool placed: false
+    // The tile whose widget is being built to be grabbed; one at a time.
+    property Item capturing: null
+    function pump() {
+        if (placed)
+            settle.restart();
+    }
+    // Waits for edits to stop before the next still is made.
+    Timer {
+        id: settle
+        interval: 150
+        onTriggered: {
+            if (gallery.capturing)
+                return;
+            for (let i = 0; i < tileRepeater.count; ++i) {
+                const tile = tileRepeater.itemAt(i);
+                if (tile && tile.stale && tile.near && !tile.grabFailed) {
+                    gallery.capturing = tile;
+                    return;
+                }
+            }
+        }
+    }
     property string message: ""
     spacing: 12
 
@@ -66,9 +89,16 @@ Column {
     }
 
     Flow {
+        id: tiles
         width: parent.width
         spacing: 10
+        // Until the first layout every tile sits at the origin and would look visible.
+        onPositioningComplete: {
+            gallery.placed = true;
+            gallery.pump();
+        }
         Repeater {
+            id: tileRepeater
             model: gallery.all
             Rectangle {
                 id: tile
@@ -78,6 +108,49 @@ Column {
                 readonly property string lookJson: JSON.stringify(Looks.apply(gallery.studio.draft, gallery.studio.defaults, modelData.s, gallery.cards))
                 readonly property var look: JSON.parse(lookJson)
                 readonly property bool current: Looks.matches(gallery.studio.draft, gallery.studio.defaults, modelData.s, gallery.cards)
+                // Whether the tile is within a short way of the visible area.
+                readonly property bool near: {
+                    const view = gallery.studio.scroller;
+                    if (!view)
+                        return true;
+                    if (!gallery.placed)
+                        return false;
+                    view.contentY;
+                    view.height;
+                    tile.x;
+                    tile.y;
+                    gallery.y;
+                    const top = tile.mapToItem(view, 0, 0).y;
+                    return top < view.height * 1.25 && top + tile.height > -view.height * 0.25;
+                }
+                // The grabbed image, and whether the look changed since.
+                property string still: ""
+                property bool stale: true
+                property bool grabFailed: false
+                onLookJsonChanged: {
+                    stale = true;
+                    gallery.pump();
+                }
+                onNearChanged: gallery.pump()
+                Component.onCompleted: gallery.pump()
+                function grab() {
+                    const scale = Screen.devicePixelRatio || 1;
+                    const started = lookJson;
+                    stage.grabToImage(result => {
+                        if (gallery.capturing !== tile)
+                            return;
+                        if (result) {
+                            still = result.url;
+                            // Edited meanwhile: the next pass redoes it.
+                            stale = started !== lookJson;
+                        } else {
+                            grabFailed = true;
+                            stale = false;
+                        }
+                        gallery.capturing = null;
+                        gallery.pump();
+                    }, Qt.size(Math.ceil(stage.width * scale), Math.ceil(stage.height * scale)));
+                }
                 objectName: "look_" + modelData.id
                 width: gallery.tileWidth
                 height: 176
@@ -104,17 +177,33 @@ Column {
                             color: "#0b1620"
                         }
                     }
-                    MonitorView {
-                        id: thumb
-                        readonly property real fit: Math.min((stage.width - 12) / width, (stage.height - 12) / height)
-                        width: Math.max(260, preferredWidth)
-                        height: preferredHeight
-                        x: (stage.width - width * fit) / 2
-                        y: (stage.height - height * fit) / 2
-                        scale: fit
-                        transformOrigin: Item.TopLeft
-                        monitor: sample
-                        cfg: tile.look
+                    // Each tile shows a still of the real widget. A full MonitorView per
+                    // tile, kept alive, is what made this page heavy, so one is built at a
+                    // time (see capture), grabbed into a small image and released.
+                    Loader {
+                        id: thumbLoader
+                        anchors.fill: parent
+                        active: gallery.capturing === tile || tile.grabFailed
+                        sourceComponent: MonitorView {
+                            readonly property real fit: Math.min((stage.width - 12) / width, (stage.height - 12) / height)
+                            width: Math.max(260, preferredWidth)
+                            height: preferredHeight
+                            x: (stage.width - width * fit) / 2
+                            y: (stage.height - height * fit) / 2
+                            scale: fit
+                            transformOrigin: Item.TopLeft
+                            monitor: sample
+                            cfg: tile.look
+                        }
+                        onLoaded: if (gallery.capturing === tile)
+                            Qt.callLater(tile.grab)
+                    }
+                    Image {
+                        anchors.fill: parent
+                        visible: !tile.grabFailed && source != ""
+                        source: tile.still
+                        cache: false
+                        smooth: true
                     }
                 }
                 Column {
