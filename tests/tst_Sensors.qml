@@ -201,7 +201,9 @@ Item {
             const expect = {
                 bars: ["grouped", true],
                 values: ["grouped", false],
-                grid: ["grid", false]
+                grid: ["grid", false],
+                lines: ["grouped", false],
+                rings: ["grid", false]
             };
             for (const mode in expect) {
                 const item = section.createObject(this, {
@@ -216,6 +218,7 @@ Item {
                 verify(readings);
                 compare(readings.layout, expect[mode][0], mode + " layout");
                 compare(readings.showBars, expect[mode][1], mode + " bars");
+                compare(readings.drawing, mode);
                 item.destroy();
             }
         }

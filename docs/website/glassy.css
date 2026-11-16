@@ -47,6 +47,8 @@
 .gw-legend span,.gw-cores span,.gw-eng span{display:inline-flex;align-items:center;gap:5px}
 .gw-legend i,.gw-cores i,.gw-eng i{width:8px;height:8px;border-radius:2px}
 .gw-legend b,.gw-cores b,.gw-eng b{font-size:11px}
+.gw-cores .gw-ring{width:12px;height:12px;border-radius:50%;background:conic-gradient(var(--c) var(--r),color-mix(in srgb,var(--ink) 14%,transparent) 0);-webkit-mask:radial-gradient(circle,transparent 3.5px,#000 4px);mask:radial-gradient(circle,transparent 3.5px,#000 4px)}
+.gw-spark{flex:1;height:14px;min-width:0}
 .gw-cores{display:grid;grid-template-columns:1fr 1fr;gap:3px 10px}
 .gw-cores b{margin-left:auto}
 .gw-totals{justify-content:space-between;opacity:.8}

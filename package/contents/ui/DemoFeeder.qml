@@ -132,6 +132,7 @@ QtObject {
         m.osUptime = DemoData.SYSTEM.uptime;
         m.osLogoIcon = DemoData.SYSTEM.logo;
         m.applyHwSensorUpdate(DemoData.SENSORS);
+        m.sensorHistory = DemoData.sensorHistory(m.sensorCatalog, 40);
         push(0);
     }
 

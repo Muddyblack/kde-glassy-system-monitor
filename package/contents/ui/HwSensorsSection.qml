@@ -37,8 +37,9 @@ ColumnLayout {
         cfg: section.cfg
         targetSection: "sensors"
         readonly property string display: Sensors.display(section.cfg)
-        layout: display === "grid" ? "grid" : "grouped"
+        layout: display === "grid" || display === "rings" ? "grid" : "grouped"
         showBars: display === "bars"
+        drawing: display
     }
     Text {
         font.family: section.monitor.fontFamily

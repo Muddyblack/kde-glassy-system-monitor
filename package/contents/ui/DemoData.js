@@ -38,6 +38,20 @@ var SENSORS = [
     { chip: "nvme", chipDisplay: "NVMe SSD", maxTemp: 41, maxTempCrit: 85, sensors: [{ label: "Composite", value: 41, crit: 85, type: "temp" }] }
 ];
 
+// A believable recent history for each reading of a catalog: a slow wave and a
+// little jitter around its value, the same on every call.
+function sensorHistory(catalog, count) {
+    var out = {};
+    catalog.forEach(function (s, k) {
+        var amp = s.type === "fan" ? 90 : s.type === "power" ? 1.5 : 3;
+        out[s.id] = Array.apply(null, Array(count)).map(function (_, i) {
+            return Math.max(0, s.value + amp * (Math.sin((i + k * 7) / 5) * 0.7 + Math.sin((i * 1.7 + k) / 2) * 0.3) - amp * 0.2);
+        });
+        out[s.id][count - 1] = s.value;
+    });
+    return out;
+}
+
 var SYSTEM = { distro: "NixOS 26.05", version: "26.05", kernel: "7.2.4", hostname: "glassbox", uptime: "3h 12m", logo: "nix-snowflake" };
 
 // Load average at step `i`, as Probes.LOAD_CMD prints it (8 CPUs).

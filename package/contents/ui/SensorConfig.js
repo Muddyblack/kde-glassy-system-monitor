@@ -177,10 +177,44 @@ function rows(list, cfg, section) {
 
 // How the Sensors section shows its readings (cfg.hwSensorsDisplay): rows with
 // a bar, rows with the value only, or the compact two/three-column grid.
-var DISPLAYS = [["bars", "Bars"], ["values", "Values only"], ["grid", "Compact grid"]];
+// "lines" draws each reading's recent history as a small line, "rings" a small
+// gauge per reading in the grid. Neither uses a shader.
+var DISPLAYS = [["bars", "Bars"], ["values", "Values only"], ["grid", "Compact grid"], ["lines", "Mini charts"], ["rings", "Rings"]];
+var HISTORY = 40;
 function display(cfg) {
     var want = cfg && cfg.hwSensorsDisplay;
     return DISPLAYS.some(function (d) { return d[0] === want; }) ? want : "bars";
+}
+
+// The last HISTORY values of every reading in `list`, newest last. A new
+// object only when something was added, and readings that are gone drop out,
+// so the history never grows past what the section lists.
+function pushHistory(previous, list) {
+    var next = {};
+    list.forEach(function (s) {
+        if (s.value === null || s.value === undefined || !isFinite(s.value))
+            return;
+        var old = previous && previous[s.id] || [];
+        next[s.id] = old.concat([s.value]).slice(-HISTORY);
+    });
+    return next;
+}
+
+// A history as points in 0..1 (x across, y up). Short spans are not blown up:
+// a temperature wobbling by one degree must not look like a spike, so the
+// vertical range is at least `least` units.
+function sparkPoints(values, least) {
+    if (!values || values.length < 2)
+        return [];
+    var lo = Math.min.apply(null, values), hi = Math.max.apply(null, values);
+    var span = Math.max(hi - lo, least || 1), mid = (hi + lo) / 2;
+    return values.map(function (v, i) {
+        return { x: i / (values.length - 1), y: Math.max(0, Math.min(1, 0.5 + (v - mid) / span)) };
+    });
+}
+// The smallest vertical range worth drawing for a reading.
+function sparkSpan(sensor) {
+    return sensor.type === "fan" ? 200 : sensor.type === "power" ? 2 : 6;
 }
 
 // Sensors section rows: a header per device, then its readings.
