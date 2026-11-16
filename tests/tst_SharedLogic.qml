@@ -1781,4 +1781,16 @@ TestCase {
         verify(t.some(x => x.kind === "listed"));
         verify(!t.some(x => x.kind === "mining" || (x.kind === "exe" && x.pid === 6120)));
     }
+
+    // These run every few seconds; a fork per interface or per sysfs value
+    // (`$(cat ...)`) made each run cost hundreds of milliseconds of CPU, which
+    // showed as periodic spikes. Reads use the shell's own `read`.
+    function test_pollingProbesDoNotForkPerValue() {
+        compare(Probes.INTERFACES_CMD.indexOf("$(cat"), -1, "interfaces");
+        compare(Probes.powerCmd({
+            nvidia: false,
+            profiles: true
+        }).indexOf("$(cat"), -1, "power");
+        verify(Probes.INTERFACES_CMD.indexOf("if $n ${s:-unknown} $k ${a:--} ${v:--}") !== -1, "the interface line format is unchanged");
+    }
 }
