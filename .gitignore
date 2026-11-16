@@ -1,5 +1,6 @@
 # Build artifacts
 *.plasmoid
+*.exe
 notes.md
 
 # Nix
@@ -23,3 +24,10 @@ result
 docs/website/index.html
 docs/website/studio/
 docs/website/assets/
+
+# Windows host
+.venv-win/
+__pycache__/
+build/
+dist/
+glassy-system-monitor-windows-*.zip

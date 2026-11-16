@@ -1,0 +1,4 @@
+PySide6-Essentials>=6.8
+psutil>=6.0
+# Real CPU / board temperatures, fans and power (opt-in, needs administrator).
+HardwareMonitor>=1.2; sys_platform == "win32"

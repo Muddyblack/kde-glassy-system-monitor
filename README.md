@@ -34,8 +34,8 @@
 One widget for CPU, memory, network, ping, disk, GPU, storage, processes, load, fans, sensors,
 power, systemd services, containers and Kubernetes pods, system info and your own commands, in
 the order and layout you want, for this machine or another one over SSH. Charts run on the GPU,
-and everything is set up in a studio with a live preview. Works on KDE Plasma 6 and on
-Hyprland through Quickshell.
+and everything is set up in a studio with a live preview. Works on KDE Plasma 6, on
+Hyprland through Quickshell, and on Windows ([docs/windows.md](docs/windows.md)).
 
 ## Looks
 
@@ -90,6 +90,9 @@ kpackagetool6 -t Plasma/Applet -i package
 ```
 
 NixOS, Hyprland and the optional tools are in the [installation guide](docs/installation.md).
+
+On Windows, run the installer from the build artifacts (no administrator rights needed) or
+`python windows/app.py`; see [docs/windows.md](docs/windows.md).
 
 ## More
 
