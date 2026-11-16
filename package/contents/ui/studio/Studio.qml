@@ -33,6 +33,8 @@ Rectangle {
     readonly property string currentGroup: Schema.tabGroup(currentTab)
     readonly property var subTabs: Schema.subTabs(currentGroup, draft)
     // Nothing renders until the host has supplied a draft.
+    // The page that scrolls the settings rows; long lists build only what is near it.
+    readonly property Flickable scroller: body
     readonly property bool ready: !!draft && draft.historySize !== undefined
     // Previews run only while the settings window is actually shown.
     readonly property bool onScreen: visible && !!Window.window && Window.window.visible

@@ -359,5 +359,29 @@ Item {
             });
             verify(!find("look_saved0"), "Removing a saved look must remove its tile");
         }
+
+        // Every tile needs a full widget to draw its still; they are built one
+        // at a time and released, so the page never holds one per tile.
+        function test_lookTilesShowStillsInsteadOfLiveWidgets() {
+            studio.selectTab("presets");
+            const tile = find("look_glassy");
+            verify(tile);
+            tryVerify(() => tile.still !== "", 5000, "The tile must get its still image");
+            const gallery = tile.parent.parent;
+            tryVerify(() => gallery.capturing === null && !gallery.all.some((l, i) => {
+                    const t = find("look_" + l.id);
+                    return t && t.near && t.stale;
+                }), 20000, "Every tile near the view gets a still");
+            let live = 0;
+            const walk = item => {
+                if (item.hasOwnProperty("preferredHeight") && item.objectName !== "previewWidget" && item.objectName !== "previewHoverCard")
+                    live++;
+                for (const child of item.children)
+                    walk(child);
+            };
+            walk(gallery);
+            compare(live, 0, "No tile keeps a live widget once its still exists");
+            verify(!find("previewHoverCard"), "The panel form is not built while the desktop form shows");
+        }
     }
 }

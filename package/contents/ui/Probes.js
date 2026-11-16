@@ -11,7 +11,7 @@ var INTERFACES_CMD = "for d in /sys/class/net/*; do n=${d##*/}; [ \"$n\" = lo ] 
     + "if [ -d $d/wireless ]; then k=wifi; elif [ -e $d/device ]; then k=ethernet; fi; [ -d $d/bridge ] && k=bridge; "
     + "case $n in tun*|tap*|wg*|tailscale*|zt*|ppp*|nordlynx*|proton*|pvpn*|mullvad*|CloudflareWARP*|wt[0-9]*|cscotun*|ipsec*|vti*|nebula*) k=vpn;; "
     + "docker*|veth*|virbr*|br-*|vnet*|lxc*|lxd*|podman*|cni*|flannel*|vmnet*|vboxnet*) k=virtual;; esac; "
-    + "s=$(cat $d/operstate 2>/dev/null); a=$(cat $d/address 2>/dev/null); v=$(cat $d/speed 2>/dev/null); "
+    + "s=; a=; v=; { read s < $d/operstate; read a < $d/address; read v < $d/speed; } 2>/dev/null; "
     + "echo \"if $n ${s:-unknown} $k ${a:--} ${v:--}\"; done; "
     + "ip -o -4 addr show scope global 2>/dev/null | awk '{print \"ip\", $2, $4}'; "
     + "awk 'NR>1 && $2==\"00000000\" {print \"route\", $1, $7}' /proc/net/route 2>/dev/null";
@@ -462,26 +462,29 @@ var PP_FN = "pp() { gdbus call --system --timeout 2 --dest org.freedesktop.UPowe
 
 function powerCmd(opts) {
     opts = opts || {};
-    return "for p in /sys/class/power_supply/*; do t=$(cat $p/type 2>/dev/null); "
-        + "if [ \"$t\" = Mains ]; then echo ac=$(cat $p/online 2>/dev/null); continue; fi; "
-        + "[ \"$t\" = Battery ] || continue; [ \"$(cat $p/scope 2>/dev/null)\" = Device ] && continue; [ -f $p/capacity ] || continue; "
-        + "echo bat=$(cat $p/capacity 2>/dev/null); echo status=$(cat $p/status 2>/dev/null); "
-        + "[ -f $p/cycle_count ] && echo cycles=$(cat $p/cycle_count 2>/dev/null); "
-        + "[ -f $p/temp ] && echo temp=$(cat $p/temp 2>/dev/null); "
-        + "en=$(cat $p/energy_now 2>/dev/null); ef=$(cat $p/energy_full 2>/dev/null); ed=$(cat $p/energy_full_design 2>/dev/null); "
-        + "if [ -n \"$en\" ]; then echo useEnergy=1; else en=$(cat $p/charge_now 2>/dev/null); ef=$(cat $p/charge_full 2>/dev/null); ed=$(cat $p/charge_full_design 2>/dev/null); echo useEnergy=0; fi; "
+    // `rd FILE` reads a sysfs value into $v with the shell's own `read`: this runs every
+    // couple of seconds, and a `$(cat ...)` per value was forty forks a run.
+    return "rd() { v=; { IFS= read -r v < \"$1\"; } 2>/dev/null; }; "
+        + "for p in /sys/class/power_supply/*; do rd $p/type; t=$v; "
+        + "if [ \"$t\" = Mains ]; then rd $p/online; echo ac=$v; continue; fi; "
+        + "[ \"$t\" = Battery ] || continue; rd $p/scope; [ \"$v\" = Device ] && continue; [ -f $p/capacity ] || continue; "
+        + "rd $p/capacity; echo bat=$v; rd $p/status; echo status=$v; "
+        + "[ -f $p/cycle_count ] && { rd $p/cycle_count; echo cycles=$v; }; "
+        + "[ -f $p/temp ] && { rd $p/temp; echo temp=$v; }; "
+        + "rd $p/energy_now; en=$v; rd $p/energy_full; ef=$v; rd $p/energy_full_design; ed=$v; "
+        + "if [ -n \"$en\" ]; then echo useEnergy=1; else rd $p/charge_now; en=$v; rd $p/charge_full; ef=$v; rd $p/charge_full_design; ed=$v; echo useEnergy=0; fi; "
         + "echo enow=${en:-0}; echo efull=${ef:-0}; echo edesign=${ed:-0}; "
-        + "pw=$(cat $p/power_now 2>/dev/null); "
-        + "if [ -z \"$pw\" ]; then v=$(cat $p/voltage_now 2>/dev/null); c=$(cat $p/current_now 2>/dev/null); "
-        + "[ -n \"$v\" ] && [ -n \"$c\" ] && pw=$(awk -v v=\"$v\" -v c=\"$c\" 'BEGIN{printf \"%d\", v*c/1000000}'); fi; "
-        + "echo power=${pw:-0}; echo model=$(cat $p/model_name 2>/dev/null); break; done; "
+        + "rd $p/power_now; pw=$v; "
+        + "if [ -z \"$pw\" ]; then rd $p/voltage_now; vo=$v; rd $p/current_now; c=$v; "
+        + "[ -n \"$vo\" ] && [ -n \"$c\" ] && pw=$(awk -v v=\"$vo\" -v c=\"$c\" 'BEGIN{printf \"%d\", v*c/1000000}'); fi; "
+        + "echo power=${pw:-0}; rd $p/model_name; echo model=$v; break; done; "
         + "for r in /sys/class/powercap/*rapl:[0-9]*; do case ${r##*/} in *:*:*) continue;; esac; [ -r $r/energy_uj ] || continue; "
-        + "echo \"rapl ${r##*/} $(cat $r/energy_uj 2>/dev/null) $(cat $r/max_energy_range_uj 2>/dev/null) $(cat $r/name 2>/dev/null)\"; done; "
-        + "for h in /sys/class/hwmon/hwmon*; do n=$(cat $h/name 2>/dev/null); case $n in BAT*|ADP*|AC*|ucsi*|macsmc*) continue;; esac; "
-        + "d=$(readlink -f $h); d=${d%/hwmon/hwmon*}; for f in $h/power1_average $h/power1_input; do [ -r $f ] && { echo \"hwmon $n:$d $(cat $f 2>/dev/null) $n\"; break; }; done; done; "
+        + "rd $r/energy_uj; e=$v; rd $r/max_energy_range_uj; m=$v; rd $r/name; echo \"rapl ${r##*/} $e $m $v\"; done; "
+        + "for h in /sys/class/hwmon/hwmon*; do rd $h/name; n=$v; case $n in BAT*|ADP*|AC*|ucsi*|macsmc*) continue;; esac; "
+        + "for f in $h/power1_average $h/power1_input; do [ -r $f ] && { rd $f; pv=$v; d=$(readlink -f $h); d=${d%/hwmon/hwmon*}; echo \"hwmon $n:$d $pv $n\"; break; }; done; done; "
         + (opts.nvidia ? "timeout -k 2s 5s nvidia-smi --query-gpu=index,power.draw --format=csv,noheader,nounits 2>/dev/null | sed 's/^/nvidia /'; " : "")
-        + "[ -f /proc/pressure/cpu ] && sed 's/^/cpu /' /proc/pressure/cpu 2>/dev/null | head -1; "
-        + "[ -f /proc/pressure/memory ] && sed 's/^/mem /' /proc/pressure/memory 2>/dev/null | head -1; "
+        + "[ -f /proc/pressure/cpu ] && { rd /proc/pressure/cpu; echo \"cpu $v\"; }; "
+        + "[ -f /proc/pressure/memory ] && { rd /proc/pressure/memory; echo \"mem $v\"; }; "
         + "if command -v gdbus >/dev/null 2>&1; then " + PP_FN + "echo \"profile $(pp Get ActiveProfile)\"; "
         + (opts.profiles ? "echo \"profiles $(pp Get Profiles)\"; " : "") + "fi";
 }
