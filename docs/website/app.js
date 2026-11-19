@@ -319,10 +319,20 @@ function barList(cfg, id) {
 function sensorReadings(cfg, section) {
     const shown = Sensors.rows(m.sensorCatalog, cfg, section);
     const tint = s => Sensors.tint(s, cfg) || INK;
-    if (section === 'cpu' || section === 'gpu')
-        return shown.length ? `<div class="gw-cores">${shown.map(s => `<span><i style="background:${tint(s)}"></i>${esc(s.label)}<b style="color:${num(tint(s))}">${esc(Sensors.reading(s))}</b></span>`).join('')}</div>` : '';
+    // CPU and GPU always use the grid; Sensors only when asked (hwSensorsDisplay).
+    const mode = section === 'sensors' ? Sensors.display(cfg) : 'bars', bars = mode === 'bars';
+    const ringMaxWatts = Math.max(1, ...shown.filter(s => s.type === 'power').map(s => s.value || 0));
+    const mark = s => { const r = Sensors.ratio(s, cfg, ringMaxWatts); return mode === 'rings' && r >= 0 ? `<i class="gw-ring" style="--r:${r * 100}%;--c:${tint(s)}"></i>` : `<i style="background:${tint(s)}"></i>`; };
+    if (section === 'cpu' || section === 'gpu' || (section === 'sensors' && (mode === 'grid' || mode === 'rings')))
+        return shown.length ? `<div class="gw-cores">${shown.map(s => `<span>${mark(s)}${esc(s.label)}<b style="color:${num(tint(s))}">${esc(Sensors.reading(s))}</b></span>`).join('')}</div>` : '';
+    const history = mode === 'lines' ? DemoData.sensorHistory(m.sensorCatalog, 40) : {};
     const maxWatts = Math.max(1, ...shown.filter(s => s.type === 'power').map(s => s.value || 0));
     const middle = s => {
+        if (mode === 'lines') {
+            const pts = Sensors.sparkPoints(history[s.id], Sensors.sparkSpan(s)).map(p => `${(p.x * 100).toFixed(1)},${((1 - p.y) * 12 + 1).toFixed(1)}`).join(' ');
+            return `<svg class="gw-spark" viewBox="0 0 100 14" preserveAspectRatio="none"><polyline points="${pts}" fill="none" stroke="${tint(s)}" stroke-width="1.5" vector-effect="non-scaling-stroke"/></svg>`;
+        }
+        if (!bars) return '<span style="flex:1"></span>';
         if (s.type === 'cores') return `<span class="gw-corebars">${s.values.map(v => { const t = { type: 'temp', value: v, crit: s.crit }; return `<i style="height:${Sensors.ratio(t, cfg) * 100}%;background:${Sensors.tint(t, cfg)}"></i>`; }).join('')}</span>`;
         if (s.type === 'fan') return `<span class="gw-mtrack"><i style="width:100%;background:${tint(s)}55"></i></span>`;
         const r = Sensors.ratio(s, cfg, maxWatts);

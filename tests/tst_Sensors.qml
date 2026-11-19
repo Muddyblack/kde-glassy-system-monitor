@@ -178,5 +178,49 @@ Item {
                 }
             });
         }
+
+        function readingsOf(item) {
+            if (item.hasOwnProperty("showBars") && item.hasOwnProperty("targetSection"))
+                return item;
+            for (const child of item.children) {
+                const hit = readingsOf(child);
+                if (hit)
+                    return hit;
+            }
+            return null;
+        }
+        function test_sensorsDisplayChoice() {
+            compare(Sensors.display({}), "bars", "the default is the bars");
+            compare(Sensors.display({
+                hwSensorsDisplay: "nonsense"
+            }), "bars", "an unknown value falls back");
+            compare(Sensors.display({
+                hwSensorsDisplay: "grid"
+            }), "grid");
+            const section = Qt.createComponent("../package/contents/ui/HwSensorsSection.qml");
+            const expect = {
+                bars: ["grouped", true],
+                values: ["grouped", false],
+                grid: ["grid", false],
+                lines: ["grouped", false],
+                rings: ["grid", false]
+            };
+            for (const mode in expect) {
+                const item = section.createObject(this, {
+                    monitor: core,
+                    cfg: {
+                        sections: "sensors",
+                        hwSensorsDisplay: mode
+                    }
+                });
+                verify(item, "HwSensorsSection: " + section.errorString());
+                const readings = readingsOf(item);
+                verify(readings);
+                compare(readings.layout, expect[mode][0], mode + " layout");
+                compare(readings.showBars, expect[mode][1], mode + " bars");
+                compare(readings.drawing, mode);
+                item.destroy();
+            }
+        }
     }
 }

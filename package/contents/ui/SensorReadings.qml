@@ -12,6 +12,11 @@ ColumnLayout {
     required property var cfg
     required property string targetSection
     property string layout: "grid"
+    // "bars" draws a bar under each reading, "values" the number alone.
+    property bool showBars: true
+    // How each reading is drawn: "bars", "lines" (recent history) or, in the
+    // grid, "rings".
+    property string drawing: "bars"
 
     readonly property var shown: Sensors.rows(monitor.sensorCatalog, cfg, targetSection)
     readonly property var rows: layout === "grouped" ? Sensors.grouped(shown) : shown
@@ -53,10 +58,22 @@ ColumnLayout {
                 implicitHeight: Math.round(20 * readings.monitor.textScale)
                 spacing: 5
                 Rectangle {
+                    visible: readings.drawing !== "rings" || Sensors.ratio(cell.sensor, readings.cfg, readings.maxWatts) < 0
                     implicitWidth: 8
                     implicitHeight: 8
                     radius: 2
                     color: cell.tint
+                }
+                Loader {
+                    active: readings.drawing === "rings" && Sensors.ratio(cell.sensor, readings.cfg, readings.maxWatts) >= 0
+                    visible: active
+                    sourceComponent: SensorRing {
+                        implicitWidth: Math.round(14 * readings.monitor.textScale)
+                        implicitHeight: implicitWidth
+                        ratio: Sensors.ratio(cell.sensor, readings.cfg, readings.maxWatts)
+                        color: cell.tint
+                        track: readings.ink(0.14)
+                    }
                 }
                 Text {
                     Layout.fillWidth: true
@@ -148,7 +165,7 @@ ColumnLayout {
                     anchors.rightMargin: 6
                     height: parent.height
                     Rectangle {
-                        visible: row.fill >= 0 && row.sensor.type !== "cores"
+                        visible: readings.showBars && row.fill >= 0 && row.sensor.type !== "cores"
                         anchors.left: parent.left
                         anchors.right: parent.right
                         anchors.verticalCenter: parent.verticalCenter
@@ -169,8 +186,18 @@ ColumnLayout {
                             }
                         }
                     }
+                    Loader {
+                        active: readings.drawing === "lines" && !row.sensor.header
+                        visible: active
+                        anchors.fill: parent
+                        sourceComponent: SensorSpark {
+                            values: readings.monitor.sensorHistory[row.sensor.id] || []
+                            least: Sensors.sparkSpan(row.sensor)
+                            color: row.tint
+                        }
+                    }
                     Row {
-                        visible: row.sensor.type === "cores"
+                        visible: readings.showBars && row.sensor.type === "cores"
                         anchors.left: parent.left
                         anchors.right: parent.right
                         anchors.verticalCenter: parent.verticalCenter
@@ -213,7 +240,7 @@ ColumnLayout {
                         }
                     }
                     Rectangle {
-                        visible: row.sensor.type === "fan"
+                        visible: readings.showBars && row.sensor.type === "fan"
                         anchors.left: parent.left
                         anchors.right: parent.right
                         anchors.verticalCenter: parent.verticalCenter

@@ -7,6 +7,7 @@ import "../package/contents/ui/studio/Looks.js" as Looks
 import "../hyprland/Configuration.js" as HyprConfig
 import "../package/contents/ui/studio/Schema.js" as Schema
 import "../package/contents/ui/Probes.js" as Probes
+import "../package/contents/ui/SensorConfig.js" as Sensors
 import "../package/contents/ui/Format.js" as Format
 import "../package/contents/ui/OsFetch.js" as OsFetch
 import "../package/contents/ui/DemoData.js" as DemoData
@@ -1792,5 +1793,46 @@ TestCase {
             profiles: true
         }).indexOf("$(cat"), -1, "power");
         verify(Probes.INTERFACES_CMD.indexOf("if $n ${s:-unknown} $k ${a:--} ${v:--}") !== -1, "the interface line format is unchanged");
+    }
+
+    // The Display choice reaches the settings and the website from one list.
+    function test_sensorsDisplayIsOfferedInTheStudio() {
+        const row = Schema.SECTIONS.filter(t => t.tab === "sensors")[0].rows.find(r => r.k === "hwSensorsDisplay");
+        verify(row, "the Hardware sensors tab has a Display row");
+        compare(row.opts.map(o => o[0]), ["bars", "values", "grid", "lines", "rings"]);
+    }
+
+    function test_sensorHistoryStaysBoundedAndDropsGoneReadings() {
+        let history = {};
+        for (let i = 0; i < 100; i++)
+            history = Sensors.pushHistory(history, [
+                {
+                    id: "a",
+                    value: i
+                },
+                {
+                    id: "b",
+                    value: null
+                }
+            ]);
+        compare(history.a.length, Sensors.HISTORY, "capped");
+        compare(history.a[history.a.length - 1], 99, "newest last");
+        verify(history.b === undefined, "a reading without a value gets none");
+        history = Sensors.pushHistory(history, [
+            {
+                id: "c",
+                value: 1
+            }
+        ]);
+        verify(history.a === undefined, "a reading that is gone is dropped");
+    }
+
+    function test_sparklineDoesNotMagnifyNoise() {
+        // One degree of wobble stays within a sixth of the height for a 6° span.
+        const pts = Sensors.sparkPoints([50, 51, 50, 51], 6);
+        verify(Math.max.apply(null, pts.map(p => p.y)) - Math.min.apply(null, pts.map(p => p.y)) < 0.2);
+        compare(Sensors.sparkPoints([5], 6).length, 0, "one sample draws nothing");
+        compare(pts[0].x, 0);
+        compare(pts[pts.length - 1].x, 1);
     }
 }

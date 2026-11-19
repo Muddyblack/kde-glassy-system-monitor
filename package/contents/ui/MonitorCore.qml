@@ -1688,6 +1688,16 @@ Item {
     // ── Hardware Sensors state ────────────────────────────────────────────────
     property var hardwareSensors: []
     readonly property var sensorCatalog: Sensors.catalog(hardwareSensors, powerSources)
+    // Recent values per reading id, kept only while the Sensors section draws
+    // them (Mini charts); empty otherwise, so nothing accumulates unseen.
+    property var sensorHistory: ({})
+    readonly property bool keepSensorHistory: live && showHwSensors && Sensors.display(cfg) === "lines"
+    onSensorCatalogChanged: {
+        if (keepSensorHistory)
+            sensorHistory = Sensors.pushHistory(sensorHistory, sensorCatalog);
+    }
+    onKeepSensorHistoryChanged: if (!keepSensorHistory)
+        sensorHistory = ({})
     property bool isReadingHwSensors: false
     property real hwMaxTemp: 0
     property real hwMaxTempCrit: 0

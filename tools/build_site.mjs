@@ -166,7 +166,7 @@ const libraries = [
     ["SectionModels", "SectionModels.js", [["Sections", "Sections"], ["Format", "Format"], ["DiagramData", "Data"]]],
     ["Sensors", "SensorConfig.js", [["SectionModels", "SectionModels"]]],
     ["Looks", "studio/Looks.js", []],
-    ["Schema", "studio/Schema.js", [["Catalog", "Catalog"], ["Sections", "Sections"]]],
+    ["Schema", "studio/Schema.js", [["Catalog", "Catalog"], ["Sections", "Sections"], ["Sensors", "Sensors"]]],
     ["Funding", "studio/ProjectFunding.js", []],
     ["License", "studio/ProjectLicense.js", []],
     ["Version", "studio/ProjectVersion.js", []],

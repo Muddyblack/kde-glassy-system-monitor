@@ -597,6 +597,9 @@
         <entry name="hwSensorsTitle" type="String">
             <default>Hardware Sensors</default>
         </entry>
+        <entry name="hwSensorsDisplay" type="String">
+            <default>bars</default>
+        </entry>
         <entry name="hwTempWarn" type="Int">
             <default>75</default>
         </entry>
